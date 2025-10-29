@@ -1,0 +1,9 @@
+[workspace]
+members = [
+    "imgmesser",
+    "server"
+]
+resolver = "3"
+
+[workspace.package]
+edition = "2024"

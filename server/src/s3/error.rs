@@ -10,10 +10,6 @@ impl S3Error {
     pub fn new(value: impl Into<String>) -> Self {
         Self(value.into())
     }
-
-    pub fn add_message(self, message: impl Into<String>) -> Self {
-        Self(format!("{}: {}", message.into(), self.0))
-    }
 }
 
 impl<T: ProvideErrorMetadata> From<T> for S3Error {
