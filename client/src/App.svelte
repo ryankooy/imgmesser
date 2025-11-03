@@ -2,6 +2,17 @@
   import Header from "./components/Header.svelte";
   import Footer from "./components/Footer.svelte";
   import UploadForm from "./components/UploadForm.svelte";
+  import ImageGallery from "./components/ImageGallery.svelte";
+
+  import { currentView } from "./store.ts";
+  $currentView = "upload";
+
+  export interface ImageData {
+    key: string;
+    size: number;
+    last_modified: string;
+    content_type: string;
+  }
 </script>
 
 <div class="app">
@@ -9,7 +20,11 @@
 
   <main>
     <div class="container">
-      <UploadForm />
+      {#if $currentView === "upload"}
+        <UploadForm />
+      {:else if $currentView === "gallery"}
+        <ImageGallery />
+      {/if}
     </div>
   </main>
 

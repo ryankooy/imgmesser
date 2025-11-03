@@ -1,5 +1,13 @@
 <script lang="ts">
-  // Header component
+  import { currentView } from "../store.ts";
+
+  function showUploadView() {
+    $currentView = "upload";
+  }
+
+  function showGalleryView() {
+    $currentView = "gallery";
+  }
 </script>
 
 <header>
@@ -8,9 +16,8 @@
       <span class="title">ImgMesser</span>
     </div>
     <nav>
-      <!-- TODO: add components for these links -->
-      <a href="#upload">Upload</a>
-      <a href="#gallery">Gallery</a>
+      <button on:click={showUploadView}>Upload</button>
+      <button on:click={showGalleryView}>Gallery</button>
     </nav>
   </div>
 </header>
@@ -45,14 +52,18 @@
     gap: 24px;
   }
 
-  nav a {
+  nav button {
+    padding: 0;
+    border: none;
+    background: none;
     color: white;
     text-decoration: none;
     font-weight: 500;
     transition: opacity 0.2s;
   }
 
-  nav a:hover {
+  nav button:hover {
     opacity: 0.8;
+    cursor: pointer;
   }
 </style>
