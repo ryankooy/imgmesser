@@ -3,12 +3,13 @@
 use anyhow::{anyhow, bail, Context, Result};
 use aws_sdk_s3::Client as S3Client;
 use axum::{
+    body::Body,
     extract::{
         connect_info::ConnectInfo,
-        Multipart, Path, State,
+        Multipart, Path, Query, State,
     },
     http::{header, StatusCode},
-    response::{IntoResponse, Json},
+    response::{IntoResponse, Json, Response},
     routing::{get, post},
     Router,
 };
@@ -64,7 +65,7 @@ async fn main() -> Result<()> {
 
     let app = Router::new()
         .route("/images", get(get_images).post(add_image))
-        .route("/images/{id}", get(get_image))
+        .route("/images/:id", get(get_image))
         .with_state(state)
         .layer(cors)
         .layer(
@@ -88,14 +89,6 @@ async fn main() -> Result<()> {
 trait ResponseBehavior {}
 
 #[derive(Serialize, Deserialize)]
-struct Response {
-    success: bool,
-    message: String,
-}
-
-impl ResponseBehavior for Response {}
-
-#[derive(Serialize, Deserialize)]
 struct UploadResponse {
     success: bool,
     message: String,
@@ -104,12 +97,36 @@ struct UploadResponse {
 
 impl ResponseBehavior for UploadResponse {}
 
-#[derive(Serialize, Deserialize)]
-struct UploadResponse {
-    success: bool,
-    message: String,
-    filename: Option<String>,
+#[derive(Deserialize)]
+struct PaginationParams {
+    #[serde(default = "default_page")]
+    page: u32,
+    #[serde(default = "default_limit")]
+    limit: u32,
 }
+
+fn default_page() -> u32 { 1 }
+fn default_limit() -> u32 { 10 }
+
+#[derive(Serialize)]
+struct ImageItem {
+    key: String,
+    size: i64,
+    last_modified: String,
+    content_type: String,
+}
+
+#[derive(Serialize)]
+struct ImagesResponse {
+    success: bool,
+    images: Vec<ImageItem>,
+    page: u32,
+    limit: u32,
+    total: usize,
+    has_more: bool,
+}
+
+impl ResponseBehavior for ImagesResponse {}
 
 fn success<T: ResponseBehavior>(resp: T) -> (StatusCode, Json<T>) {
     (StatusCode::OK, Json(resp))
@@ -123,32 +140,84 @@ fn failure<T: ResponseBehavior>(code: StatusCode, resp: T) -> (StatusCode, Json<
 async fn get_images(
     State(state): State<AppState>,
     ConnectInfo(addr): ConnectInfo<SocketAddr>,
+    Query(params): Query<PaginationParams>,
 ) -> impl IntoResponse {
     info!("Client {addr} requested images");
 
-    // TODO: do stuff
+    let page = params.page.max(1);
+    let limit = params.limit.max(1).min(100);
+    let client = state.img_store_client;
 
-    success(Response {
-        success: true,
-        message: "GRAVEN IMAGES".to_string(),
-    })
+    match s3::get_objects(&client).await {
+        Ok(output) => {
+            let objects = output.contents().to_vec();
+            let total = objects.len();
+
+            // Calculate pagination
+            let start = ((page - 1) * limit) as usize;
+            let end = (start + limit as usize).min(total);
+            let has_more = end < total;
+
+            // Build image list
+            let images: Vec<ImageItem> = objects[start..end]
+                .iter()
+                .filter_map(|obj| {
+                    obj.key().map(|key| {
+                        let path = PathBuf::from(key);
+                        let extension = path
+                            .extension()
+                            .and_then(|e| e.to_str())
+                            .unwrap_or("jpg");
+
+                        ImageItem {
+                            key: key.to_string(),
+                            size: obj.size().unwrap_or(0),
+                            last_modified: obj.last_modified()
+                                .map(|dt| dt.to_string())
+                                .unwrap_or_else(|| "unknown".to_string()),
+                            content_type: get_content_type(extension).to_string(),
+                        }
+                    })
+                })
+                .collect();
+
+            success(ImagesResponse {
+                success: true,
+                images,
+                page,
+                limit,
+                total,
+                has_more,
+            })
+        }
+        Err(e) => {
+            error!("Error listing S3 objects: {}", e);
+            failure(
+                StatusCode::INTERNAL_SERVER_ERROR,
+                ImagesResponse {
+                    success: false,
+                    images: vec![],
+                    page,
+                    limit,
+                    total: 0,
+                    has_more: false,
+                },
+            )
+        }
+    }
 }
 
 /// Route for retrieving a specific image.
 async fn get_image(
-    Path(image_id): Path<String>,
     State(state): State<AppState>,
+    Path(image_id): Path<String>,
     ConnectInfo(addr): ConnectInfo<SocketAddr>,
-) -> impl IntoResponse {
+) -> Response {
     info!("Client {addr} requested image {image_id}");
-
     let client = state.img_store_client;
-    //let mut version_id = String::new();
 
     match s3::get_object(&client, &image_id).await {
         Ok(output) => {
-            // TODO: return body to user
-
             if let Some(obj_version) = output.version_id() {
                 info!("Object version id: {}", obj_version);
 
@@ -157,32 +226,40 @@ async fn get_image(
                 info!("No object version id");
             }
 
-            return success(Response {
-                success: true,
-                message: "Image retrieved successfully".to_string(),
-            });
+            let content_type = output
+                .content_type()
+                .unwrap_or("image/jpeg")
+                .to_string();
+
+            let body = output.body;
+
+            match body.collect().await {
+                Ok(data) => {
+                    let bytes = data.into_bytes();
+
+                    Response::builder()
+                        .header(header::CONTENT_TYPE, content_type)
+                        .header(header::CACHE_CONTROL, "public, max-age=31536000")
+                        .body(Body::from(bytes))
+                        .unwrap()
+                }
+                Err(e) => {
+                    error!("Error reading image data: {}", e);
+                    Response::builder()
+                        .status(StatusCode::INTERNAL_SERVER_ERROR)
+                        .body(Body::from("Failed to read image"))
+                        .unwrap()
+                }
+            }
         }
         Err(e) => {
-            error!("File retrieval error: {}", e);
-
-            // TODO: improve error handling here
-            return failure(
-                StatusCode::INTERNAL_SERVER_ERROR,
-                Response {
-                    success: false,
-                    message: format!("File retrieval error: {}", e),
-                },
-            );
+            error!("Error fetching image from S3: {}", e);
+            Response::builder()
+                .status(StatusCode::NOT_FOUND)
+                .body(Body::from("Image not found"))
+                .unwrap()
         }
     }
-
-    failure(
-        StatusCode::NOT_FOUND,
-        Response {
-            success: false,
-            message: "Image not found".to_string(),
-        },
-    )
 }
 
 /// Route for uploading an image.
@@ -261,4 +338,14 @@ async fn add_image(
             filename: None,
         },
     )
+}
+
+fn get_content_type(extension: &str) -> &str {
+    match extension.to_lowercase().as_str() {
+        "jpg" | "jpeg" => "image/jpeg",
+        "png" => "image/png",
+        "gif" => "image/gif",
+        "webp" => "image/webp",
+        _ => "application/octet-stream",
+    }
 }
