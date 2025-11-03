@@ -1,4 +1,7 @@
 <script lang="ts">
+  import Header from "./components/Header.svelte";
+  import Footer from "./components/Footer.svelte";
+
   let selectedFile: File | null = null;
   let previewUrl: string | null = null;
   let uploading = false;
@@ -85,42 +88,48 @@
   }
 </script>
 
-<main>
-  <div class="container">
-    <h1>ImgMesser</h1>
-    <p class="subtitle">Upload an image to mess with (when such functionality is in place)</p>
+<div class="app">
+  <Header />
 
-    <div class="upload-section">
-      <input
-        type="file"
-        accept="image/jpeg,image/png,image/gif,image/webp"
-        on:change={handleFileSelect}
-        disabled={uploading}
-      />
+  <main>
+    <div class="container">
+      <h1>ImgMesser</h1>
+      <p class="subtitle">Upload an image</p>
 
-      {#if previewUrl}
-        <div class="preview">
-          <img src={previewUrl} alt="Preview" />
-          <p class="filename">{selectedFile?.name}</p>
-        </div>
-      {/if}
+      <div class="upload-section">
+        <input
+          type="file"
+          accept="image/jpeg,image/png,image/gif,image/webp"
+          on:change={handleFileSelect}
+          disabled={uploading}
+        />
 
-      <button
-        on:click={uploadImage}
-        disabled={!selectedFile || uploading}
-        class="upload-btn"
-      >
-        {uploading ? "Uploading..." : "Upload Image"}
-      </button>
+        {#if previewUrl}
+          <div class="preview">
+            <img src={previewUrl} alt="Preview" />
+            <p class="filename">{selectedFile?.name}</p>
+          </div>
+        {/if}
 
-      {#if message}
-        <div class="message {messageType}">
-          {message}
-        </div>
-      {/if}
+        <button
+          on:click={uploadImage}
+          disabled={!selectedFile || uploading}
+          class="upload-btn"
+        >
+          {uploading ? "Uploading..." : "Upload Image"}
+        </button>
+
+        {#if message}
+          <div class="message {messageType}">
+            {message}
+          </div>
+        {/if}
+      </div>
     </div>
-  </div>
-</main>
+  </main>
+
+  <Footer />
+</div>
 
 <style>
   :global(body) {
@@ -128,6 +137,12 @@
     padding: 0;
     font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, Oxygen, Ubuntu, Cantarell, sans-serif;
     background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
+    min-height: 100vh;
+  }
+
+  .app {
+    display: flex;
+    flex-direction: column;
     min-height: 100vh;
   }
 
