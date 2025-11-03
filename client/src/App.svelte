@@ -4,6 +4,8 @@
   let uploading = false;
   let message = "";
   let messageType: "success" | "error" | "" = "";
+  let bucketName = "imgmesser-storage";
+  let imageUri: string | null = null;
 
   const API_URL = "http://127.0.0.1:3000";
 
@@ -40,34 +42,21 @@
       formData.append("file_path", selectedFile);
 
       // Send multipart form data request
-      const response = await fetch(`${API_URL}/images`, {
+      let response = await fetch(`${API_URL}/images`, {
         method: "POST",
         body: formData,
         // Don't set Content-Type header - browser will set it with boundary
       });
 
-      const data = await response.json();
+      let data = await response.json();
 
       if (response.ok && data.success) {
-        showMessage(`✅ ${data.message}. Filename: ${data.filename}`, "success");
+        showMessage(`✅ ${data.message}`, "success");
 
         // Reset form after successful upload
         setTimeout(() => {
           resetForm();
         }, 2000);
-
-        try {
-          // Send request for newly uploaded image
-          const response = await fetch(`${API_URL}/images/${data.filename}`, {
-            method: "GET",
-          });
-
-          const data = await response.json();
-          //...
-        } catch (error) {
-          showMessage(`❌ Retrieval failed: ${error}`, "error");
-          console.error("Retrieval error:", error);
-        }
       } else {
         showMessage(`❌ ${data.message}`, "error");
       }
@@ -77,7 +66,6 @@
     } finally {
       uploading = false;
     }
-
   }
 
   function showMessage(msg: string, type: "success" | "error") {

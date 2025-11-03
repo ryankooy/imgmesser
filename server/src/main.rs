@@ -85,10 +85,7 @@ async fn main() -> Result<()> {
     Ok(())
 }
 
-trait ResponseBehavior {
-    fn new(message: String) -> Self;
-    fn set_success_status(&mut self);
-}
+trait ResponseBehavior {}
 
 #[derive(Serialize, Deserialize)]
 struct Response {
@@ -96,18 +93,7 @@ struct Response {
     message: String,
 }
 
-impl ResponseBehavior for Response {
-    fn new(message: String) -> Self {
-        Self {
-            success: false,
-            message,
-        }
-    }
-
-    fn set_success_status(&mut self) {
-        self.success = true;
-    }
-}
+impl ResponseBehavior for Response {}
 
 #[derive(Serialize, Deserialize)]
 struct UploadResponse {
@@ -116,24 +102,13 @@ struct UploadResponse {
     filename: Option<String>,
 }
 
-impl UploadResponse {
-    fn set_filename(&mut self, filename: String) {
-        self.filename = Some(filename);
-    }
-}
+impl ResponseBehavior for UploadResponse {}
 
-impl ResponseBehavior for UploadResponse {
-    fn new(message: String) -> Self {
-        Self {
-            success: false,
-            message,
-            filename: None,
-        }
-    }
-
-    fn set_success_status(&mut self) {
-        self.success = true;
-    }
+#[derive(Serialize, Deserialize)]
+struct UploadResponse {
+    success: bool,
+    message: String,
+    filename: Option<String>,
 }
 
 fn success<T: ResponseBehavior>(resp: T) -> (StatusCode, Json<T>) {
@@ -153,9 +128,10 @@ async fn get_images(
 
     // TODO: do stuff
 
-    let mut resp = Response::new("GRAVEN IMAGES".to_string());
-    resp.set_success_status();
-    success(resp)
+    success(Response {
+        success: true,
+        message: "GRAVEN IMAGES".to_string(),
+    })
 }
 
 /// Route for retrieving a specific image.
@@ -181,11 +157,10 @@ async fn get_image(
                 info!("No object version id");
             }
 
-            let mut resp = Response::new(
-                "Image retrieved successfully".to_string(),
-            );
-            resp.set_success_status();
-            return success(resp);
+            return success(Response {
+                success: true,
+                message: "Image retrieved successfully".to_string(),
+            });
         }
         Err(e) => {
             error!("File retrieval error: {}", e);
@@ -193,15 +168,20 @@ async fn get_image(
             // TODO: improve error handling here
             return failure(
                 StatusCode::INTERNAL_SERVER_ERROR,
-                Response::new(format!("File retrieval error: {}", e)),
+                Response {
+                    success: false,
+                    message: format!("File retrieval error: {}", e),
+                },
             );
         }
     }
 
-
     failure(
         StatusCode::NOT_FOUND,
-        Response::new("Image not found".to_string()),
+        Response {
+            success: false,
+            message: "Image not found".to_string(),
+        },
     )
 }
 
@@ -223,51 +203,50 @@ async fn add_image(
             if !content_type.starts_with("image") {
                 return failure(
                     StatusCode::BAD_REQUEST,
-                    UploadResponse::new(
-                        "Invalid file type; not an image file".to_string(),
-                    ),
+                    UploadResponse {
+                        success: false,
+                        message: "Invalid file type; not an image file".to_string(),
+                        filename: None,
+                    },
                 );
             }
 
             let file_name = field.file_name().unwrap_or("unknown").to_string();
             let data: Bytes = field.bytes().await.unwrap();
 
-            info!(
-                "file_name: {}, content_type: {}, data_len: {} bytes",
-                file_name, content_type, data.len(),
-            );
-
             // TODO: create unique filename and save to db
-            //let ext = PathBuf::from(&file_name)
-            //    .extension()
-            //    .and_then(|e| e.to_str())
-            //    .unwrap_or("jpg");
-            //let uniq_filename = format!("{}.{}", Uuid::new_v7(), ext);
+            let image_id = Uuid::now_v7();
+            let file_path = PathBuf::from(&file_name);
+            let extension = file_path
+                .extension()
+                .and_then(|e| e.to_str())
+                .unwrap_or("jpg");
+            let uniq_filename = format!("{}.{}", image_id, extension);
 
-            match s3::upload_object(&client, data, &file_name).await {
+            match s3::upload_object(&client, data, &uniq_filename).await {
                 Ok(output) => {
                     // TODO: save version id to db
                     if let Some(obj_version) = output.version_id() {
-                        info!("{} version id: {}", file_name, obj_version);
+                        info!("{} version id: {}", &uniq_filename, obj_version);
                     } else {
                         info!("No object version id");
                     }
 
-                    let mut resp = UploadResponse::new(
-                        "Image uploaded successfully".to_string(),
-                    );
-                    resp.set_filename(file_name);
-                    resp.set_success_status();
-
-                    return success(resp);
+                    return success(UploadResponse {
+                        success: true,
+                        message: "Image uploaded successfully".to_string(),
+                        filename: Some(uniq_filename),
+                    });
                 }
                 Err(e) => {
                     error!("File upload error: {}", e);
                     return failure(
                         StatusCode::INTERNAL_SERVER_ERROR,
-                        UploadResponse::new(
-                            format!("Failed to upload image: {}", e),
-                        ),
+                        UploadResponse {
+                            success: false,
+                            message: format!("Failed to upload image: {}", e),
+                            filename: None,
+                        },
                     );
                 }
             }
@@ -276,8 +255,10 @@ async fn add_image(
 
     failure(
         StatusCode::BAD_REQUEST,
-        UploadResponse::new(
-            "No file_path field in request".to_string(),
-        ),
+        UploadResponse {
+            success: false,
+            message: "No file_path field in request".to_string(),
+            filename: None,
+        },
     )
 }
