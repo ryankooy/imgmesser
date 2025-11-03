@@ -65,7 +65,7 @@ async fn main() -> Result<()> {
 
     let app = Router::new()
         .route("/images", get(get_images).post(add_image))
-        .route("/images/:id", get(get_image))
+        .route("/images/{id}", get(get_image))
         .with_state(state)
         .layer(cors)
         .layer(
