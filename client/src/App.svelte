@@ -3,15 +3,33 @@
   import Footer from "./components/Footer.svelte";
   import UploadForm from "./components/UploadForm.svelte";
   import ImageGallery from "./components/ImageGallery.svelte";
+  import ImageViewer from "./components/ImageViewer.svelte";
 
   import { currentView } from "./store.ts";
-  $currentView = "upload";
+  $currentView = "gallery";
 
   export interface ImageData {
     key: string;
     size: number;
     last_modified: string;
     content_type: string;
+  }
+
+  let selectedImage: ImageData | null = null;
+  let refreshTrigger = 0;
+
+  function handleImageSelect(event: CustomEvent<ImageData>) {
+    selectedImage = event.detail;
+  }
+
+  function handleImageClose() {
+    selectedImage = null;
+  }
+
+  function handleUploadSuccess() {
+    // Trigger gallery refresh
+    refreshTrigger++;
+    selectedImage = null;
   }
 </script>
 
@@ -23,7 +41,17 @@
       {#if $currentView === "upload"}
         <UploadForm />
       {:else if $currentView === "gallery"}
-        <ImageGallery />
+        <ImageGallery
+          on:imageSelect={handleImageSelect}
+          refresh={refreshTrigger}
+        />
+
+        {#if selectedImage}
+          <ImageViewer
+            image={selectedImage}
+            on:close={handleImageClose}
+          />
+        {/if}
       {/if}
     </div>
   </main>

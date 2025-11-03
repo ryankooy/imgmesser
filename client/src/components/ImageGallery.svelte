@@ -1,11 +1,10 @@
 <script lang="ts">
   import { createEventDispatcher, onMount } from "svelte";
+  import { API_URL } from "../store.ts";
   import type { ImageData } from "../App.svelte";
 
   export let refresh = 0;
-
   const dispatch = createEventDispatcher();
-  const API_URL = "http://127.0.0.1:3000";
 
   let images: ImageData[] = [];
   let imageDataUrls: Map<string, string> = new Map();
@@ -77,6 +76,10 @@
     await Promise.all(promises);
   }
 
+  function handleImageClick(image: ImageData) {
+    dispatch("imageSelect", image);
+  }
+
   function goToPage(page: number) {
     currentPage = page;
     loadImages();
@@ -132,7 +135,13 @@
     {:else}
       <div class="grid">
         {#each images as image (image.key)}
-          <div class="image-card">
+          <div
+            class="image-card"
+            role="button"
+            tabindex="0"
+            aria-label="Image viewer"
+            on:click={() => handleImageClick(image)}
+            >
             <div class="image-wrapper">
               {#if imageDataUrls.has(image.key)}
                 <img src={imageDataUrls.get(image.key)} alt={image.key} />

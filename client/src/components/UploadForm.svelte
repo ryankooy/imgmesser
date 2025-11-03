@@ -1,8 +1,8 @@
 <script lang="ts">
   import { createEventDispatcher } from "svelte";
+  import { API_URL } from "../store.ts";
 
   const dispatch = createEventDispatcher();
-  const API_URL = "http://127.0.0.1:3000";
 
   let selectedFile: File | null = null;
   let previewUrl: string | null = null;
