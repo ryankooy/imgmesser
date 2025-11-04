@@ -73,6 +73,8 @@ async fn main() -> Result<()> {
     };
 
     let app = Router::new()
+        .route("/register", post(register_user))
+        .route("/login", post(login_user))
         .route("/images", get(get_images).post(add_image))
         .route("/images/{id}", get(get_image))
         .with_state(state)
@@ -143,6 +145,45 @@ fn success<T: ResponseBehavior>(resp: T) -> (StatusCode, Json<T>) {
 
 fn failure<T: ResponseBehavior>(code: StatusCode, resp: T) -> (StatusCode, Json<T>) {
     (code, Json(resp))
+}
+
+// TODO: remove Debug
+#[derive(Debug, Deserialize)]
+struct UserCreds {
+    username: String,
+    password: String,
+}
+
+/// Route for user registration.
+async fn register_user(
+    State(state): State<AppState>,
+    ConnectInfo(addr): ConnectInfo<SocketAddr>,
+    Json(payload): Json<UserCreds>,
+) -> impl IntoResponse {
+    info!("Client {addr} tried to register");
+
+    //TODO: REMOVE
+    info!("{:?}", payload);
+
+    Response::builder()
+        .body(Body::from("registered"))
+        .unwrap()
+}
+
+/// Route for user login.
+async fn login_user(
+    State(state): State<AppState>,
+    ConnectInfo(addr): ConnectInfo<SocketAddr>,
+    Json(payload): Json<UserCreds>,
+) -> impl IntoResponse {
+    info!("Client {addr} tried to log in");
+
+    //TODO: REMOVE
+    info!("{:?}", payload);
+
+    Response::builder()
+        .body(Body::from("logged in"))
+        .unwrap()
 }
 
 /// Route for retrieving images.

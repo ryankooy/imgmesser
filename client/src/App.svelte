@@ -4,9 +4,10 @@
   import UploadForm from "./components/UploadForm.svelte";
   import ImageGallery from "./components/ImageGallery.svelte";
   import ImageViewer from "./components/ImageViewer.svelte";
+  import UserRegister from "./components/UserRegister.svelte";
 
   import { currentView } from "./store.ts";
-  $currentView = "gallery";
+  $currentView = "login";
 
   export interface ImageData {
     key: string;
@@ -31,6 +32,10 @@
     refreshTrigger++;
     selectedImage = null;
   }
+
+  function handleRegistrationSuccess() {
+    $currentView = "login";
+  }
 </script>
 
 <div class="app">
@@ -39,7 +44,7 @@
   <main>
     <div class="container">
       {#if $currentView === "upload"}
-        <UploadForm />
+        <UploadForm on:uploadSuccess={handleUploadSuccess} />
       {:else if $currentView === "gallery"}
         <ImageGallery
           on:imageSelect={handleImageSelect}
@@ -52,6 +57,12 @@
             on:close={handleImageClose}
           />
         {/if}
+      {:else if $currentView === "register"}
+        <UserRegister
+          on:registrationSuccess={handleRegistrationSuccess}
+        />
+      {:else if $currentView === "login"}
+        <h1>YOU'D LOG IN HERE</h1>
       {/if}
     </div>
   </main>
