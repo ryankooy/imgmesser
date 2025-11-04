@@ -33,6 +33,7 @@ use tracing_subscriber::{
 };
 use uuid::Uuid;
 
+mod db;
 mod s3;
 
 //use imgmesser_core::process_image;
@@ -41,6 +42,9 @@ mod s3;
 struct AppState {
     /// AWS S3 client
     img_store_client: S3Client,
+
+    /// PostgreSQL connection pool
+    db_pool: sqlx::PgPool,
 }
 
 #[tokio::main]
@@ -61,7 +65,12 @@ async fn main() -> Result<()> {
         .allow_headers(Any);
 
     let img_store_client = s3::get_client().await?;
-    let state = AppState { img_store_client };
+    let db_pool = db::create_conn_pool().await?;
+
+    let state = AppState {
+        img_store_client,
+        db_pool,
+    };
 
     let app = Router::new()
         .route("/images", get(get_images).post(add_image))
