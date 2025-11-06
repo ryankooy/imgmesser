@@ -5,6 +5,7 @@
   import ImageGallery from "./components/ImageGallery.svelte";
   import ImageViewer from "./components/ImageViewer.svelte";
   import UserRegister from "./components/UserRegister.svelte";
+  import UserLogin from "./components/UserLogin.svelte";
 
   import { currentView } from "./store.ts";
   $currentView = "login";
@@ -31,6 +32,14 @@
     // Trigger gallery refresh
     refreshTrigger++;
     selectedImage = null;
+  }
+
+  function handleLoginSuccess() {
+    $currentView = "upload";
+  }
+
+  function handleShowRegisterView() {
+    $currentView = "register";
   }
 
   function handleRegistrationSuccess() {
@@ -62,7 +71,10 @@
           on:registrationSuccess={handleRegistrationSuccess}
         />
       {:else if $currentView === "login"}
-        <h1>YOU'D LOG IN HERE</h1>
+        <UserLogin
+          on:loginSuccess={handleLoginSuccess}
+          on:showRegisterView={handleShowRegisterView}
+        />
       {/if}
     </div>
   </main>

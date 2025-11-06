@@ -9,8 +9,8 @@
     $currentView = "gallery";
   }
 
-  function showRegisterView() {
-    $currentView = "register";
+  function showLoginView() {
+    $currentView = "login"
   }
 </script>
 
@@ -22,8 +22,7 @@
     <nav>
       <button on:click={showUploadView}>Upload</button>
       <button on:click={showGalleryView}>Gallery</button>
-      <button on:click={showRegisterView}>Register</button>
-      <button>Login</button>
+      <button on:click={showLoginView}>Login</button>
     </nav>
   </div>
 </header>

@@ -6,44 +6,39 @@
 
   let username: string | null = null;
   let password: string | null = null;
-  let confirmPassword: string | null = null;
-  let registering = false;
+  let loggingIn = false;
   let message = "";
   let messageType: "success" | "error" | "" = "";
 
-  async function handleSubmit() {
+  async function handleLogin() {
     // Clear previous messages
     message = "";
     messageType = "";
-    registering = true;
-
-    if (password !== confirmPassword) {
-      showMessage("Passwords do not match", "error");
-    }
+    loggingIn = true;
 
     try {
-      // Send user registration request
-      const response = await fetch(`${API_URL}/register`, {
+      // Send user login request
+      const response = await fetch(`${API_URL}/login`, {
         method: "POST",
         body: JSON.stringify({ username, password }),
         headers: { "Content-Type": "application/json" }
       });
 
       if (response.ok) {
-        showMessage("Registration successful", "success");
+        showMessage("Login successful", "success");
 
-        // Reset form after successful registration
+        // Reset form after successful login
         setTimeout(() => {
           resetForm();
         }, 2000);
       } else {
-        showMessage(`❌ Registration failed`, "error");
+        showMessage(`❌ Login failed`, "error");
       }
     } catch (error) {
-      showMessage(`❌ Registration failed: ${error}`, "error");
-      console.error("Registration error:", error);
+      showMessage(`❌ Login failed: ${error}`, "error");
+      console.error("Login error:", error);
     } finally {
-      registering = false;
+      loggingIn = false;
     }
   }
 
@@ -55,7 +50,6 @@
   function resetForm() {
     username = null;
     password = null;
-    confirmPassword = null;
     message = "";
     messageType = "";
 
@@ -64,19 +58,19 @@
     if (usernameInput) usernameInput.value = "";
     const passwordInput = document.getElementById("password") as HTMLInputElement;
     if (passwordInput) passwordInput.value = "";
-    const confirmPasswordInput = document.getElementById("confirmPassword") as HTMLInputElement;
-    if (confirmPasswordInput) confirmPasswordInput.value = "";
 
-    dispatch("registrationSuccess");
+    dispatch("loginSuccess");
+  }
+
+  function showRegisterView() {
+    dispatch("showRegisterView");
   }
 </script>
 
-<div class="register-card" id="register">
-  <h2>Registration</h2>
-  <small>Create an account.</small>
-  <p />
+<div class="login-card" id="login">
+  <h2>Login</h2>
 
-  <form on:submit|preventDefault={handleSubmit}>
+  <form on:submit|preventDefault={handleLogin}>
     <div class="field">
       <label for="username">Username</label>
       <input type="text" id="username" bind:value={username} required />
@@ -88,17 +82,26 @@
     </div>
 
     <div class="field">
-      <label for="confirmPassword">Confirm Password</label>
-      <input type="password" id="confirmPassword" bind:value={confirmPassword} required />
+      <p>
+        Need to
+        <span class="clickable"
+          on:click={showRegisterView}
+          role="button"
+          tabindex="0"
+        >
+          register
+        </span>
+        ?
+      </p>
     </div>
 
     <div class="field">
       <button
         type="submit"
-        disabled={registering}
+        disabled={loggingIn}
         class="submit-btn"
       >
-        Register
+        Log In
       </button>
     </div>
 
@@ -111,7 +114,7 @@
 </div>
 
 <style>
-  .register-card {
+  .login-card {
     background: white;
     border-radius: 16px;
     padding: 32px;
@@ -119,7 +122,7 @@
   }
 
   h2 {
-    margin: 0;
+    margin: 0 0 24px 0;
     color: #333;
     font-size: 24px;
   }
@@ -176,6 +179,12 @@
     opacity: 0.5;
     cursor: not-allowed;
     transform: none;
+  }
+
+  .clickable {
+    color: blue;
+    text-decoration: underline;
+    cursor: pointer;
   }
 
   .message {
