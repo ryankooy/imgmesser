@@ -20,7 +20,10 @@
       // Send user login request
       const response = await fetch(`${API_URL}/login`, {
         method: "POST",
-        body: JSON.stringify({ username, password }),
+        body: JSON.stringify({
+          client_id: username,
+          client_secret: password
+        }),
         headers: { "Content-Type": "application/json" }
       });
 

@@ -9,11 +9,14 @@ use axum::{
         Multipart, Path, Query, State,
     },
     http::{header, StatusCode},
-    response::{IntoResponse, Json, Response},
+    response::{
+        AppendHeaders, IntoResponse, Json, Response,
+    },
     routing::{get, post},
     Router,
 };
 use bytes::Bytes;
+use cookie::{Cookie, SameSite};
 use serde::{Deserialize, Serialize};
 use serde_json::json;
 use std::net::SocketAddr;
@@ -33,8 +36,11 @@ use tracing_subscriber::{
 };
 use uuid::Uuid;
 
+mod auth;
 mod db;
 mod s3;
+
+use auth::{AuthPayload, Claims};
 
 //use imgmesser_core::process_image;
 
@@ -174,16 +180,23 @@ async fn register_user(
 async fn login_user(
     State(state): State<AppState>,
     ConnectInfo(addr): ConnectInfo<SocketAddr>,
-    Json(payload): Json<UserCreds>,
+    json_payload: Json<AuthPayload>,
 ) -> impl IntoResponse {
     info!("Client {addr} tried to log in");
 
-    //TODO: REMOVE
-    info!("{:?}", payload);
+    match auth::make_token(json_payload) {
+        Ok(token) => {
+            let cookie = Cookie::build(("jwt_token", &token))
+                .path("/")
+                .same_site(SameSite::Strict)
+                .secure(true)
+                .http_only(true);
 
-    Response::builder()
-        .body(Body::from("logged in"))
-        .unwrap()
+            AppendHeaders([(header::SET_COOKIE, cookie.to_string())])
+                .into_response()
+        }
+        Err(e) => e.into_response(),
+    }
 }
 
 /// Route for retrieving images.
