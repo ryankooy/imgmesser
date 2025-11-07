@@ -32,7 +32,7 @@ pub struct AuthPayload {
 }
 
 //TODO: pass db data to this func
-pub async fn authorize(
+pub fn authorize(
     Json(payload): Json<AuthPayload>,
 ) -> Result<Json<AuthBody>, AuthError> {
     if payload.client_id.is_empty() || payload.client_secret.is_empty() {
@@ -66,39 +66,3 @@ pub async fn authorize(
 
     Ok(Json(AuthBody::new(token)))
 }
-
-pub fn make_token(
-    Json(payload): Json<AuthPayload>,
-) -> Result<String, AuthError> {
-    if payload.client_id.is_empty() || payload.client_secret.is_empty() {
-        return Err(AuthError::MissingCredentials);
-    }
-
-    //TODO: GET VALS FROM DB VIA ARGS
-    if &payload.client_id != "CLIENT_ID" || &payload.client_secret != "CLIENT_SECRET" {
-        return Err(AuthError::WrongCredentials);
-    }
-
-    // Create expiry timestamp
-    let exp = (Utc::now().naive_utc() + Days::new(1))
-        .and_utc()
-        .timestamp() as usize;
-
-    let claims = Claims {
-        username: payload.client_id,
-        exp,
-    };
-
-    let keys = get_keys();
-
-    // Create auth token
-    let token = jsonwebtoken::encode(
-        &Header::default(),
-        &claims,
-        &keys.encoding,
-    )
-    .map_err(|_| AuthError::TokenCreation)?;
-
-    Ok(token)
-}
-

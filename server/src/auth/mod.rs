@@ -4,4 +4,4 @@ pub mod error;
 pub mod routes;
 
 pub use claim::Claims;
-pub use routes::{authorize, make_token, AuthBody, AuthPayload};
+pub use routes::{authorize, AuthBody, AuthPayload};

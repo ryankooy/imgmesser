@@ -1,5 +1,5 @@
 <script lang="ts">
-  import { currentView } from "../store.ts";
+  import { currentView, userLoggedIn } from "../store.ts";
 
   function showUploadView() {
     $currentView = "upload";
@@ -10,7 +10,7 @@
   }
 
   function showLoginView() {
-    $currentView = "login"
+    $currentView = "login";
   }
 </script>
 
@@ -20,9 +20,14 @@
       <span class="title">ImgMesser</span>
     </div>
     <nav>
-      <button on:click={showUploadView}>Upload</button>
-      <button on:click={showGalleryView}>Gallery</button>
-      <button on:click={showLoginView}>Login</button>
+      {#if $userLoggedIn}
+        <button on:click={showUploadView}>Upload</button>
+        <button on:click={showGalleryView}>Gallery</button>
+        <button>Log Out</button>
+      {:else}
+        <!-- TODO: maybe remove login nav button -->
+        <button on:click={showLoginView}>Log In</button>
+      {/if}
     </nav>
   </div>
 </header>

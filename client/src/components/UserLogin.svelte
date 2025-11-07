@@ -31,9 +31,7 @@
         showMessage("Login successful", "success");
 
         // Reset form after successful login
-        setTimeout(() => {
-          resetForm();
-        }, 2000);
+        resetForm();
       } else {
         showMessage(`❌ Login failed`, "error");
       }
@@ -65,13 +63,13 @@
     dispatch("loginSuccess");
   }
 
-  function showRegisterView() {
-    dispatch("showRegisterView");
+  function handleRegisterClicked() {
+    dispatch("registerClicked");
   }
 </script>
 
 <div class="login-card" id="login">
-  <h2>Login</h2>
+  <h2>User Login</h2>
 
   <form on:submit|preventDefault={handleLogin}>
     <div class="field">
@@ -82,20 +80,6 @@
     <div class="field">
       <label for="password">Password</label>
       <input type="password" id="password" bind:value={password} required />
-    </div>
-
-    <div class="field">
-      <p>
-        Need to
-        <span class="clickable"
-          on:click={showRegisterView}
-          role="button"
-          tabindex="0"
-        >
-          register
-        </span>
-        ?
-      </p>
     </div>
 
     <div class="field">
@@ -114,6 +98,18 @@
       </div>
     {/if}
   </form>
+
+  <p>
+    Need to
+    <span class="clickable"
+      on:click={handleRegisterClicked}
+      role="button"
+      tabindex="0"
+    >
+      register
+    </span>
+    ?
+  </p>
 </div>
 
 <style>

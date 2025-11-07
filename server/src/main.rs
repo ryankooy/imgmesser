@@ -8,7 +8,7 @@ use axum::{
         connect_info::ConnectInfo,
         Multipart, Path, Query, State,
     },
-    http::{header, StatusCode},
+    http::{header, HeaderMap, StatusCode},
     response::{
         AppendHeaders, IntoResponse, Json, Response,
     },
@@ -16,7 +16,6 @@ use axum::{
     Router,
 };
 use bytes::Bytes;
-use cookie::{Cookie, SameSite};
 use serde::{Deserialize, Serialize};
 use serde_json::json;
 use std::net::SocketAddr;
@@ -81,6 +80,7 @@ async fn main() -> Result<()> {
     let app = Router::new()
         .route("/register", post(register_user))
         .route("/login", post(login_user))
+        .route("/logout", post(logout_user))
         .route("/images", get(get_images).post(add_image))
         .route("/images/{id}", get(get_image))
         .with_state(state)
@@ -166,7 +166,7 @@ async fn register_user(
     ConnectInfo(addr): ConnectInfo<SocketAddr>,
     Json(payload): Json<UserCreds>,
 ) -> impl IntoResponse {
-    info!("Client {addr} tried to register");
+    info!("Client {addr} is attempting to register");
 
     //TODO: REMOVE
     info!("{:?}", payload);
@@ -182,30 +182,40 @@ async fn login_user(
     ConnectInfo(addr): ConnectInfo<SocketAddr>,
     json_payload: Json<AuthPayload>,
 ) -> impl IntoResponse {
-    info!("Client {addr} tried to log in");
+    info!("Client {addr} is attempting to log in");
 
-    match auth::make_token(json_payload) {
-        Ok(token) => {
-            let cookie = Cookie::build(("jwt_token", &token))
-                .path("/")
-                .same_site(SameSite::Strict)
-                .secure(true)
-                .http_only(true);
-
-            AppendHeaders([(header::SET_COOKIE, cookie.to_string())])
-                .into_response()
-        }
+    match auth::authorize(json_payload) {
+        Ok(auth_body) => auth_body.into_response(),
         Err(e) => e.into_response(),
     }
 }
 
+/// Route for user logout.
+async fn logout_user(
+    State(state): State<AppState>,
+    ConnectInfo(addr): ConnectInfo<SocketAddr>,
+    json_payload: Json<AuthPayload>,
+) -> impl IntoResponse {
+    info!("Client {addr} is attempting to log out");
+
+    Response::builder()
+        .body(Body::from("logged out"))
+        .unwrap()
+}
+
 /// Route for retrieving images.
 async fn get_images(
+    headers: HeaderMap,
     State(state): State<AppState>,
     ConnectInfo(addr): ConnectInfo<SocketAddr>,
     Query(params): Query<PaginationParams>,
 ) -> impl IntoResponse {
     info!("Client {addr} requested images");
+
+    // TODO: REMOVE AFTER DEBUGGING
+    //for (name, value) in headers.iter() {
+    //    println!("{}: {}", name, value.to_str().unwrap());
+    //}
 
     let page = params.page.max(1);
     let limit = params.limit.max(1).min(100);

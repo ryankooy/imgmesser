@@ -7,8 +7,10 @@
   import UserRegister from "./components/UserRegister.svelte";
   import UserLogin from "./components/UserLogin.svelte";
 
-  import { currentView } from "./store.ts";
-  $currentView = "login";
+  import { currentView, registerServiceWorker, userLoggedIn } from "./store.ts";
+  $currentView = $userLoggedIn ? "upload" : "login";
+
+  registerServiceWorker();
 
   export interface ImageData {
     key: string;
@@ -35,14 +37,15 @@
   }
 
   function handleLoginSuccess() {
+    $userLoggedIn = true;
     $currentView = "upload";
   }
 
-  function handleShowRegisterView() {
+  function showRegisterView() {
     $currentView = "register";
   }
 
-  function handleRegistrationSuccess() {
+  function showLoginView() {
     $currentView = "login";
   }
 </script>
@@ -68,12 +71,12 @@
         {/if}
       {:else if $currentView === "register"}
         <UserRegister
-          on:registrationSuccess={handleRegistrationSuccess}
+          on:registrationSuccess={showLoginView}
         />
       {:else if $currentView === "login"}
         <UserLogin
           on:loginSuccess={handleLoginSuccess}
-          on:showRegisterView={handleShowRegisterView}
+          on:registerClicked={showRegisterView}
         />
       {/if}
     </div>

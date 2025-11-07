@@ -43,12 +43,12 @@
       formData.append("file_path", selectedFile);
 
       // Send multipart form data request
-      let response = await fetch(`${API_URL}/images`, {
+      const response = await fetch(`${API_URL}/images`, {
         method: "POST",
         body: formData,
       });
 
-      let data = await response.json();
+      const data = await response.json();
 
       if (response.ok && data.success) {
         showMessage(`✅ ${data.message}`, "success");

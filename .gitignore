@@ -1,11 +1,13 @@
 # Rust
 **/target
 **/Cargo.lock
+**/.env
+**/db.toml
 
 # Node.js dependencies
 **/node_modules
 
-# Bild output
+# Build output
 **/dist
 
 # Vite specific
