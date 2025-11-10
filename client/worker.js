@@ -17,14 +17,14 @@ function interceptRequest(request) {
     const isAuthUrl = isApiOrigin && authUrls.includes(url.pathname);
 
     if (authToken && isProtectedUrl) {
-        console.log("authToken && isProtectedUrl");
         const headers = new Headers(Array.from(request.headers.entries()));
 
         // Attach token to header
-        headers.append("Authorization", authToken);
+        headers.append("Authorization", `Bearer ${authToken}`);
 
         // Make a new request
         try {
+            // TODO: this fails for image uploads too: include duplex prop?
             request = new Request(request.url, {
                 method: request.method,
                 headers: headers,
@@ -34,7 +34,6 @@ function interceptRequest(request) {
                 referrer: request.referrer,
                 body: request.body,
                 context: request.context,
-                //duplex: "half",
             });
         } catch (e) {
             console.error(e);
@@ -44,7 +43,6 @@ function interceptRequest(request) {
 
         return fetch(request);
     } else if (isAuthUrl) {
-        console.log("isAuthUrl");
         // Stash the token
         return fetch(request).then((response) =>
             response.json().then((data) => {
@@ -64,7 +62,6 @@ function interceptRequest(request) {
         );
     }
 
-    console.log("default fetch");
     return fetch(request);
 }
 

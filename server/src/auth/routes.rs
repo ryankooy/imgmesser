@@ -3,6 +3,10 @@ use axum::Json;
 use chrono::{naive::Days, Utc};
 use jsonwebtoken::Header;
 use serde::{Deserialize, Serialize};
+use sqlx::PgPool;
+use tracing::error;
+
+use crate::db::user::validate_user;
 
 use super::{
     claim::Claims,
@@ -31,17 +35,22 @@ pub struct AuthPayload {
     client_secret: String,
 }
 
-//TODO: pass db data to this func
-pub fn authorize(
+pub async fn authorize(
+    pool: &PgPool,
     Json(payload): Json<AuthPayload>,
 ) -> Result<Json<AuthBody>, AuthError> {
     if payload.client_id.is_empty() || payload.client_secret.is_empty() {
         return Err(AuthError::MissingCredentials);
     }
 
-    //TODO: GET VALS FROM DB VIA ARGS
-    if &payload.client_id != "CLIENT_ID" || &payload.client_secret != "CLIENT_SECRET" {
-        return Err(AuthError::WrongCredentials);
+    match validate_user(pool, &payload.client_id, &payload.client_secret).await {
+        Ok(is_match) => if !is_match {
+            return Err(AuthError::WrongCredentials);
+        }
+        Err(e) => {
+            error!("Failed to validate user: {}", e);
+            return Err(AuthError::UserValidationFailure);
+        }
     }
 
     // Create expiry timestamp

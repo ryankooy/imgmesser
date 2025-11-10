@@ -37,5 +37,8 @@ pub async fn create_schema(pool: &PgPool) -> Result<()> {
     "#)
     .execute(pool).await?;
 
+    sqlx::query!("CREATE EXTENSION IF NOT EXISTS pgcrypto;")
+        .execute(pool).await?;
+
     Ok(())
 }

@@ -23,7 +23,6 @@ pub struct Claims {
     pub exp: usize,
 }
 
-//#[async_trait]
 impl<S> FromRequestParts<S> for Claims where S: Send + Sync {
     type Rejection = AuthError;
 
@@ -37,7 +36,7 @@ impl<S> FromRequestParts<S> for Claims where S: Send + Sync {
             .await
             .map_err(|_| AuthError::InvalidToken)?;
 
-        let keys= get_keys();
+        let keys = get_keys();
         let validation = Validation::new(Algorithm::HS256);
 
         // Decode user data

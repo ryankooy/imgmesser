@@ -32,8 +32,10 @@
 
         // Reset form after successful login
         resetForm();
+      } else if (response.status === 401) {
+        showMessage("❌ User not found", "error");
       } else {
-        showMessage(`❌ Login failed`, "error");
+        showMessage("❌ Login failed", "error");
       }
     } catch (error) {
       showMessage(`❌ Login failed: ${error}`, "error");

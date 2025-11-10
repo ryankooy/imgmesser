@@ -10,15 +10,27 @@ pub enum AuthError {
     WrongCredentials,
     TokenCreation,
     MissingCredentials,
+    UserValidationFailure,
 }
 
 impl IntoResponse for AuthError {
     fn into_response(self) -> Response {
         let (status, error_message) = match self {
-            AuthError::WrongCredentials => (StatusCode::UNAUTHORIZED, "Wrong credentials"),
-            AuthError::MissingCredentials => (StatusCode::BAD_REQUEST, "Missing credentials"),
-            AuthError::TokenCreation => (StatusCode::INTERNAL_SERVER_ERROR, "Token creation error"),
-            AuthError::InvalidToken => (StatusCode::BAD_REQUEST, "Invalid token"),
+            AuthError::WrongCredentials => {
+                (StatusCode::UNAUTHORIZED, "Wrong credentials")
+            }
+            AuthError::MissingCredentials => {
+                (StatusCode::BAD_REQUEST, "Missing credentials")
+            }
+            AuthError::TokenCreation => {
+                (StatusCode::INTERNAL_SERVER_ERROR, "Token creation error")
+            }
+            AuthError::InvalidToken => {
+                (StatusCode::BAD_REQUEST, "Invalid token")
+            }
+            AuthError::UserValidationFailure => {
+                (StatusCode::INTERNAL_SERVER_ERROR, "User validation error")
+            }
         };
 
         let body = Json(json!({ "error": error_message }));

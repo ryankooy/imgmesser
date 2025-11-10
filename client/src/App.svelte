@@ -7,7 +7,7 @@
   import UserRegister from "./components/UserRegister.svelte";
   import UserLogin from "./components/UserLogin.svelte";
 
-  import { currentView, registerServiceWorker, userLoggedIn } from "./store.ts";
+  import { API_URL, currentView, registerServiceWorker, userLoggedIn } from "./store.ts";
   $currentView = $userLoggedIn ? "upload" : "login";
 
   registerServiceWorker();
@@ -46,6 +46,7 @@
   }
 
   function showLoginView() {
+    $userLoggedIn = false;
     $currentView = "login";
   }
 </script>
@@ -56,7 +57,9 @@
   <main>
     <div class="container">
       {#if $currentView === "upload"}
-        <UploadForm on:uploadSuccess={handleUploadSuccess} />
+        <UploadForm
+          on:uploadSuccess={handleUploadSuccess}
+        />
       {:else if $currentView === "gallery"}
         <ImageGallery
           on:imageSelect={handleImageSelect}

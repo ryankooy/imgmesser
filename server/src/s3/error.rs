@@ -6,12 +6,6 @@ use std::fmt::{Display, Formatter, Result as FmtResult};
 #[derive(Debug)]
 pub struct S3Error(String);
 
-impl S3Error {
-    pub fn new(value: impl Into<String>) -> Self {
-        Self(value.into())
-    }
-}
-
 impl<T: ProvideErrorMetadata> From<T> for S3Error {
     fn from(value: T) -> Self {
         let err_code = value

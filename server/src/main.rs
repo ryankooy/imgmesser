@@ -8,10 +8,8 @@ use axum::{
         connect_info::ConnectInfo,
         Multipart, Path, Query, State,
     },
-    http::{header, HeaderMap, StatusCode},
-    response::{
-        AppendHeaders, IntoResponse, Json, Response,
-    },
+    http::{header, StatusCode},
+    response::{IntoResponse, Json, Response},
     routing::{get, post},
     Router,
 };
@@ -23,6 +21,7 @@ use std::path::PathBuf;
 use tokio::{
     net::TcpListener,
 };
+use tower::ServiceBuilder;
 use tower_http::{
     cors::{CorsLayer, Any},
     trace::{DefaultMakeSpan, TraceLayer},
@@ -40,6 +39,7 @@ mod db;
 mod s3;
 
 use auth::{AuthPayload, Claims};
+use db::User;
 
 //use imgmesser_core::process_image;
 
@@ -63,12 +63,6 @@ async fn main() -> Result<()> {
         .with(tracing_subscriber::fmt::layer())
         .init();
 
-    // Configure CORS
-    let cors = CorsLayer::new()
-        .allow_origin(Any)
-        .allow_methods(Any)
-        .allow_headers(Any);
-
     let img_store_client = s3::get_client().await?;
     let db_pool = db::create_conn_pool().await?;
 
@@ -77,6 +71,15 @@ async fn main() -> Result<()> {
         db_pool,
     };
 
+    // Configure CORS
+    let cors = CorsLayer::new()
+        .allow_origin(Any)
+        .allow_methods(Any)
+        .allow_headers(Any);
+
+    let trace_layer = TraceLayer::new_for_http()
+        .make_span_with(DefaultMakeSpan::default().include_headers(true));
+
     let app = Router::new()
         .route("/register", post(register_user))
         .route("/login", post(login_user))
@@ -84,7 +87,10 @@ async fn main() -> Result<()> {
         .route("/images", get(get_images).post(add_image))
         .route("/images/{id}", get(get_image))
         .with_state(state)
-        .layer(cors)
+        .layer(
+            ServiceBuilder::new()
+                .layer(cors)
+        )
         .layer(
             TraceLayer::new_for_http()
                 .make_span_with(DefaultMakeSpan::default().include_headers(true)),
@@ -105,7 +111,15 @@ async fn main() -> Result<()> {
 
 trait ResponseBehavior {}
 
-#[derive(Serialize, Deserialize)]
+#[derive(Serialize)]
+struct BasicResponse {
+    success: bool,
+    message: String,
+}
+
+impl ResponseBehavior for BasicResponse {}
+
+#[derive(Serialize)]
 struct UploadResponse {
     success: bool,
     message: String,
@@ -153,27 +167,46 @@ fn failure<T: ResponseBehavior>(code: StatusCode, resp: T) -> (StatusCode, Json<
     (code, Json(resp))
 }
 
-// TODO: remove Debug
-#[derive(Debug, Deserialize)]
-struct UserCreds {
-    username: String,
-    password: String,
-}
-
 /// Route for user registration.
 async fn register_user(
     State(state): State<AppState>,
     ConnectInfo(addr): ConnectInfo<SocketAddr>,
-    Json(payload): Json<UserCreds>,
+    Json(payload): Json<User>,
 ) -> impl IntoResponse {
     info!("Client {addr} is attempting to register");
 
-    //TODO: REMOVE
-    info!("{:?}", payload);
+    let pool = state.db_pool;
+    let object_base_path = Uuid::now_v7().to_string();
 
-    Response::builder()
-        .body(Body::from("registered"))
-        .unwrap()
+    match db::insert_user(&pool, payload, object_base_path).await {
+        Ok(rows_affected) => {
+            if rows_affected == 1u64 {
+                success(BasicResponse {
+                    success: true,
+                    message: "User registered successfully".to_string(),
+                })
+            } else {
+                failure(
+                    StatusCode::BAD_REQUEST,
+                    BasicResponse {
+                        success: false,
+                        message: "User could not be registered".to_string(),
+                    },
+                )
+            }
+        }
+        Err(e) => {
+            error!("Failed to register user: {}", e);
+
+            failure(
+                StatusCode::INTERNAL_SERVER_ERROR,
+                BasicResponse {
+                    success: false,
+                    message: "Failed to register user".to_string(),
+                },
+            )
+        }
+    }
 }
 
 /// Route for user login.
@@ -184,7 +217,9 @@ async fn login_user(
 ) -> impl IntoResponse {
     info!("Client {addr} is attempting to log in");
 
-    match auth::authorize(json_payload) {
+    let pool = state.db_pool;
+
+    match auth::authorize(&pool, json_payload).await {
         Ok(auth_body) => auth_body.into_response(),
         Err(e) => e.into_response(),
     }
@@ -193,6 +228,7 @@ async fn login_user(
 /// Route for user logout.
 async fn logout_user(
     State(state): State<AppState>,
+    _claims: Claims,
     ConnectInfo(addr): ConnectInfo<SocketAddr>,
     json_payload: Json<AuthPayload>,
 ) -> impl IntoResponse {
@@ -205,17 +241,12 @@ async fn logout_user(
 
 /// Route for retrieving images.
 async fn get_images(
-    headers: HeaderMap,
     State(state): State<AppState>,
+    _claims: Claims,
     ConnectInfo(addr): ConnectInfo<SocketAddr>,
     Query(params): Query<PaginationParams>,
 ) -> impl IntoResponse {
     info!("Client {addr} requested images");
-
-    // TODO: REMOVE AFTER DEBUGGING
-    //for (name, value) in headers.iter() {
-    //    println!("{}: {}", name, value.to_str().unwrap());
-    //}
 
     let page = params.page.max(1);
     let limit = params.limit.max(1).min(100);
@@ -284,20 +315,17 @@ async fn get_images(
 async fn get_image(
     State(state): State<AppState>,
     Path(image_id): Path<String>,
-    ConnectInfo(addr): ConnectInfo<SocketAddr>,
 ) -> Response {
-    info!("Client {addr} requested image {image_id}");
     let client = state.img_store_client;
 
     match s3::get_object(&client, &image_id).await {
         Ok(output) => {
-            if let Some(obj_version) = output.version_id() {
-                info!("Object version id: {}", obj_version);
-
-                // TODO: do something with version id
-            } else {
-                info!("No object version id");
-            }
+//TODO: do something with version id
+//            if let Some(obj_version) = output.version_id() {
+//                info!("Object version id: {}", obj_version);
+//            } else {
+//                info!("No object version id");
+//            }
 
             let content_type = output
                 .content_type()
@@ -338,6 +366,7 @@ async fn get_image(
 /// Route for uploading an image.
 async fn add_image(
     State(state): State<AppState>,
+    _claims: Claims,
     ConnectInfo(addr): ConnectInfo<SocketAddr>,
     mut multipart: Multipart,
 ) -> impl IntoResponse {
