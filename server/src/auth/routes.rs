@@ -1,18 +1,12 @@
 use anyhow::Result;
 use axum::Json;
-use chrono::{naive::Days, Utc};
-use jsonwebtoken::Header;
 use serde::{Deserialize, Serialize};
 use sqlx::PgPool;
 use tracing::error;
 
 use crate::db::user::validate_user;
 
-use super::{
-    claim::Claims,
-    error::AuthError,
-    keys::get_keys,
-};
+use super::{claim, error::AuthError};
 
 #[derive(Debug, Serialize)]
 pub struct AuthBody {
@@ -35,6 +29,7 @@ pub struct AuthPayload {
     client_secret: String,
 }
 
+/// Authorize a user.
 pub async fn authorize(
     pool: &PgPool,
     Json(payload): Json<AuthPayload>,
@@ -43,6 +38,8 @@ pub async fn authorize(
         return Err(AuthError::MissingCredentials);
     }
 
+    // Check if given credentials match those of
+    // existing user account
     match validate_user(pool, &payload.client_id, &payload.client_secret).await {
         Ok(is_match) => if !is_match {
             return Err(AuthError::WrongCredentials);
@@ -53,25 +50,9 @@ pub async fn authorize(
         }
     }
 
-    // Create expiry timestamp
-    let exp = (Utc::now().naive_utc() + Days::new(1))
-        .and_utc()
-        .timestamp() as usize;
-
-    let claims = Claims {
-        username: payload.client_id,
-        exp,
-    };
-
-    let keys = get_keys();
-
     // Create auth token
-    let token = jsonwebtoken::encode(
-        &Header::default(),
-        &claims,
-        &keys.encoding,
-    )
-    .map_err(|_| AuthError::TokenCreation)?;
+    let token = claim::create_access_token(&payload.client_id)
+        .map_err(|_| AuthError::TokenCreation)?;
 
     Ok(Json(AuthBody::new(token)))
 }

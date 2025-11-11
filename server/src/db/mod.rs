@@ -1,5 +1,4 @@
 mod config;
-mod schema;
 pub mod conn;
 pub mod user;
 

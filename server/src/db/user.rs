@@ -1,9 +1,6 @@
 use anyhow::Result;
 use serde::Deserialize;
-use sqlx::{
-    postgres::PgQueryResult,
-    PgPool,
-};
+use sqlx::PgPool;
 
 #[derive(Deserialize)]
 pub struct User {
@@ -11,7 +8,7 @@ pub struct User {
     password: String,
 }
 
-/// Insert user into the database and return the
+/// Insert a user into the database and return the
 /// number of rows affected.
 pub async fn insert_user(
     pool: &PgPool,
@@ -20,7 +17,7 @@ pub async fn insert_user(
 ) -> Result<u64, sqlx::Error> {
     let result = sqlx::query!(
         r#"
-        INSERT INTO user_profile (username, password, objectbasepath)
+        INSERT INTO user_profile (username, password, object_base_path)
         VALUES ($1, crypt($2, gen_salt('md5')), $3);
         "#,
         user.username,
@@ -33,7 +30,7 @@ pub async fn insert_user(
     Ok(result.rows_affected())
 }
 
-/// Check given user credentials against the database.
+/// Check a given user's credentials against the database.
 pub async fn validate_user(
     pool: &PgPool,
     username: &str,
@@ -42,8 +39,7 @@ pub async fn validate_user(
     match sqlx::query!(
         r#"
         SELECT (password = crypt($2, password)) AS is_match
-        FROM user_profile
-        WHERE username = $1;
+        FROM user_profile WHERE username = $1;
         "#,
         username,
         password,
@@ -58,4 +54,17 @@ pub async fn validate_user(
     }
 }
 
-//TODO: make get_user_object_path query func
+/// Get the name of a given user's S3 object base path.
+pub async fn get_user_object_path(
+    pool: &PgPool,
+    username: &str,
+) -> Result<String, sqlx::Error> {
+    let result = sqlx::query!(
+        "SELECT object_base_path FROM user_profile WHERE username = $1;",
+        username,
+    )
+    .fetch_one(pool)
+    .await?;
+
+    Ok(result.object_base_path)
+}

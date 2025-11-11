@@ -4,10 +4,7 @@ use sqlx::{
     PgPool,
 };
 
-use super::{
-    config::{get_config, Config},
-    schema::create_schema,
-};
+use super::config::{get_config, Config};
 
 pub async fn create_conn_pool() -> Result<PgPool> {
     let config: Config = get_config()?;
@@ -16,8 +13,6 @@ pub async fn create_conn_pool() -> Result<PgPool> {
         .max_connections(config.maxconns)
         .connect(config.url.as_str())
         .await?;
-
-    create_schema(&pool).await?;
 
     Ok(pool)
 }
