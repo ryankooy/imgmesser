@@ -19,7 +19,7 @@ use tracing_subscriber::{
     EnvFilter,
 };
 
-use imgmesser_server::{
+use imgmesser_api::{
     handlers::{
         add_image, get_image, get_images, login, logout, register,
     },
@@ -52,6 +52,7 @@ async fn main() -> Result<()> {
         .route("/logout", post(logout))
         .route("/images", get(get_images).post(add_image))
         .route("/images/{id}", get(get_image))
+        //.route("/images/{id}/transform", post(process_image))
         .with_state(state)
         .layer(
             ServiceBuilder::new()
@@ -59,7 +60,7 @@ async fn main() -> Result<()> {
         )
         .layer(
             TraceLayer::new_for_http()
-                .make_span_with(DefaultMakeSpan::default().include_headers(true)),
+                .make_span_with(DefaultMakeSpan::default().include_headers(false)),
         );
 
     let listen_address = "127.0.0.1:3000";

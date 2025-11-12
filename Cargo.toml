@@ -1,7 +1,7 @@
 [workspace]
 members = [
     "imgmesser",
-    "server"
+    "api"
 ]
 resolver = "3"
 
