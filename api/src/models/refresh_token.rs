@@ -6,7 +6,7 @@ use uuid::Uuid;
 #[derive(Debug, Clone, Serialize, Deserialize, FromRow)]
 pub struct RefreshToken {
     pub id: Uuid,
-    pub user_id: Uuid,
+    pub username: String,
     pub token: String,
     pub expires_at: DateTime<Utc>,
     pub is_used: bool,

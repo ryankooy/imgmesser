@@ -28,11 +28,11 @@ CREATE TABLE IF NOT EXISTS refresh_tokens (
     username text NOT NULL REFERENCES user_profile(username)
         ON DELETE CASCADE,
     token varchar(255) UNIQUE NOT NULL,
-    created_at timestamptz DEFAULT NOW(),
-    last_used_at timestamptz DEFAULT NOW(),
     expires_at timestamptz NOT NULL DEFAULT (NOW() + INTERVAL '7 days'),
     is_used boolean NOT NULL DEFAULT FALSE,
-    used_at timestamptz
+    used_at timestamptz,
+    created_at timestamptz DEFAULT NOW(),
+    last_used_at timestamptz DEFAULT NOW()
 );
 
 CREATE INDEX IF NOT EXISTS idx_refresh_tokens_token

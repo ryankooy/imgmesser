@@ -12,7 +12,7 @@ use headers::{
 };
 use jsonwebtoken::{
     errors::Error as JwtError,
-    Algorithm, Header, TokenData, Validation,
+    Algorithm, Header, Validation,
 };
 use serde::{Deserialize, Serialize};
 use uuid::Uuid;
@@ -92,5 +92,5 @@ pub(crate) fn validate_token(token: &str) -> Result<Claims, JwtError> {
 
 /// Generate a refresh token.
 pub fn create_refresh_token() -> String {
-    Uuid::now_v7().to_string()
+    Uuid::now_v7().simple().to_string()
 }

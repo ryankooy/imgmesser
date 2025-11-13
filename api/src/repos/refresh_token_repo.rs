@@ -1,7 +1,6 @@
 use async_trait::async_trait;
 use chrono::Utc;
 use sqlx::{Error as SqlxError, PgPool};
-use uuid::Uuid;
 
 use crate::models::RefreshToken;
 
@@ -67,7 +66,7 @@ impl RefreshTokenRepoOps for RefreshTokenRepo {
     ) -> Result<Option<RefreshToken>, SqlxError> {
         let refresh_token = sqlx::query_as::<_, RefreshToken>(
             r#"
-            SELECT id, user_id, token, expires_at, is_used,
+            SELECT id, username, token, expires_at, is_used,
                 used_at, created_at, last_used_at
             FROM refresh_tokens WHERE token = $1
             "#,

@@ -1,7 +1,6 @@
 use anyhow::Result;
 use aws_sdk_s3::Client as S3Client;
-use axum::extract::FromRef;
-use sqlx::{Error as SqlxError, PgPool};
+use sqlx::PgPool;
 use std::sync::Arc;
 
 use crate::{

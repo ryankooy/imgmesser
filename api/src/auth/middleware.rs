@@ -1,26 +1,17 @@
 use anyhow::Result;
 use axum::{
     extract::{FromRef, FromRequestParts},
-    http::{request::Parts, HeaderMap, StatusCode},
+    http::request::Parts,
     RequestPartsExt,
 };
 use axum_extra::TypedHeader;
-use chrono::{Duration, Utc};
 use headers::{
     authorization::Bearer,
     Authorization,
 };
-use jsonwebtoken::{
-    errors::Error as JwtError,
-    Algorithm, Header, TokenData, Validation,
-};
-use serde::{Deserialize, Serialize};
 
 use crate::{models::UserInfo, state::AppState};
-use super::{
-    error::AuthError,
-    jwt::{self, Claims},
-};
+use super::{error::AuthError, jwt};
 
 /// Requires valid JWT for protected routes
 pub struct RequireAuth(pub UserInfo);
