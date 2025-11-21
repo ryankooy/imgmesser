@@ -11,11 +11,6 @@ pub struct RefreshTokenResponse {
     pub refresh_token: String,
 }
 
-#[derive(Debug, Deserialize)]
-pub struct LogoutRequest {
-    pub refresh_token: String,
-}
-
 #[derive(Debug, Serialize)]
 pub struct LogoutResponse {
     pub message: String,

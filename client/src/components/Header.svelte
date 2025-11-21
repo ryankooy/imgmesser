@@ -1,5 +1,8 @@
 <script lang="ts">
-  import { currentView, userLoggedIn } from "../store.ts";
+  import { currentView, currentUser, logOut } from "../store.ts";
+
+  export let user: string | null = null;
+  export let userLoggedIn: boolean = false;
 
   function showUploadView() {
     $currentView = "upload";
@@ -9,8 +12,18 @@
     $currentView = "gallery";
   }
 
-  function showLoginView() {
-    $currentView = "login";
+  async function logOutUser() {
+    const userLoggedOut = await logOut();
+    if (userLoggedOut) {
+      $currentUser = null;
+      $currentView = "login";
+    }
+  }
+
+  $: {
+    user = $currentUser;
+    userLoggedIn = user != null;
+    if (userLoggedIn) showUploadView();
   }
 </script>
 
@@ -19,16 +32,14 @@
     <div class="logo">
       <span class="title">ImgMesser</span>
     </div>
-    <nav>
-      {#if $userLoggedIn}
+    {#if userLoggedIn}
+      <div>Hi, {user}</div>
+      <nav>
         <button on:click={showUploadView}>Upload</button>
         <button on:click={showGalleryView}>Gallery</button>
-        <button>Log Out</button>
-      {:else}
-        <!-- TODO: maybe remove login nav button -->
-        <button on:click={showLoginView}>Log In</button>
-      {/if}
-    </nav>
+        <button on:click={logOutUser}>Log Out</button>
+      </nav>
+    {/if}
   </div>
 </header>
 

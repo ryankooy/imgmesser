@@ -1,6 +1,6 @@
 <script lang="ts">
   import { createEventDispatcher, onMount } from "svelte";
-  import { API_URL } from "../store.ts";
+  import { apiUrl } from "../store.ts";
   import type { ImageData } from "../App.svelte";
 
   export let refresh = 0;
@@ -25,6 +25,7 @@
     currentPage = 1;
     imageDataUrls.clear();
     loadImages();
+    refresh = 0;
   }
 
   async function loadImages() {
@@ -33,7 +34,7 @@
 
     try {
       const response = await fetch(
-        `${API_URL}/images?page=${currentPage}&limit=${limit}`
+        `${apiUrl}/images?page=${currentPage}&limit=${limit}`
       );
       const data = await response.json();
 
@@ -60,7 +61,7 @@
     const promises = images.map(async (image) => {
       if (!imageDataUrls.has(image.key)) {
         try {
-          const response = await fetch(`${API_URL}/images/${encodeURIComponent(image.key)}`);
+          const response = await fetch(`${apiUrl}/images/${encodeURIComponent(image.key)}`);
           if (response.ok) {
             const blob = await response.blob();
             const dataUrl = URL.createObjectURL(blob);

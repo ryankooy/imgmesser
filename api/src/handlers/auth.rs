@@ -18,17 +18,20 @@ use crate::{
     schemas::{
         UserRequest, LoginResponse, UserResponse,
         RefreshTokenRequest, RefreshTokenResponse,
-        LogoutRequest, LogoutResponse,
+        LogoutResponse,
     },
     state::AppState,
 };
+
+/// Result returning AuthError on errors.
+type Result<T> = anyhow::Result<T, AuthError>;
 
 /// Handler for user registration route.
 pub async fn register(
     State(state): State<AppState>,
     ConnectInfo(addr): ConnectInfo<SocketAddr>,
     Json(payload): Json<UserRequest>,
-) -> Result<Json<LoginResponse>, AuthError> {
+) -> Result<Json<UserResponse>> {
     info!("Client {addr} is attempting to register");
 
     // Check if username is already taken
@@ -49,18 +52,7 @@ pub async fn register(
         .await
         .map_err(|_| AuthError::UserCreationFailure)?;
 
-    // Generate access and refresh tokens
-    let (access_token, refresh_token) = create_tokens(
-        &user.username,
-        state,
-    )
-    .await?;
-
-    Ok(Json(LoginResponse {
-        user,
-        access_token,
-        refresh_token,
-    }))
+    Ok(Json(UserResponse { user }))
 }
 
 /// Handler for user login route.
@@ -68,7 +60,7 @@ pub async fn login(
     State(state): State<AppState>,
     ConnectInfo(addr): ConnectInfo<SocketAddr>,
     Json(payload): Json<UserRequest>,
-) -> Result<Json<LoginResponse>, AuthError> {
+) -> Result<Json<LoginResponse>> {
     info!("Client {addr} is attempting to log in");
 
     // Verify user credentials
@@ -107,7 +99,7 @@ pub async fn login(
 /// Handler for current user identification route.
 pub async fn current_user(
     RequireAuth(user): RequireAuth,
-) -> Result<Json<UserResponse>, AuthError> {
+) -> Result<Json<UserResponse>> {
     Ok(Json(UserResponse { user }))
 }
 
@@ -115,8 +107,9 @@ pub async fn current_user(
 pub async fn logout(
     State(state): State<AppState>,
     ConnectInfo(addr): ConnectInfo<SocketAddr>,
-    Json(payload): Json<LogoutRequest>,
-) -> Result<Json<LogoutResponse>, AuthError> {
+    RequireAuth(_user): RequireAuth,
+    Json(payload): Json<RefreshTokenRequest>,
+) -> Result<Json<LogoutResponse>> {
     info!("Client {addr} is attempting to log out");
 
     // Delete given refresh token from database
@@ -135,9 +128,9 @@ pub async fn logout(
 pub async fn refresh(
     State(state): State<AppState>,
     Json(payload): Json<RefreshTokenRequest>,
-) -> Result<Json<RefreshTokenResponse>, AuthError> {
+) -> Result<Json<RefreshTokenResponse>> {
     // Look up refresh token in database
-    let refresh_token = state
+    let token_obj = state
         .refresh_token_repo
         .find_by_token(&payload.refresh_token)
         .await
@@ -145,7 +138,7 @@ pub async fn refresh(
         .ok_or(AuthError::InvalidToken)?;
 
     // Check if token is expired
-    if refresh_token.is_expired() {
+    if token_obj.is_expired() {
         // Delete token
         state
             .refresh_token_repo
@@ -158,20 +151,20 @@ pub async fn refresh(
     }
 
     // Check if token is already used
-    if refresh_token.is_used {
+    if token_obj.is_used {
         error!("Token reuse detected:");
         error!(
             "User {} originally used token {} at {:?}",
-            &refresh_token.username,
+            &token_obj.username,
             &payload.refresh_token,
-            &refresh_token.used_at,
+            &token_obj.used_at,
         );
-        error!("Deleting all tokens for user {}", &refresh_token.username);
+        error!("Deleting all tokens for user {}", &token_obj.username);
 
         // Delete all refresh tokens for this token's user
         state
             .refresh_token_repo
-            .delete_all_user_tokens(&refresh_token.username)
+            .delete_all_user_tokens(&token_obj.username)
             .await
             .map_err(|_| AuthError::QueryFailure)?;
 
@@ -187,12 +180,11 @@ pub async fn refresh(
 
     // Generate new access and refresh tokens
     let (access_token, new_refresh_token) = create_tokens(
-        &refresh_token.username,
+        &token_obj.username,
         state,
     )
     .await?;
 
-    // Return both tokens
     Ok(Json(RefreshTokenResponse {
         access_token,
         refresh_token: new_refresh_token,
@@ -203,7 +195,7 @@ pub async fn refresh(
 async fn create_tokens(
     username: &str,
     state: AppState,
-) -> Result<(String, String), AuthError> {
+) -> Result<(String, String)> {
     // Generate JWT access token
     let access_token = jwt::create_access_token(username)
         .map_err(|_| AuthError::TokenCreationFailure)?;

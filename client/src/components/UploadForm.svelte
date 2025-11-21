@@ -1,6 +1,6 @@
 <script lang="ts">
   import { createEventDispatcher } from "svelte";
-  import { API_URL } from "../store.ts";
+  import { apiUrl, currentUser, getCurrentUser } from "../store.ts";
 
   const dispatch = createEventDispatcher();
 
@@ -9,6 +9,14 @@
   let uploading = false;
   let message = "";
   let messageType: "success" | "error" | "" = "";
+
+  async function userIsValid(): boolean {
+    const user = await getCurrentUser();
+    if (user != null && user === $currentUser) {
+      return true;
+    }
+    return false;
+  }
 
   function handleFileSelect(event: Event) {
     const input = event.target as HTMLInputElement;
@@ -38,12 +46,17 @@
     message = "";
 
     try {
+      const userValid = await userIsValid();
+      if (!userValid) {
+        return new Error("Couldn't fetch user session info");
+      }
+
       // Create FormData and append the image
       const formData = new FormData();
       formData.append("file_path", selectedFile);
 
       // Send multipart form data request
-      const response = await fetch(`${API_URL}/images`, {
+      const response = await fetch(`${apiUrl}/images`, {
         method: "POST",
         body: formData,
       });

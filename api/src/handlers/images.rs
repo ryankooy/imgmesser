@@ -14,7 +14,7 @@ use std::path::PathBuf;
 use tracing::{error, info};
 use uuid::Uuid;
 
-use crate::auth::Claims;
+use crate::auth::middleware::RequireAuth;
 use crate::s3;
 use crate::state::AppState;
 
@@ -71,8 +71,8 @@ fn failure<T: ResponseBehavior>(code: StatusCode, resp: T) -> (StatusCode, Json<
 /// Route for retrieving images.
 pub async fn get_images(
     State(state): State<AppState>,
-    _claims: Claims,
     ConnectInfo(addr): ConnectInfo<SocketAddr>,
+    RequireAuth(_user): RequireAuth,
     Query(params): Query<PaginationParams>,
 ) -> impl IntoResponse {
     info!("Client {addr} requested images");
@@ -195,7 +195,6 @@ pub async fn get_image(
 /// Route for uploading an image.
 pub async fn add_image(
     State(state): State<AppState>,
-    _claims: Claims,
     ConnectInfo(addr): ConnectInfo<SocketAddr>,
     mut multipart: Multipart,
 ) -> impl IntoResponse {
@@ -203,7 +202,7 @@ pub async fn add_image(
 
     let client = state.img_store_client;
 
-    while let Some(mut field) = multipart.next_field().await.unwrap() {
+    while let Some(field) = multipart.next_field().await.unwrap() {
         let field_name = field.name().unwrap_or("").to_string();
 
         if field_name == "file_path" {

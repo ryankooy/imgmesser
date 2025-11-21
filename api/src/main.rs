@@ -2,6 +2,9 @@
 
 use anyhow::Result;
 use axum::{
+    http::{
+        header, method::Method, HeaderValue,
+    },
     routing::{get, post},
     Router,
 };
@@ -9,7 +12,7 @@ use std::net::SocketAddr;
 use tokio::net::TcpListener;
 use tower::ServiceBuilder;
 use tower_http::{
-    cors::{CorsLayer, Any},
+    cors::{AllowOrigin, CorsLayer},
     trace::{DefaultMakeSpan, TraceLayer},
 };
 use tracing::info;
@@ -42,10 +45,20 @@ async fn main() -> Result<()> {
     let state = AppState::new().await?;
 
     // Configure CORS
+    let origin_address = "http://127.0.0.1:5173";
     let cors = CorsLayer::new()
-        .allow_origin(Any)
-        .allow_methods(Any)
-        .allow_headers(Any);
+        .allow_origin(AllowOrigin::exact(
+            origin_address.parse::<HeaderValue>()?,
+        ))
+        .allow_methods([Method::GET, Method::POST])
+        .allow_headers([
+            header::ACCEPT,
+            header::AUTHORIZATION,
+            header::CONTENT_TYPE,
+            header::COOKIE,
+            header::ORIGIN,
+        ])
+        .allow_credentials(true);
 
     let app = Router::new()
         .route("/register", post(register))
@@ -63,7 +76,7 @@ async fn main() -> Result<()> {
         )
         .layer(
             TraceLayer::new_for_http()
-                .make_span_with(DefaultMakeSpan::default().include_headers(false)),
+                .make_span_with(DefaultMakeSpan::default().include_headers(true)),
         );
 
     let listen_address = "127.0.0.1:3000";

@@ -1,6 +1,6 @@
 <script lang="ts">
   import { createEventDispatcher } from "svelte";
-  import { API_URL } from "../store.ts";
+  import { apiUrl } from "../store.ts";
 
   const dispatch = createEventDispatcher();
 
@@ -18,25 +18,27 @@
 
     try {
       // Send user login request
-      const response = await fetch(`${API_URL}/login`, {
+      const response = await fetch(`${apiUrl}/login`, {
         method: "POST",
         body: JSON.stringify({ username, password }),
         headers: { "Content-Type": "application/json" }
       });
 
+      const data = await response.json();
+
       if (response.ok) {
         showMessage("Login successful", "success");
 
+        dispatch("loginSuccess", data.user.username);
+
         // Reset form after successful login
         resetForm();
-      } else if (response.status === 401) {
-        showMessage("❌ User not found", "error");
       } else {
-        showMessage("❌ Login failed", "error");
+        showMessage(`Login error: ${data.error}`, "error");
       }
     } catch (error) {
-      showMessage(`❌ Login failed: ${error}`, "error");
-      console.error("Login error:", error);
+      showMessage(`Login request failed: ${error}`, "error");
+      console.error("Login request failed:", error);
     } finally {
       loggingIn = false;
     }
@@ -58,8 +60,6 @@
     if (usernameInput) usernameInput.value = "";
     const passwordInput = document.getElementById("password") as HTMLInputElement;
     if (passwordInput) passwordInput.value = "";
-
-    dispatch("loginSuccess");
   }
 
   function handleRegisterClicked() {

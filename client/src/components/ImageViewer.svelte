@@ -1,6 +1,6 @@
 <script lang="ts">
   import { createEventDispatcher, onMount } from "svelte";
-  import { API_URL } from "../store.ts";
+  import { apiUrl } from "../store.ts";
   import type { ImageData } from "../App.svelte";
 
   export let image: ImageData;
@@ -17,7 +17,7 @@
   async function loadImageData() {
     loading = true;
     try {
-      const response = await fetch(`${API_URL}/images/${encodeURIComponent(image.key)}`);
+      const response = await fetch(`${apiUrl}/images/${encodeURIComponent(image.key)}`);
       if (response.ok) {
         const blob = await response.blob();
         imageDataUrl = URL.createObjectURL(blob);
@@ -74,7 +74,7 @@
 
   async function copyImageData() {
     try {
-      const response = await fetch(`${API_URL}/images/${encodeURIComponent(image.key)}`);
+      const response = await fetch(`${apiUrl}/images/${encodeURIComponent(image.key)}`);
       const blob = await response.blob();
 
       // Copy to clipboard (supported in modern browsers)

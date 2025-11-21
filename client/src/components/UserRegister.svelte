@@ -1,6 +1,6 @@
 <script lang="ts">
   import { createEventDispatcher } from "svelte";
-  import { API_URL } from "../store.ts";
+  import { apiUrl } from "../store.ts";
 
   const dispatch = createEventDispatcher();
 
@@ -23,7 +23,7 @@
 
     try {
       // Send user registration request
-      const response = await fetch(`${API_URL}/register`, {
+      const response = await fetch(`${apiUrl}/register`, {
         method: "POST",
         body: JSON.stringify({ username, password }),
         headers: { "Content-Type": "application/json" }
@@ -37,11 +37,12 @@
           resetForm();
         }, 2000);
       } else {
-        showMessage(`❌ Registration failed`, "error");
+        const data = await response.json();
+        showMessage(`Registration error: ${data.error}`, "error");
       }
     } catch (error) {
-      showMessage(`❌ Registration failed: ${error}`, "error");
-      console.error("Registration error:", error);
+      showMessage(`Registration request failed: ${error}`, "error");
+      console.error("Registration request failed:", error);
     } finally {
       registering = false;
     }

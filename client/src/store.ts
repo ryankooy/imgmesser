@@ -1,27 +1,54 @@
 import { writable } from "svelte/store";
 
 export const currentView = writable("login");
-export const userLoggedIn = writable(false);
+export const currentUser = writable(null);
 
-export const API_URL = "http://127.0.0.1:3000";
+export const apiUrl = "http://127.0.0.1:3000";
 
 export const registerServiceWorker = async () => {
     if ("serviceWorker" in navigator) {
         try {
-            const registration = await navigator.serviceWorker.register(
-                "../worker.js",
-            );
+            const registration = await navigator.serviceWorker.register("worker.js");
 
             if (registration.installing) {
                 console.log("Service worker installing");
             } else if (registration.waiting) {
                 console.log("Service worker installed and waiting");
             } else if (registration.active) {
-                console.log(`Service worker active: ${registration.active.scriptURL}`);
+                console.log("Service worker active");
             }
 
         } catch (error) {
-            console.error(`Registration failed with ${error}`);
+            console.error("Service worker registration failed:", error);
         }
     }
+};
+
+export const getCurrentUser = async (): string | null => {
+    try {
+        const response = await fetch(`${apiUrl}/user`);
+        const data = await response.json();
+
+        if (response.ok) {
+            return data.user.username;
+        }
+    } catch (error) {
+        // Fail silently
+    }
+
+    return null;
+};
+
+export const logOut = async (): boolean => {
+    try {
+        const response = await fetch(`${apiUrl}/logout`, {
+            method: "POST",
+        });
+
+        if (response.ok) return true;
+    } catch (error) {
+        console.error("Failed to log out user:", error);
+    }
+
+    return false;
 };

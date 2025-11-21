@@ -1,6 +1,62 @@
-const API_URL = "http://127.0.0.1:3000";
+const apiUrl = "http://127.0.0.1:3000";
 const authUrls = ["/login"];
-const protectedUrls = ["/images"];
+const protectedUrls = ["/images", "/logout", "/user"];
+
+let storeId = 0;
+
+const storage = (() => {
+    let dbInstance;
+
+    function getDB() {
+        if (dbInstance) return dbInstance;
+
+        dbInstance = new Promise((resolve, reject) => {
+            const openreq = indexedDB.open("tokenCache", 2);
+
+            openreq.onerror = () => {
+                reject(openreq.error);
+            };
+            openreq.onupgradeneeded = () => {
+                openreq.result.createObjectStore("token");
+            };
+            openreq.onsuccess = () => {
+                resolve(openreq.result);
+            };
+        });
+
+        return dbInstance;
+    }
+
+    async function withStore(type, callback) {
+        const db = await getDB();
+        return new Promise((resolve, reject) => {
+            const transaction = db.transaction("token", type);
+            transaction.oncomplete = () => resolve();
+            transaction.onerror = () => reject(transaction.error);
+            callback(transaction.objectStore("token"));
+        });
+    }
+
+    return {
+        async get(key) {
+            let request;
+            await withStore("readonly", (store) => {
+                request = store.get(key);
+            });
+            return request.result;
+        },
+        set(key, value) {
+            return withStore("readwrite", (store) => {
+                store.put(value, key);
+            });
+        },
+        delete(key) {
+            return withStore("readwrite", (store) => {
+                store.delete(key);
+            });
+        },
+    };
+})();
 
 // Prevent the worker from waiting until next
 // page load to take over
@@ -8,58 +64,138 @@ self.addEventListener("activate", (event) => {
     event.waitUntil(clients.claim());
 });
 
-let authToken = null;
+async function setTokens(data) {
+    await storage.set("tokens", {
+        accessToken: data.access_token,
+        refreshToken: data.refresh_token,
+    });
+}
 
-function interceptRequest(request) {
-    const url = new URL(request.url);
-    const isApiOrigin = API_URL === url.origin;
-    const isProtectedUrl = isApiOrigin && protectedUrls.includes(url.pathname);
-    const isAuthUrl = isApiOrigin && authUrls.includes(url.pathname);
+async function refreshTokens(tokens) {
+    try {
+        const response = await fetch(`${apiUrl}/refresh`, {
+            method: "POST",
+            body: JSON.stringify({
+                refresh_token: tokens.refreshToken,
+            }),
+            headers: { "Content-Type": "application/json" },
+        });
 
-    if (authToken && isProtectedUrl) {
-        const headers = new Headers(Array.from(request.headers.entries()));
+        if (response.ok) {
+            const data = await response.json();
+            await setTokens(data);
+        } else {
+            console.error(`Failed to refresh tokens: ${response.status}`);
+        }
+    } catch (error) {
+        console.error("Failed to fetch refresh tokens:", error);
+    }
+}
 
-        // Attach token to header
-        headers.append("Authorization", `Bearer ${authToken}`);
+async function updateRequest(request, urlPath, tokens) {
+    const headers = new Headers(Array.from(request.headers.entries()));
 
-        // Make a new request
-        try {
-            // TODO: this fails for image uploads too: include duplex prop?
-            request = new Request(request.url, {
+    // Attach access token to header
+    headers.append("Authorization", `Bearer ${tokens.accessToken}`);
+
+    // Build new request
+    try {
+        if (urlPath === "/logout") {
+            headers.append("Content-Type", "application/json");
+
+            const newRequest = new Request(request.url, {
                 method: request.method,
                 headers: headers,
-                credentials: request.credentials,
+                credentials: "include",
+                cache: request.cache,
+                redirect: request.redirect,
+                referrer: request.referrer,
+                body: JSON.stringify({
+                    refresh_token: tokens.refreshToken,
+                }),
+                context: request.context,
+            });
+
+            // User is logging out, so delete tokens
+            await storage.delete("tokens");
+
+            return newRequest;
+        } else {
+            return new Request(request.url, {
+                method: request.method,
+                headers: headers,
+                credentials: "include",
                 cache: request.cache,
                 redirect: request.redirect,
                 referrer: request.referrer,
                 body: request.body,
                 context: request.context,
             });
-        } catch (e) {
-            console.error(e);
-            // This will fail for CORS requests;
-            // just continue with fetch caching
         }
+    } catch (e) {
+        console.error("Error making authorization request:", e);
+    }
 
-        return fetch(request);
+    return request;
+}
+
+async function interceptRequest(request) {
+    const url = new URL(request.url);
+    const urlPath = url.pathname;
+    const isApiOrigin = apiUrl === url.origin;
+    const isProtectedUrl = isApiOrigin && protectedUrls.includes(urlPath);
+    const isAuthUrl = isApiOrigin && authUrls.includes(urlPath);
+    const isUploadRequest = urlPath === "/images" && request.method === "POST";
+
+    let tokens = await storage.get("tokens");
+
+    if (!!tokens && isProtectedUrl && !isUploadRequest) {
+        let newRequest;
+
+        try {
+            // Update request with an Authorization header
+            newRequest = await updateRequest(request, urlPath, tokens);
+            const response = await fetch(newRequest);
+
+            if (response.status === 401 && apiUrl !== "/user") {
+                console.log("OH NOES: SENDING REFRESH REQUEST"); //TODO:REMOVE
+
+                await refreshTokens(tokens);
+                tokens = await storage.get("tokens");
+
+                if (!!tokens) {
+                    console.log("SENDING UPDATED REQUEST WITH REFRESHED TOKEN"); //TODO:REMOVE
+
+                    newRequest = await updateRequest(request, urlPath, tokens);
+                    return fetch(newRequest);
+                }
+            }
+
+            return response;
+        } catch (error) {
+            console.error("Error fetching:", error);
+            newRequest = await updateRequest(request, urlPath, tokens);
+            return fetch(newRequest);
+        }
     } else if (isAuthUrl) {
-        // Stash the token
-        return fetch(request).then((response) =>
-            response.json().then((data) => {
-                authToken = data.access_token;
+        const response = await fetch(request);
+        const data = await response.json();
 
-                const newBody = JSON.stringify({
-                    success: data.success,
-                    message: data.message,
-                });
+        // Stash the tokens from the response
+        await setTokens(data);
 
-                return new Response(newBody, {
-                    status: response.status,
-                    statusText: response.statusText,
-                    headers: new Headers(Array.from(response.headers.entries())),
-                });
-            }),
-        );
+        let newBody = {
+            success: data.success,
+            message: data.message,
+        };
+
+        if (data.user != null) newBody.user = data.user;
+
+        return new Response(JSON.stringify(newBody), {
+            status: response.status,
+            statusText: response.statusText,
+            headers: new Headers(Array.from(response.headers.entries())),
+        });
     }
 
     return fetch(request);
@@ -68,4 +204,12 @@ function interceptRequest(request) {
 // Intercept all fetches
 self.addEventListener("fetch", (event) => {
     event.respondWith(interceptRequest(event.request));
+});
+
+// If we get a REFRESH message, send a token refresh request
+self.addEventListener("message", async (event) => {
+    if (event.data && event.data.type === "REFRESH") {
+        const tokens = await storage.get("tokens");
+        if (!!tokens) await refreshTokens(tokens);
+    }
 });

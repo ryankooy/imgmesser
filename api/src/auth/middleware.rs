@@ -29,7 +29,7 @@ where
     ) -> Result<Self, Self::Rejection> {
         let app_state = AppState::from_ref(state);
 
-        // Extract token from auth header
+        // Extract access token from auth header
         let TypedHeader(Authorization(bearer)) = parts
             .extract::<TypedHeader<Authorization<Bearer>>>()
             .await

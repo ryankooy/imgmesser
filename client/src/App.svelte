@@ -1,4 +1,7 @@
 <script lang="ts">
+  import { onMount } from "svelte";
+  import { apiUrl, currentView, currentUser, getCurrentUser, registerServiceWorker } from "./store.ts";
+
   import Header from "./components/Header.svelte";
   import Footer from "./components/Footer.svelte";
   import UploadForm from "./components/UploadForm.svelte";
@@ -7,10 +10,24 @@
   import UserRegister from "./components/UserRegister.svelte";
   import UserLogin from "./components/UserLogin.svelte";
 
-  import { API_URL, currentView, registerServiceWorker, userLoggedIn } from "./store.ts";
-  $currentView = $userLoggedIn ? "upload" : "login";
-
   registerServiceWorker();
+
+  onMount(() => {
+    if (performance.navigation.type === 1 && navigator.serviceWorker) {
+      // The page was refreshed; send the service worker a
+      // REFRESH message so that if the user's logged in,
+      // we can keep them logged in
+      navigator.serviceWorker.ready.then(async (registration) => {
+        if (registration.active) {
+          registration.active.postMessage({
+            type: "REFRESH",
+          });
+
+          $currentUser = await getCurrentUser();
+        }
+      });
+    }
+  });
 
   export interface ImageData {
     key: string;
@@ -36,8 +53,8 @@
     selectedImage = null;
   }
 
-  function handleLoginSuccess() {
-    $userLoggedIn = true;
+  function handleLoginSuccess(event: CustomEvent) {
+    $currentUser = event.detail;
     $currentView = "upload";
   }
 
@@ -46,7 +63,6 @@
   }
 
   function showLoginView() {
-    $userLoggedIn = false;
     $currentView = "login";
   }
 </script>
