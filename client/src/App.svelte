@@ -1,6 +1,9 @@
 <script lang="ts">
   import { onMount } from "svelte";
-  import { apiUrl, currentView, currentUser, getCurrentUser, registerServiceWorker } from "./store.ts";
+  import {
+    apiUrl, currentView, currentUser, getCurrentUser, registerServiceWorker,
+    ImageData,
+  } from "./store.ts";
 
   import Header from "./components/Header.svelte";
   import Footer from "./components/Footer.svelte";
@@ -28,13 +31,6 @@
       });
     }
   });
-
-  export interface ImageData {
-    key: string;
-    size: number;
-    last_modified: string;
-    content_type: string;
-  }
 
   let selectedImage: ImageData | null = null;
   let refreshTrigger = 0;

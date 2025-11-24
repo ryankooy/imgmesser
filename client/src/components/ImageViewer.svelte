@@ -1,7 +1,6 @@
 <script lang="ts">
   import { createEventDispatcher, onMount } from "svelte";
-  import { apiUrl } from "../store.ts";
-  import type { ImageData } from "../App.svelte";
+  import { apiUrl, ImageData } from "../store.ts";
 
   export let image: ImageData;
 

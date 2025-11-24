@@ -5,6 +5,13 @@ export const currentUser = writable(null);
 
 export const apiUrl = "http://127.0.0.1:3000";
 
+export interface ImageData {
+    key: string;
+    size: number;
+    last_modified: string;
+    content_type: string;
+}
+
 export const registerServiceWorker = async () => {
     if ("serviceWorker" in navigator) {
         try {
@@ -47,7 +54,7 @@ export const logOut = async (): boolean => {
 
         if (response.ok) return true;
     } catch (error) {
-        console.error("Failed to log out user:", error);
+        console.error("Error fetching:", error);
     }
 
     return false;

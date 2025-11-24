@@ -2,8 +2,13 @@ const apiUrl = "http://127.0.0.1:3000";
 const authUrls = ["/login"];
 const protectedUrls = ["/images", "/logout", "/user"];
 
-let storeId = 0;
+// Prevent the worker from waiting until next
+// page load to take over
+self.addEventListener("activate", (event) => {
+    event.waitUntil(clients.claim());
+});
 
+// IndexedDB storage for tokens
 const storage = (() => {
     let dbInstance;
 
@@ -58,12 +63,7 @@ const storage = (() => {
     };
 })();
 
-// Prevent the worker from waiting until next
-// page load to take over
-self.addEventListener("activate", (event) => {
-    event.waitUntil(clients.claim());
-});
-
+// Store tokens
 async function setTokens(data) {
     await storage.set("tokens", {
         accessToken: data.access_token,
@@ -71,6 +71,7 @@ async function setTokens(data) {
     });
 }
 
+// Request tokens from server
 async function refreshTokens(tokens) {
     try {
         const response = await fetch(`${apiUrl}/refresh`, {
@@ -92,46 +93,39 @@ async function refreshTokens(tokens) {
     }
 }
 
+// Update request with an Authorization header
 async function updateRequest(request, urlPath, tokens) {
     const headers = new Headers(Array.from(request.headers.entries()));
 
-    // Attach access token to header
+    // Add Authorization header with access token
     headers.append("Authorization", `Bearer ${tokens.accessToken}`);
 
-    // Build new request
     try {
+        let requestBody;
+
         if (urlPath === "/logout") {
             headers.append("Content-Type", "application/json");
-
-            const newRequest = new Request(request.url, {
-                method: request.method,
-                headers: headers,
-                credentials: "include",
-                cache: request.cache,
-                redirect: request.redirect,
-                referrer: request.referrer,
-                body: JSON.stringify({
-                    refresh_token: tokens.refreshToken,
-                }),
-                context: request.context,
+            requestBody = JSON.stringify({
+                refresh_token: tokens.refreshToken,
             });
 
             // User is logging out, so delete tokens
             await storage.delete("tokens");
-
-            return newRequest;
         } else {
-            return new Request(request.url, {
-                method: request.method,
-                headers: headers,
-                credentials: "include",
-                cache: request.cache,
-                redirect: request.redirect,
-                referrer: request.referrer,
-                body: request.body,
-                context: request.context,
-            });
+            requestBody = request.body;
         }
+
+        // Build new request
+        return new Request(request.url, {
+            method: request.method,
+            headers: headers,
+            credentials: "include",
+            cache: request.cache,
+            redirect: request.redirect,
+            referrer: request.referrer,
+            body: requestBody,
+            context: request.context,
+        });
     } catch (e) {
         console.error("Error making authorization request:", e);
     }
@@ -143,13 +137,21 @@ async function interceptRequest(request) {
     const url = new URL(request.url);
     const urlPath = url.pathname;
     const isApiOrigin = apiUrl === url.origin;
-    const isProtectedUrl = isApiOrigin && protectedUrls.includes(urlPath);
-    const isAuthUrl = isApiOrigin && authUrls.includes(urlPath);
-    const isUploadRequest = urlPath === "/images" && request.method === "POST";
 
     let tokens = await storage.get("tokens");
 
-    if (!!tokens && isProtectedUrl && !isUploadRequest) {
+    const isProtectedUrl =
+        isApiOrigin &&
+        protectedUrls.includes(urlPath) &&
+        !!tokens &&
+        // We handle user authentication differently for image upload
+        // requests, so we won't consider `/images` a protected URL
+        // if the request message is POST
+        !(urlPath === "/images" && request.method === "POST");
+
+    const isAuthUrl = isApiOrigin && authUrls.includes(urlPath);
+
+    if (isProtectedUrl) {
         let newRequest;
 
         try {
@@ -158,14 +160,10 @@ async function interceptRequest(request) {
             const response = await fetch(newRequest);
 
             if (response.status === 401 && apiUrl !== "/user") {
-                console.log("OH NOES: SENDING REFRESH REQUEST"); //TODO:REMOVE
-
                 await refreshTokens(tokens);
                 tokens = await storage.get("tokens");
 
                 if (!!tokens) {
-                    console.log("SENDING UPDATED REQUEST WITH REFRESHED TOKEN"); //TODO:REMOVE
-
                     newRequest = await updateRequest(request, urlPath, tokens);
                     return fetch(newRequest);
                 }
@@ -198,6 +196,11 @@ async function interceptRequest(request) {
         });
     }
 
+    // Just return the original request if we got this far,
+    // since that means one of the following is true:
+    // * It's an image upload request
+    // * We're missing tokens
+    // * The URL is neither protected nor for authorization
     return fetch(request);
 }
 
@@ -206,7 +209,7 @@ self.addEventListener("fetch", (event) => {
     event.respondWith(interceptRequest(event.request));
 });
 
-// If we get a REFRESH message, send a token refresh request
+// If the app sends a REFRESH message, request tokens from the server
 self.addEventListener("message", async (event) => {
     if (event.data && event.data.type === "REFRESH") {
         const tokens = await storage.get("tokens");
