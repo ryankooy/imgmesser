@@ -3,7 +3,7 @@ use serde::{Deserialize, Serialize};
 use sqlx::FromRow;
 use uuid::Uuid;
 
-#[derive(Debug, Clone, Serialize, Deserialize, FromRow)]
+#[derive(Clone, Serialize, Deserialize, FromRow)]
 pub struct RefreshToken {
     pub id: Uuid,
     pub username: String,

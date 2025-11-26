@@ -1,9 +1,11 @@
-use anyhow::Result;
 use async_trait::async_trait;
 use sqlx::{Error as SqlxError, PgPool};
 use uuid::Uuid;
 
 use crate::models::{User, UserInfo};
+
+/// Result returning sqlx::Error on errors.
+type Result<T> = anyhow::Result<T, SqlxError>;
 
 #[derive(Clone)]
 pub struct UserRepo {
@@ -18,19 +20,16 @@ impl UserRepo {
 
 #[async_trait]
 pub trait UserRepoOps: Send + Sync {
-    async fn create(&self, user: User) -> Result<UserInfo, SqlxError>;
+    async fn create(&self, user: User) -> Result<UserInfo>;
 
-    async fn authorize(&self, user: User) -> Result<bool, SqlxError>;
+    async fn authorize(&self, user: User) -> Result<bool>;
 
-    async fn find(
-        &self,
-        username: &str,
-    ) -> Result<Option<UserInfo>, SqlxError>;
+    async fn find(&self, username: &str) -> Result<Option<UserInfo>>;
 }
 
 #[async_trait]
 impl UserRepoOps for UserRepo {
-    async fn create(&self, user: User) -> Result<UserInfo, SqlxError> {
+    async fn create(&self, user: User) -> Result<UserInfo> {
         let object_base_path = Uuid::now_v7().to_string();
 
         let user_info = sqlx::query_as::<_, UserInfo>(
@@ -49,7 +48,7 @@ impl UserRepoOps for UserRepo {
         Ok(user_info)
     }
 
-    async fn authorize(&self, user: User) -> Result<bool, SqlxError> {
+    async fn authorize(&self, user: User) -> Result<bool> {
         match sqlx::query!(
             r#"
             SELECT (password = crypt($2, password)) AS is_match
@@ -71,7 +70,7 @@ impl UserRepoOps for UserRepo {
     async fn find(
         &self,
         username: &str,
-    ) -> Result<Option<UserInfo>, SqlxError> {
+    ) -> Result<Option<UserInfo>> {
         let user_info = sqlx::query_as::<_, UserInfo>(
             r#"
             SELECT username, object_base_path

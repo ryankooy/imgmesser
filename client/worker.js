@@ -142,7 +142,7 @@ async function interceptRequest(request) {
 
     const isProtectedUrl =
         isApiOrigin &&
-        protectedUrls.includes(urlPath) &&
+        protectedUrls.some((path) => urlPath.startsWith(path)) &&
         !!tokens &&
         // We handle user authentication differently for image upload
         // requests, so we won't consider `/images` a protected URL

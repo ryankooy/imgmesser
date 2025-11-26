@@ -6,7 +6,9 @@ use std::sync::Arc;
 use crate::{
     db,
     repos::{
-        RefreshTokenRepo, RefreshTokenRepoOps, UserRepo, UserRepoOps,
+        RefreshTokenRepo, RefreshTokenRepoOps,
+        UserRepo, UserRepoOps,
+        ImageRepo, ImageRepoOps,
     },
     s3,
 };
@@ -24,6 +26,9 @@ pub struct AppState {
 
     /// User repository
     pub user_repo: Arc<dyn UserRepoOps>,
+
+    /// Image repository
+    pub image_repo: Arc<dyn ImageRepoOps>,
 }
 
 impl AppState {
@@ -31,7 +36,6 @@ impl AppState {
         let db = db::create_conn_pool().await?;
         //FIXME: sqlx::migrate!("./migrations").run(&db).await?;
 
-        let img_store_client = s3::get_client().await?;
         let refresh_token_repo: Arc<dyn RefreshTokenRepoOps> = Arc::new(
             RefreshTokenRepo::new(db.clone()),
         );
@@ -39,11 +43,17 @@ impl AppState {
             UserRepo::new(db.clone()),
         );
 
+        let img_store_client = s3::get_client().await?;
+        let image_repo: Arc<dyn ImageRepoOps> = Arc::new(
+            ImageRepo::new(db.clone(), img_store_client.clone()),
+        );
+
         Ok(Self {
             db,
             img_store_client,
             refresh_token_repo,
             user_repo,
+            image_repo,
         })
     }
 }

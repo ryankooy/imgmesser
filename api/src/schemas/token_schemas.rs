@@ -1,17 +1,17 @@
 use serde::{Deserialize, Serialize};
 
-#[derive(Debug, Deserialize)]
+#[derive(Deserialize)]
 pub struct RefreshTokenRequest {
     pub refresh_token: String,
 }
 
-#[derive(Debug, Serialize)]
+#[derive(Serialize)]
 pub struct RefreshTokenResponse {
     pub access_token: String,
     pub refresh_token: String,
 }
 
-#[derive(Debug, Serialize)]
+#[derive(Serialize)]
 pub struct LogoutResponse {
     pub message: String,
 }

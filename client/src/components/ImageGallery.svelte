@@ -1,6 +1,7 @@
 <script lang="ts">
   import { createEventDispatcher, onMount } from "svelte";
-  import { apiUrl, ImageData } from "../store.ts";
+  import { apiUrl } from "../store.ts";
+  import type { ImageData } from "../store.ts";
 
   export let refresh = 0;
   const dispatch = createEventDispatcher();
@@ -37,7 +38,7 @@
       );
       const data = await response.json();
 
-      if (response.ok && data.success) {
+      if (response.ok) {
         images = data.images;
         total = data.total;
         hasMore = data.has_more;
@@ -58,17 +59,17 @@
   async function loadImageData() {
     // Load images in parallel
     const promises = images.map(async (image) => {
-      if (!imageDataUrls.has(image.key)) {
+      if (!imageDataUrls.has(image.name)) {
         try {
-          const response = await fetch(`${apiUrl}/images/${encodeURIComponent(image.key)}`);
+          const response = await fetch(`${apiUrl}/images/${encodeURIComponent(image.name)}`);
           if (response.ok) {
             const blob = await response.blob();
             const dataUrl = URL.createObjectURL(blob);
-            imageDataUrls.set(image.key, dataUrl);
+            imageDataUrls.set(image.name, dataUrl);
             imageDataUrls = imageDataUrls; // Trigger reactivity
           }
         } catch (err) {
-          console.error(`Failed to load image ${image.key}:`, err);
+          console.error(`Failed to load image ${image.name}:`, err);
         }
       }
     });
@@ -134,7 +135,7 @@
       </div>
     {:else}
       <div class="grid">
-        {#each images as image (image.key)}
+        {#each images as image (image.name)}
           <div
             class="image-card"
             role="button"
@@ -143,8 +144,8 @@
             on:click={() => handleImageClick(image)}
             >
             <div class="image-wrapper">
-              {#if imageDataUrls.has(image.key)}
-                <img src={imageDataUrls.get(image.key)} alt={image.key} />
+              {#if imageDataUrls.has(image.name)}
+                <img src={imageDataUrls.get(image.name)} alt={image.name} />
               {:else}
                 <div class="image-loading">
                   <div class="mini-spinner"></div>
@@ -153,8 +154,8 @@
               <div class="overlay" />
             </div>
             <div class="image-info">
-              <p class="image-name" title={image.key}>
-                {image.key.length > 25 ? image.key.substring(0, 25) + "..." : image.key}
+              <p class="image-name" title={image.name}>
+                {image.name.length > 25 ? image.name.substring(0, 25) + "..." : image.name}
               </p>
               <div class="meta">
                 <span>{formatFileSize(image.size)}</span>

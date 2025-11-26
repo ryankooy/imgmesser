@@ -54,6 +54,7 @@
       // Create FormData and append the image
       const formData = new FormData();
       formData.append("file_path", selectedFile);
+      formData.append("user", $currentUser);
 
       // Send multipart form data request
       const response = await fetch(`${apiUrl}/images`, {
@@ -61,10 +62,8 @@
         body: formData,
       });
 
-      const data = await response.json();
-
-      if (response.ok && data.success) {
-        showMessage(`✅ ${data.message}`, "success");
+      if (response.ok) {
+        showMessage("✅ Image uploaded successfully", "success");
         dispatch("uploadSuccess");
 
         // Reset form after successful upload
@@ -72,7 +71,8 @@
           resetForm();
         }, 2000);
       } else {
-        showMessage(`❌ ${data.message}`, "error");
+        const data = await response.json();
+        showMessage(`❌ ${data.error}`, "error");
       }
     } catch (error) {
       showMessage(`❌ Upload failed: ${error}`, "error");

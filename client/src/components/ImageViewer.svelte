@@ -1,6 +1,7 @@
 <script lang="ts">
   import { createEventDispatcher, onMount } from "svelte";
-  import { apiUrl, ImageData } from "../store.ts";
+  import { apiUrl } from "../store.ts";
+  import type { ImageData } from "../store.ts";
 
   export let image: ImageData;
 
@@ -16,7 +17,7 @@
   async function loadImageData() {
     loading = true;
     try {
-      const response = await fetch(`${apiUrl}/images/${encodeURIComponent(image.key)}`);
+      const response = await fetch(`${apiUrl}/images/${encodeURIComponent(image.name)}`);
       if (response.ok) {
         const blob = await response.blob();
         imageDataUrl = URL.createObjectURL(blob);
@@ -67,13 +68,13 @@
 
     const link = document.createElement("a");
     link.href = imageDataUrl;
-    link.download = image.key;
+    link.download = image.name;
     link.click();
   }
 
   async function copyImageData() {
     try {
-      const response = await fetch(`${apiUrl}/images/${encodeURIComponent(image.key)}`);
+      const response = await fetch(`${apiUrl}/images/${encodeURIComponent(image.name)}`);
       const blob = await response.blob();
 
       // Copy to clipboard (supported in modern browsers)
@@ -104,14 +105,14 @@
           <p>Loading image...</p>
         </div>
       {:else if imageDataUrl}
-        <img src={imageDataUrl} alt={image.key} />
+        <img src={imageDataUrl} alt={image.name} />
       {:else}
         <div class="error">Failed to load image</div>
       {/if}
     </div>
 
     <div class="image-details">
-      <h3>{image.key}</h3>
+      <h3>{image.name}</h3>
       <div class="details-grid">
         <div class="detail-item">
           <span class="label">Size:</span>

@@ -2,8 +2,8 @@
   import { onMount } from "svelte";
   import {
     apiUrl, currentView, currentUser, getCurrentUser, registerServiceWorker,
-    ImageData,
   } from "./store.ts";
+  import type { ImageData } from "./store.ts";
 
   import Header from "./components/Header.svelte";
   import Footer from "./components/Footer.svelte";

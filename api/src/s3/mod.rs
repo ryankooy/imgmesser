@@ -64,10 +64,12 @@ pub async fn get_object(
 /// Retrieve all objects from S3 bucket.
 pub async fn get_objects(
     client: &Client,
+    prefix: &str,
 ) -> Result<ListObjectsV2Output, error::S3Error> {
     let objects = client
         .list_objects_v2()
         .bucket(S3_BUCKET_NAME)
+        .prefix(prefix)
         .send()
         .await?;
 
