@@ -12,7 +12,8 @@ CREATE TABLE IF NOT EXISTS image (
     name text,
     extension text,
     username text NOT NULL REFERENCES user_profile(username)
-        ON DELETE CASCADE
+        ON DELETE CASCADE,
+    created_at timestamptz NOT NULL DEFAULT NOW()
 );
 
 CREATE TABLE IF NOT EXISTS image_version (
@@ -20,6 +21,8 @@ CREATE TABLE IF NOT EXISTS image_version (
     version text,
     ts timestamptz NOT NULL DEFAULT NOW(),
     latest boolean NOT NULL,
+    width int NOT NULL,
+    height int NOT NULL,
     PRIMARY KEY(image_id, version)
 );
 

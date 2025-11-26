@@ -10,7 +10,8 @@ use uuid::Uuid;
 
 use crate::{
     models::{
-        Image, ImageData, ImageItem, ImageList, UserInfo,
+        Image, ImageData, ImageItem, ImageList,
+        UploadImage, UserInfo,
     },
     s3,
 };
@@ -31,14 +32,13 @@ impl ImageRepo {
 pub trait ImageRepoOps: Send + Sync {
     async fn upload(
         &self,
-        data: Bytes,
-        filename: &str,
+        image: UploadImage,
         user: UserInfo,
     ) -> Result<()>;
 
     async fn get_one(
         &self,
-        image_name: &str,
+        image_id_string: &str,
         user: UserInfo,
     ) -> Result<Option<ImageData>>;
 
@@ -56,24 +56,23 @@ impl ImageRepoOps for ImageRepo {
     /// metadata to the database.
     async fn upload(
         &self,
-        data: Bytes,
-        filename: &str,
+        image: UploadImage,
         user: UserInfo,
     ) -> Result<()> {
-        let path = PathBuf::from(&filename);
+        let path = PathBuf::from(&image.name);
         let extension = path
             .extension()
             .and_then(|e| e.to_str())
             .unwrap_or("jpg");
 
         // The S3 object path of the image
-        let image_path = get_object_path(&user.object_base_path, &filename);
+        let image_path = get_object_path(&user.object_base_path, &image.name);
 
         // Upload the image to the S3 bucket and get
         // the image's version id
         match s3::upload_object(
             &self.img_store_client,
-            data,
+            image.data,
             &image_path,
         )
         .await {
@@ -82,13 +81,16 @@ impl ImageRepoOps for ImageRepo {
 
                 // Create a db record for the image
                 insert_image(
-                    &self.db, &image_id, &filename, &extension, &user.username,
+                    &self.db, &image_id, &image.name, &extension, &user.username,
                 )
                 .await?;
 
                 if let Some(version) = output.version_id() {
                     // Add the image object version in the db
-                    insert_image_version(&self.db, &image_id, version).await?;
+                    insert_image_version(
+                        &self.db, &image_id, image.dimensions, version,
+                    )
+                    .await?;
                 }
             }
             Err(e) => bail!("File upload error: {}", e),
@@ -100,12 +102,14 @@ impl ImageRepoOps for ImageRepo {
     /// Get a single image object from S3.
     async fn get_one(
         &self,
-        image_name: &str,
+        image_id_string: &str,
         user: UserInfo,
     ) -> Result<Option<ImageData>> {
-        if let Some(image) = find_one(&self.db, image_name, &user.username).await? {
+        let image_id = Uuid::parse_str(image_id_string)?;
+
+        if let Some(image) = find_one(&self.db, &image_id, &user.username).await? {
             // S3 object path of the image
-            let image_path = get_object_path(&user.object_base_path, image_name);
+            let image_path = get_object_path(&user.object_base_path, &image.name);
 
             match s3::get_object(&self.img_store_client, &image_path).await {
                 Ok(output) => {
@@ -177,21 +181,25 @@ impl ImageRepoOps for ImageRepo {
                     let path = Path::new(key);
                     if let Some(name) = path.file_name() {
                         let name = name.to_string_lossy().into_owned();
-                        if let Some(db_image) = image_map.get(name.as_str()) {
+                        if let Some(image) = image_map.get(name.as_str()) {
+                            let content_type = get_content_type(&image.extension)
+                                .to_string();
+
+                            let last_modified = object
+                                .last_modified()
+                                .map(|dt| dt.to_string())
+                                .unwrap_or_else(|| "unknown".to_string());
+
                             return Some(ImageItem {
-                                id: db_image.id,
+                                id: image.id,
                                 name,
-                                version: db_image.version.to_owned(),
+                                content_type,
+                                created_at: image.created_at.to_string(),
+                                last_modified,
+                                version: image.version.to_owned(),
+                                width: image.width,
+                                height: image.height,
                                 size: object.size().unwrap_or(0),
-                                last_modified: object.last_modified()
-                                    .map(|dt| dt.to_string())
-                                    .unwrap_or_else(|| {
-                                        "unknown".to_string()
-                                    }),
-                                content_type: get_content_type(
-                                    &db_image.extension,
-                                )
-                                .to_string(),
                             })
                         }
                     }
@@ -229,6 +237,7 @@ async fn insert_image(
 async fn insert_image_version(
     db: &PgPool,
     image_id: &Uuid,
+    dimensions: (u32, u32),
     version: &str,
 ) -> Result<()> {
     sqlx::query!(
@@ -238,11 +247,13 @@ async fn insert_image_version(
             SET latest = FALSE
             WHERE image_id = $1
         )
-        INSERT INTO image_version (image_id, version, latest)
-        VALUES ($1, $2, TRUE)
+        INSERT INTO image_version (image_id, version, latest, width, height)
+        VALUES ($1, $2, TRUE, $3, $4)
         "#,
         image_id,
         version,
+        dimensions.0 as i32,
+        dimensions.1 as i32,
     )
     .execute(db)
     .await?;
@@ -253,21 +264,23 @@ async fn insert_image_version(
 /// Retrieve datbase data for a single image.
 async fn find_one(
     db: &PgPool,
-    name: &str,
+    id: &Uuid,
     username: &str,
 ) -> Result<Option<Image>> {
     let image = sqlx::query_as::<_, Image>(
         r#"
-        SELECT i.id, i.name, i.extension, iv.version
+        SELECT i.id, i.name, i.extension, i.created_at,
+            iv.ts AS last_modified, iv.version,
+            iv.width, iv.height
         FROM image AS i
         LEFT JOIN image_version AS iv
             ON iv.image_id = i.id
         WHERE iv.latest
-            AND i.name = $1
+            AND i.id = $1
             AND i.username = $2
         "#,
     )
-    .bind(name)
+    .bind(id)
     .bind(username)
     .fetch_optional(db)
     .await?;
@@ -282,7 +295,9 @@ async fn find_all(
 ) -> Result<Vec<Image>> {
     let images = sqlx::query_as::<_, Image>(
         r#"
-        SELECT i.id, i.name, i.extension, iv.version
+        SELECT i.id, i.name, i.extension, i.created_at,
+            iv.ts AS last_modified, iv.version,
+            iv.width, iv.height
         FROM image AS i
         LEFT JOIN image_version AS iv
             ON iv.image_id = i.id

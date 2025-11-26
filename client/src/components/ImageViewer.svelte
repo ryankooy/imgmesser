@@ -17,7 +17,7 @@
   async function loadImageData() {
     loading = true;
     try {
-      const response = await fetch(`${apiUrl}/images/${encodeURIComponent(image.name)}`);
+      const response = await fetch(`${apiUrl}/images/${encodeURIComponent(image.id)}`);
       if (response.ok) {
         const blob = await response.blob();
         imageDataUrl = URL.createObjectURL(blob);
@@ -56,8 +56,7 @@
 
   function formatDate(dateStr: string): string {
     try {
-      const date = new Date(dateStr);
-      return date.toLocaleString();
+      return new Date(dateStr).toLocaleString();
     } catch {
       return dateStr;
     }
@@ -70,23 +69,6 @@
     link.href = imageDataUrl;
     link.download = image.name;
     link.click();
-  }
-
-  async function copyImageData() {
-    try {
-      const response = await fetch(`${apiUrl}/images/${encodeURIComponent(image.name)}`);
-      const blob = await response.blob();
-
-      // Copy to clipboard (supported in modern browsers)
-      await navigator.clipboard.write([
-        new ClipboardItem({ [blob.type]: blob })
-      ]);
-
-      alert("Image copied to clipboard!");
-    } catch (err) {
-      console.error("Failed to copy image:", err);
-      alert("Failed to copy image. Try downloading instead.");
-    }
   }
 </script>
 
@@ -115,25 +97,34 @@
       <h3>{image.name}</h3>
       <div class="details-grid">
         <div class="detail-item">
-          <span class="label">Size:</span>
+          <span class="label">File Size</span>
           <span class="value">{formatFileSize(image.size)}</span>
         </div>
         <div class="detail-item">
-          <span class="label">Type:</span>
+          <span class="label">Image Size</span>
+          <span class="value">{image.width} x {image.height}</span>
+        </div>
+        <div class="detail-item">
+          <span class="label">Type</span>
           <span class="value">{image.content_type}</span>
         </div>
         <div class="detail-item">
-          <span class="label">Uploaded:</span>
+          <span class="label">Uploaded</span>
+          <span class="value">{formatDate(image.created_at)}</span>
+        </div>
+        <div class="detail-item">
+          <span class="label">Modified</span>
           <span class="value">{formatDate(image.last_modified)}</span>
+        </div>
+        <div class="detail-item">
+          <span class="label">Version</span>
+          <span class="value">{image.version}</span>
         </div>
       </div>
 
       <div class="actions">
         <button class="action-btn download" on:click={downloadImage} disabled={!imageDataUrl}>
-          ⬇️ Download
-        </button>
-        <button class="action-btn" on:click={copyImageData}>
-          📋 Copy Image
+          Download
         </button>
       </div>
     </div>

@@ -8,6 +8,7 @@ pub enum ImageError {
     UploadFailure,
     MissingMultipartField,
     InvalidFileType,
+    ImageReadFailure,
     S3OperationFailure,
     ObjectNotFound,
     QueryFailure,
@@ -25,6 +26,9 @@ impl IntoResponse for ImageError {
             }
             ImageError::InvalidFileType => {
                 (StatusCode::BAD_REQUEST, "Invalid file type; not an image file")
+            }
+            ImageError::ImageReadFailure => {
+                (StatusCode::INTERNAL_SERVER_ERROR, "Error reading image")
             }
             ImageError::S3OperationFailure => {
                 (StatusCode::INTERNAL_SERVER_ERROR, "S3 operation failed")

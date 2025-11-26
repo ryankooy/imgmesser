@@ -59,13 +59,13 @@
   async function loadImageData() {
     // Load images in parallel
     const promises = images.map(async (image) => {
-      if (!imageDataUrls.has(image.name)) {
+      if (!imageDataUrls.has(image.id)) {
         try {
-          const response = await fetch(`${apiUrl}/images/${encodeURIComponent(image.name)}`);
+          const response = await fetch(`${apiUrl}/images/${encodeURIComponent(image.id)}`);
           if (response.ok) {
             const blob = await response.blob();
             const dataUrl = URL.createObjectURL(blob);
-            imageDataUrls.set(image.name, dataUrl);
+            imageDataUrls.set(image.id, dataUrl);
             imageDataUrls = imageDataUrls; // Trigger reactivity
           }
         } catch (err) {
@@ -99,20 +99,6 @@
       loadImages();
     }
   }
-
-  function formatFileSize(bytes: number): string {
-    if (bytes < 1024) return bytes + " B";
-    if (bytes < 1024 * 1024) return (bytes / 1024).toFixed(1) + " KB";
-    return (bytes / (1024 * 1024)).toFixed(1) + " MB";
-  }
-
-  function formatDate(dateStr: string): string {
-    try {
-      return new Date(dateStr).toLocaleDateString();
-    } catch {
-      return dateStr;
-    }
-  }
 </script>
 
 <div class="gallery" id="gallery">
@@ -144,23 +130,17 @@
             on:click={() => handleImageClick(image)}
             >
             <div class="image-wrapper">
-              {#if imageDataUrls.has(image.name)}
-                <img src={imageDataUrls.get(image.name)} alt={image.name} />
+              {#if imageDataUrls.has(image.id)}
+                <img src={imageDataUrls.get(image.id)} alt={image.name} />
               {:else}
                 <div class="image-loading">
                   <div class="mini-spinner"></div>
                 </div>
               {/if}
-              <div class="overlay" />
-            </div>
-            <div class="image-info">
-              <p class="image-name" title={image.name}>
-                {image.name.length > 25 ? image.name.substring(0, 25) + "..." : image.name}
-              </p>
-              <div class="meta">
-                <span>{formatFileSize(image.size)}</span>
-                <span>•</span>
-                <span>{formatDate(image.last_modified)}</span>
+              <div class="overlay">
+                <p class="image-name" title={image.name}>
+                  {image.name.length > 25 ? image.name.substring(0, 25) + "..." : image.name}
+                </p>
               </div>
             </div>
           </div>
@@ -323,6 +303,9 @@
   }
 
   .overlay {
+    display: flex;
+    justify-content: center;
+    align-items: center;
     position: absolute;
     top: 0;
     left: 0;
@@ -337,22 +320,15 @@
     opacity: 1;
   }
 
-  .image-info {
-    padding: 12px;
-  }
-
   .image-name {
-    margin: 0 0 8px 0;
     font-weight: 600;
-    color: #333;
+    color: white;
     font-size: 14px;
+    display: none;
   }
 
-  .meta {
-    display: flex;
-    gap: 8px;
-    font-size: 12px;
-    color: #666;
+  .image-card:hover .image-name {
+    display: block;
   }
 
   .pagination {

@@ -2,18 +2,20 @@ use axum::{
     body::Body,
     extract::{
         connect_info::ConnectInfo,
+        multipart::Field,
         Multipart, Path, Query, State,
     },
     http::header,
     response::{Json, Response},
 };
-use bytes::Bytes;
+use image::ImageReader;
+use std::io::Cursor;
 use std::net::SocketAddr;
 use tracing::info;
 
 use crate::{
     auth::middleware::RequireAuth,
-    models::{ImageData, ImageList, UserInfo},
+    models::{ImageData, ImageList, UploadImage, UserInfo},
     schemas::PaginationParams,
     state::AppState,
 };
@@ -47,11 +49,11 @@ pub async fn get_images(
 pub async fn get_image(
     State(state): State<AppState>,
     RequireAuth(user): RequireAuth,
-    Path(image_name): Path<String>,
+    Path(image_id): Path<String>,
 ) -> Result<Response> {
     let image: ImageData = state
         .image_repo
-        .get_one(&image_name, user)
+        .get_one(&image_id, user)
         .await
         .map_err(|_| ImageError::S3OperationFailure)?
         .ok_or(ImageError::ObjectNotFound)?;
@@ -74,8 +76,7 @@ pub async fn upload_image(
     info!("Client {addr} added image");
 
     let mut username: String = String::new();
-    let mut file_name: String = String::new();
-    let mut data: Bytes = Bytes::new();
+    let mut image: Option<UploadImage> = None;
 
     while let Some(field) = multipart.next_field().await.unwrap() {
         let field_name = field.name().unwrap_or("").to_string();
@@ -86,18 +87,21 @@ pub async fn upload_image(
             }
             "file_path" => {
                 let content_type = field.content_type().unwrap().to_string();
-                if !content_type.starts_with("image") {
+                if !content_type.starts_with("image/") {
                     return Err(ImageError::InvalidFileType);
                 }
 
-                file_name = field.file_name().unwrap_or("unknown").to_string();
-                data = field.bytes().await.unwrap();
+                let upload_image = parse_image_data(field)
+                    .await
+                    .map_err(|_| ImageError::ImageReadFailure)?;
+
+                image = Some(upload_image);
             }
             _ => {},
         }
     }
 
-    if !(data.is_empty() || file_name.is_empty() || username.is_empty()) {
+    if !username.is_empty() && let Some(upload_image) = image {
         // Find the user record
         let user: UserInfo = state
             .user_repo
@@ -109,12 +113,24 @@ pub async fn upload_image(
         // Upload the image to S3
         state
             .image_repo
-            .upload(data, &file_name, user)
+            .upload(upload_image, user)
+            //.upload(data, &file_name, user)
             .await
             .map_err(|_| ImageError::UploadFailure)?;
 
         return Ok(Response::default());
     }
 
-    return Err(ImageError::MissingMultipartField);
+    Err(ImageError::MissingMultipartField)
+}
+
+async fn parse_image_data(field: Field<'_>) -> anyhow::Result<UploadImage> {
+    let name = field.file_name().unwrap_or("unknown").to_string();
+    let data = field.bytes().await?;
+
+    let dimensions = ImageReader::new(Cursor::new(&data))
+        .with_guessed_format()?
+        .into_dimensions()?;
+
+    Ok(UploadImage { name, data, dimensions })
 }
