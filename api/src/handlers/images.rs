@@ -15,7 +15,9 @@ use tracing::info;
 
 use crate::{
     auth::middleware::RequireAuth,
-    models::{ImageData, ImageList, UploadImage, UserInfo},
+    models::{
+        ContentType, ImageData, ImageList, UploadImage, UserInfo,
+    },
     schemas::PaginationParams,
     state::AppState,
 };
@@ -75,23 +77,30 @@ pub async fn upload_image(
 ) -> Result<Response> {
     info!("Client {addr} added image");
 
-    let mut username: String = String::new();
+    let mut username = String::new();
     let mut image: Option<UploadImage> = None;
 
-    while let Some(field) = multipart.next_field().await.unwrap() {
-        let field_name = field.name().unwrap_or("").to_string();
-
-        match field_name.as_str() {
+    while let Some(field) = multipart
+        .next_field()
+        .await
+        .map_err(|_| ImageError::MissingMultipartField)?
+    {
+        match field.name().unwrap_or("") {
             "user" => {
-                username = field.text().await.unwrap();
+                username = field
+                    .text()
+                    .await
+                    .map_err(|_| ImageError::MissingMultipartField)?;
             }
             "file_path" => {
-                let content_type = field.content_type().unwrap().to_string();
-                if !content_type.starts_with("image/") {
+                let content_type = ContentType::from_str(
+                    field.content_type().unwrap_or("unknown"),
+                );
+                if matches!(content_type, ContentType::UNKNOWN) {
                     return Err(ImageError::InvalidFileType);
                 }
 
-                let upload_image = parse_image_data(field)
+                let upload_image = parse_image_data(field, content_type)
                     .await
                     .map_err(|_| ImageError::ImageReadFailure)?;
 
@@ -124,13 +133,17 @@ pub async fn upload_image(
     Err(ImageError::MissingMultipartField)
 }
 
-async fn parse_image_data(field: Field<'_>) -> anyhow::Result<UploadImage> {
-    let name = field.file_name().unwrap_or("unknown").to_string();
+/// Parse multipart image data.
+async fn parse_image_data(
+    field: Field<'_>,
+    content_type: ContentType,
+) -> anyhow::Result<UploadImage> {
+    let name = field.file_name().unwrap_or("").to_string();
     let data = field.bytes().await?;
 
     let dimensions = ImageReader::new(Cursor::new(&data))
         .with_guessed_format()?
         .into_dimensions()?;
 
-    Ok(UploadImage { name, data, dimensions })
+    Ok(UploadImage { name, content_type, data, dimensions })
 }

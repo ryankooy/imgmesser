@@ -10,19 +10,21 @@ CREATE TABLE IF NOT EXISTS user_profile (
 CREATE TABLE IF NOT EXISTS image (
     id uuid PRIMARY KEY,
     name text,
-    extension text,
+    content_type int NOT NULL DEFAULT 0,
     username text NOT NULL REFERENCES user_profile(username)
         ON DELETE CASCADE,
-    created_at timestamptz NOT NULL DEFAULT NOW()
+    created_at timestamptz NOT NULL DEFAULT NOW(),
+    CONSTRAINT uniq_name_username UNIQUE(name, username)
 );
 
 CREATE TABLE IF NOT EXISTS image_version (
     image_id uuid REFERENCES image(id) ON DELETE CASCADE,
     version text,
     ts timestamptz NOT NULL DEFAULT NOW(),
-    latest boolean NOT NULL,
+    current boolean NOT NULL,
     width int NOT NULL,
     height int NOT NULL,
+    size bigint NOT NULL DEFAULT 0,
     PRIMARY KEY(image_id, version)
 );
 
