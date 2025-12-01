@@ -8,11 +8,14 @@ pub enum ImageError {
     UploadFailure,
     MissingMultipartField,
     InvalidFileType,
-    ImageReadFailure,
     S3OperationFailure,
     ObjectNotFound,
     QueryFailure,
     UserNotFound,
+    ReadFailure,
+    RevertFailure,
+    RestoreFailure,
+    DeleteFailure,
 }
 
 impl IntoResponse for ImageError {
@@ -27,7 +30,7 @@ impl IntoResponse for ImageError {
             ImageError::InvalidFileType => {
                 (StatusCode::BAD_REQUEST, "Invalid file type; not an image file")
             }
-            ImageError::ImageReadFailure => {
+            ImageError::ReadFailure => {
                 (StatusCode::INTERNAL_SERVER_ERROR, "Error reading image")
             }
             ImageError::S3OperationFailure => {
@@ -41,6 +44,15 @@ impl IntoResponse for ImageError {
             }
             ImageError::UserNotFound => {
                 (StatusCode::UNAUTHORIZED, "User not found")
+            }
+            ImageError::RevertFailure => {
+                (StatusCode::INTERNAL_SERVER_ERROR, "Image reversion failed")
+            }
+            ImageError::RestoreFailure => {
+                (StatusCode::INTERNAL_SERVER_ERROR, "Image version restoration failed")
+            }
+            ImageError::DeleteFailure => {
+                (StatusCode::INTERNAL_SERVER_ERROR, "Image deletion failed")
             }
         };
 

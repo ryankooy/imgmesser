@@ -102,7 +102,7 @@ pub async fn upload_image(
 
                 let upload_image = parse_image_data(field, content_type)
                     .await
-                    .map_err(|_| ImageError::ImageReadFailure)?;
+                    .map_err(|_| ImageError::ReadFailure)?;
 
                 image = Some(upload_image);
             }
@@ -131,6 +131,51 @@ pub async fn upload_image(
     }
 
     Err(ImageError::MissingMultipartField)
+}
+
+/// Route for reverting an image to its previous version.
+pub async fn revert_image_version(
+    State(state): State<AppState>,
+    RequireAuth(user): RequireAuth,
+    Path(image_id): Path<String>,
+) -> Result<Response> {
+    state
+        .image_repo
+        .revert(&image_id, user)
+        .await
+        .map_err(|_| ImageError::RevertFailure)?;
+
+    Ok(Response::default())
+}
+
+/// Route for restoring an image back to its newer version.
+pub async fn restore_image_version(
+    State(state): State<AppState>,
+    RequireAuth(user): RequireAuth,
+    Path(image_id): Path<String>,
+) -> Result<Response> {
+    state
+        .image_repo
+        .unrevert(&image_id, user)
+        .await
+        .map_err(|_| ImageError::RestoreFailure)?;
+
+    Ok(Response::default())
+}
+
+/// Route for deleting an image.
+pub async fn delete_image(
+    State(state): State<AppState>,
+    RequireAuth(user): RequireAuth,
+    Path(image_id): Path<String>,
+) -> Result<Response> {
+    state
+        .image_repo
+        .delete(&image_id, user)
+        .await
+        .map_err(|_| ImageError::DeleteFailure)?;
+
+    Ok(Response::default())
 }
 
 /// Parse multipart image data.

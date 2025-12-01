@@ -45,6 +45,8 @@ npm run dev
 To Do
 -----
 
+- [ ] Image deletion
+- [ ] Image reversion
 - [ ] Basic image editing
 - [ ] Advanced image processing
 

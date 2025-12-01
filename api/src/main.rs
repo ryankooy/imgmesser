@@ -25,7 +25,9 @@ use tracing_subscriber::{
 use imgmesser_api::{
     handlers::{
         current_user, login, logout, register, refresh,
-        upload_image, get_image, get_images,
+        delete_image, get_image, get_images, restore_image_version,
+        revert_image_version, upload_image,
+
     },
     state::AppState,
 };
@@ -68,6 +70,9 @@ async fn main() -> Result<()> {
         .route("/user", get(current_user))
         .route("/images", get(get_images).post(upload_image))
         .route("/images/{id}", get(get_image))
+        .route("/images/{id}/delete", post(delete_image))
+        .route("/images/{id}/revert", post(revert_image_version))
+        .route("/images/{id}/restore", post(restore_image_version))
         //.route("/images/{id}/transform", post(process_image))
         .with_state(state)
         .layer(

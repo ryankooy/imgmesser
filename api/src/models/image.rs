@@ -48,6 +48,13 @@ impl<'a> FromRow<'a, PgRow> for Image {
     }
 }
 
+#[derive(Clone, Debug, FromRow)]
+pub struct ImageVersion {
+    pub image_id: Uuid,
+    pub version: String,
+    pub ts: DateTime<Utc>,
+}
+
 /// Data for image yet to be uploaded
 pub struct UploadImage {
     pub name: String,

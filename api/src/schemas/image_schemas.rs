@@ -1,17 +1,4 @@
-use serde::{Deserialize, Serialize};
-
-use crate::models::Image;
-
-#[derive(Debug, Deserialize)]
-struct ImageRequest {
-    pub id: String,
-    pub name: String,
-}
-
-#[derive(Debug, Serialize)]
-struct ImageResponse {
-    pub image: Image,
-}
+use serde::Deserialize;
 
 #[derive(Deserialize)]
 pub struct PaginationParams {
