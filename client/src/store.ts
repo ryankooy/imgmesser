@@ -6,10 +6,15 @@ export const currentUser = writable(null);
 export const apiUrl = "http://127.0.0.1:3000";
 
 export interface ImageData {
-    key: string;
-    size: number;
-    last_modified: string;
+    id: string;
+    name: string;
     content_type: string;
+    created_at: string;
+    last_modified: string;
+    version: string;
+    width: number;
+    height: number;
+    size: number;
 }
 
 export const registerServiceWorker = async () => {

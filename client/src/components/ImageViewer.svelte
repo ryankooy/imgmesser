@@ -7,6 +7,9 @@
 
   const dispatch = createEventDispatcher();
 
+  const undoSymbol = "↶";
+  const redoSymbol = "↷";
+
   let imageDataUrl: string = "";
   let loading = true;
 
@@ -14,10 +17,14 @@
     loadImageData();
   });
 
+  function imageId(): string {
+    return encodeURIComponent(image.id);
+  }
+
   async function loadImageData() {
     loading = true;
     try {
-      const response = await fetch(`${apiUrl}/images/${encodeURIComponent(image.id)}`);
+      const response = await fetch(`${apiUrl}/images/${imageId()}`);
       if (response.ok) {
         const blob = await response.blob();
         imageDataUrl = URL.createObjectURL(blob);
@@ -26,6 +33,38 @@
       console.error("Failed to load image:", err);
     } finally {
       loading = false;
+    }
+  }
+
+  async function revertImage() {
+    try {
+      const response = await fetch(`${apiUrl}/images/${imageId()}/revert`, {
+        method: "POST",
+      });
+
+      if (response.ok) {
+        dispatch("imageUpdate");
+      } else {
+        console.error("Failed to revert image");
+      }
+    } catch (err) {
+      console.error("Image reversion failed:", err);
+    }
+  }
+
+  async function restoreImage() {
+    try {
+      const response = await fetch(`${apiUrl}/images/${imageId()}/restore`, {
+        method: "POST",
+      });
+
+      if (response.ok) {
+        dispatch("imageUpdate");
+      } else {
+        console.error("Failed to restore image");
+      }
+    } catch (err) {
+      console.error("Image restoration failed:", err);
     }
   }
 
@@ -122,6 +161,15 @@
         </div>
       </div>
 
+      <div class="actions">
+        <button class="action-btn" on:click={revertImage} disabled={!imageDataUrl}>
+          {undoSymbol}
+        </button>
+        <button class="action-btn" on:click={restoreImage} disabled={!imageDataUrl}>
+          {redoSymbol}
+        </button>
+      </div>
+      <br />
       <div class="actions">
         <button class="action-btn download" on:click={downloadImage} disabled={!imageDataUrl}>
           Download

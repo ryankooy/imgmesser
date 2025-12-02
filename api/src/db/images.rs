@@ -18,7 +18,10 @@ pub async fn insert_image(
         VALUES ($1, $2, $3, $4)
         ON CONFLICT (name, username) DO NOTHING
         "#,
-        id, name, content_type as i32, username,
+        id,
+        name,
+        content_type as i32,
+        username,
     )
     .execute(db)
     .await?;
@@ -56,7 +59,8 @@ pub async fn insert_image_version(
         UPDATE image_version SET current = FALSE
         WHERE image_id = $1 AND version <> $2
         "#,
-        image_id, version,
+        image_id,
+        version,
     )
     .execute(db)
     .await?;
@@ -84,7 +88,7 @@ pub async fn revert_image(
     db: &PgPool,
     image_id: &Uuid,
 ) -> Result<Option<String>> {
-    if let Some(prior_version) = unset_current_version(db, image_id).await? {
+    if let Some(prior_version) = get_current_version(db, image_id).await? {
         // Set the `current` flag for the next most recent
         // version and return the version id
         let version = sqlx::query_scalar!(
@@ -106,6 +110,8 @@ pub async fn revert_image(
         .fetch_optional(db)
         .await?;
 
+        unset_current_version_flags(db, image_id, &version).await?;
+
         Ok(version)
     } else {
         Ok(None)
@@ -117,7 +123,7 @@ pub async fn unrevert_image(
     db: &PgPool,
     image_id: &Uuid,
 ) -> Result<Option<String>> {
-    if let Some(prior_version) = unset_current_version(db, image_id).await? {
+    if let Some(prior_version) = get_current_version(db, image_id).await? {
         // Set the `current` flag for the more recent
         // version and return the version id
         let version = sqlx::query_scalar!(
@@ -139,10 +145,54 @@ pub async fn unrevert_image(
         .fetch_optional(db)
         .await?;
 
+        unset_current_version_flags(db, image_id, &version).await?;
+
         Ok(version)
     } else {
         Ok(None)
     }
+}
+
+/// Unset all `current` flags for an image's versions
+/// except for the specified version.
+async fn unset_current_version_flags(
+    db: &PgPool,
+    image_id: &Uuid,
+    version: &Option<String>,
+) -> Result<()> {
+    if let Some(version_id) = version {
+        sqlx::query!(
+            r#"
+            UPDATE image_version SET current = FALSE
+            WHERE image_id = $1 AND version <> $2
+            "#,
+            image_id,
+            &version_id,
+        )
+        .execute(db)
+        .await?;
+    }
+
+    Ok(())
+}
+
+/// Get the current version info for an image.
+async fn get_current_version(
+    db: &PgPool,
+    image_id: &Uuid,
+) -> Result<Option<ImageVersion>> {
+    let version_info = sqlx::query_as::<_, ImageVersion>(
+        r#"
+        SELECT image_id, version, ts
+        FROM image_version
+        WHERE current AND image_id = $1
+        "#,
+    )
+    .bind(image_id)
+    .fetch_optional(db)
+    .await?;
+
+    Ok(version_info)
 }
 
 /// Retrieve database data for a single image.
@@ -202,6 +252,7 @@ pub async fn find_all(
         FROM image AS i
         LEFT JOIN image_version AS iv
             ON iv.image_id = i.id
+        WHERE iv.current
         "#,
     )
     .bind(username)
@@ -209,24 +260,4 @@ pub async fn find_all(
     .await?;
 
     Ok(images)
-}
-
-/// Unset the `current` flag for an image version
-/// and return version info.
-async fn unset_current_version(
-    db: &PgPool,
-    image_id: &Uuid,
-) -> Result<Option<ImageVersion>> {
-    let version_info = sqlx::query_as::<_, ImageVersion>(
-        r#"
-        UPDATE image_version SET current = FALSE
-        WHERE current AND image_id = $1
-        RETURNING image_id, version, ts
-        "#,
-    )
-    .bind(image_id)
-    .fetch_optional(db)
-    .await?;
-
-    Ok(version_info)
 }

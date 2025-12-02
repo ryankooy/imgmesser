@@ -43,6 +43,8 @@
         total = data.total;
         hasMore = data.has_more;
 
+        dispatch("imagesLoaded", images);
+
         // Fetch actual image data for each image
         await loadImageData();
       } else {

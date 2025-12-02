@@ -39,6 +39,18 @@
     selectedImage = event.detail;
   }
 
+  function handleImagesLoaded(event: CustomEvent<ImageData[]>) {
+    if (selectedImage) {
+      const imageId = selectedImage.id;
+      const images = event.detail;
+      selectedImage = images.find((img) => img.id === imageId);
+    }
+  }
+
+  function handleImageUpdate() {
+    refreshTrigger++;
+  }
+
   function handleImageClose() {
     selectedImage = null;
   }
@@ -75,6 +87,7 @@
       {:else if $currentView === "gallery"}
         <ImageGallery
           on:imageSelect={handleImageSelect}
+          on:imagesLoaded={handleImagesLoaded}
           refresh={refreshTrigger}
         />
 
@@ -82,6 +95,7 @@
           <ImageViewer
             image={selectedImage}
             on:close={handleImageClose}
+            on:imageUpdate={handleImageUpdate}
           />
         {/if}
       {:else if $currentView === "register"}
