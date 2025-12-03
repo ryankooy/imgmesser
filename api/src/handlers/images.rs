@@ -18,7 +18,7 @@ use crate::{
     models::{
         ContentType, ImageData, ImageList, UploadImage, UserInfo,
     },
-    schemas::PaginationParams,
+    schemas::{ImageVersionUpdateResponse, PaginationParams},
     state::AppState,
 };
 
@@ -123,7 +123,6 @@ pub async fn upload_image(
         state
             .image_repo
             .upload(upload_image, user)
-            //.upload(data, &file_name, user)
             .await
             .map_err(|_| ImageError::UploadFailure)?;
 
@@ -138,14 +137,15 @@ pub async fn revert_image_version(
     State(state): State<AppState>,
     RequireAuth(user): RequireAuth,
     Path(image_id): Path<String>,
-) -> Result<Response> {
-    state
+) -> Result<Json<ImageVersionUpdateResponse>> {
+    let version_updated: bool = state
         .image_repo
         .revert(&image_id, user)
         .await
-        .map_err(|_| ImageError::RevertFailure)?;
+        .map_err(|_| ImageError::RevertFailure)?
+        .is_some();
 
-    Ok(Response::default())
+    Ok(Json(ImageVersionUpdateResponse { version_updated }))
 }
 
 /// Route for restoring an image back to its newer version.
@@ -153,14 +153,15 @@ pub async fn restore_image_version(
     State(state): State<AppState>,
     RequireAuth(user): RequireAuth,
     Path(image_id): Path<String>,
-) -> Result<Response> {
-    state
+) -> Result<Json<ImageVersionUpdateResponse>> {
+    let version_updated: bool = state
         .image_repo
-        .unrevert(&image_id, user)
+        .restore(&image_id, user)
         .await
-        .map_err(|_| ImageError::RestoreFailure)?;
+        .map_err(|_| ImageError::RestoreFailure)?
+        .is_some();
 
-    Ok(Response::default())
+    Ok(Json(ImageVersionUpdateResponse { version_updated }))
 }
 
 /// Route for deleting an image.

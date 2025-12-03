@@ -10,7 +10,8 @@ use uuid::Uuid;
 use crate::{
     db,
     models::{
-        Image, ImageData, ImageList, UploadImage, UserInfo,
+        Image, ImageData, ImageInfo, ImageList,
+        UploadImage, UserInfo,
     },
     s3,
 };
@@ -46,9 +47,17 @@ pub trait ImageRepoOps: Send + Sync {
 
     async fn delete(&self, image_id_str: &str, user: UserInfo) -> Result<()>;
 
-    async fn revert(&self, image_id_str: &str, user: UserInfo) -> Result<()>;
+    async fn revert(
+        &self,
+        image_id_str: &str,
+        user: UserInfo,
+    ) -> Result<Option<String>>;
 
-    async fn unrevert(&self, image_id_str: &str, user: UserInfo) -> Result<()>;
+    async fn restore(
+        &self,
+        image_id_str: &str,
+        user: UserInfo,
+    ) -> Result<Option<String>>;
 }
 
 #[async_trait]
@@ -190,18 +199,6 @@ impl ImageRepoOps for ImageRepo {
                     if let Some(name) = path.file_name() {
                         let name = name.to_string_lossy().into_owned();
                         if let Some(image) = image_map.get(name.as_str()) {
-//FIXME: do we need last_modified from S3?
-//                            let last_modified = object
-//                                .last_modified()
-//                                .map(|dt| dt.to_string())
-//                                .unwrap_or_else(|| "unknown".to_string());
-//
-//                            //TODO:REMOVE:
-//                            println!();
-//                            println!("S3 LAST MOD: {}", last_modified);
-//                            println!("DB LAST MOD: {}", &image.last_modified);
-//                            println!();
-
                             return Some(image.clone());
                         }
                     }
@@ -238,38 +235,40 @@ impl ImageRepoOps for ImageRepo {
         &self,
         image_id_str: &str,
         user: UserInfo,
-    ) -> Result<()> {
+    ) -> Result<Option<String>> {
         let image = get_metadata(&self.db, image_id_str, &user.username).await?;
 
         // Revert image to previous version
-        let new_current_version = db::revert_image(&self.db, &image.id)
-            .await?
-            .ok_or(anyhow!("Error reverting image version"))?;
+        let new_current_version = db::revert_image_version(&self.db, &image.id)
+            .await?;
 
-        if new_current_version == image.version {
-            bail!("Failed to revert image");
+        if let Some(ref version) = new_current_version {
+            if version == &image.version {
+                return Ok(None);
+            }
         }
 
-        Ok(())
+        Ok(new_current_version)
     }
 
-    async fn unrevert(
+    async fn restore(
         &self,
         image_id_str: &str,
         user: UserInfo,
-    ) -> Result<()> {
+    ) -> Result<Option<String>> {
         let image = get_metadata(&self.db, image_id_str, &user.username).await?;
 
         // Restore image to newer version
-        let new_current_version = db::unrevert_image(&self.db, &image.id)
-            .await?
-            .ok_or(anyhow!("Error restoring image to newer version"))?;
+        let new_current_version = db::restore_image_version(&self.db, &image.id)
+            .await?;
 
-        if new_current_version == image.version {
-            bail!("Failed to restore image to newer version");
+        if let Some(ref version) = new_current_version {
+            if version == &image.version {
+                return Ok(None);
+            }
         }
 
-        Ok(())
+        Ok(new_current_version)
     }
 }
 
@@ -278,7 +277,7 @@ async fn get_metadata(
     db: &PgPool,
     image_id_str: &str,
     username: &str,
-) -> Result<Image> {
+) -> Result<ImageInfo> {
     let image_id = Uuid::parse_str(image_id_str)?;
     if let Some(image) = db::find_one(db, &image_id, username).await? {
         Ok(image)

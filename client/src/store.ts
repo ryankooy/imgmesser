@@ -15,6 +15,10 @@ export interface ImageData {
     width: number;
     height: number;
     size: number;
+    version_count: number;
+    version_index: number;
+    latest_version: boolean;
+    initial_version: boolean;
 }
 
 export const registerServiceWorker = async () => {

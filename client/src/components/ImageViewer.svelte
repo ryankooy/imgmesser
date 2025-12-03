@@ -7,11 +7,12 @@
 
   const dispatch = createEventDispatcher();
 
-  const undoSymbol = "↶";
-  const redoSymbol = "↷";
-
   let imageDataUrl: string = "";
   let loading = true;
+  let multiVersion: boolean = image.version_count > 1;
+
+  const undoSymbol = "↶";
+  const redoSymbol = "↷";
 
   onMount(() => {
     loadImageData();
@@ -43,7 +44,11 @@
       });
 
       if (response.ok) {
-        dispatch("imageUpdate");
+        const data = await response.json();
+
+        if (data.version_updated) {
+          dispatch("imageUpdate");
+        }
       } else {
         console.error("Failed to revert image");
       }
@@ -59,7 +64,11 @@
       });
 
       if (response.ok) {
-        dispatch("imageUpdate");
+        const data = await response.json();
+
+        if (data.version_updated) {
+          dispatch("imageUpdate");
+        }
       } else {
         console.error("Failed to restore image");
       }
@@ -151,25 +160,37 @@
           <span class="label">Uploaded</span>
           <span class="value">{formatDate(image.created_at)}</span>
         </div>
-        <div class="detail-item">
-          <span class="label">Modified</span>
-          <span class="value">{formatDate(image.last_modified)}</span>
-        </div>
-        <div class="detail-item">
-          <span class="label">Version</span>
-          <span class="value">{image.version}</span>
-        </div>
+        {#if multiVersion}
+          <div class="detail-item">
+            <span class="label">Modified</span>
+            <span class="value">{formatDate(image.last_modified)}</span>
+          </div>
+          <div class="detail-item">
+            <span class="label">Version</span>
+            <span class="value">{image.version_index} ({image.version})</span>
+          </div>
+        {/if}
       </div>
 
-      <div class="actions">
-        <button class="action-btn" on:click={revertImage} disabled={!imageDataUrl}>
-          {undoSymbol}
-        </button>
-        <button class="action-btn" on:click={restoreImage} disabled={!imageDataUrl}>
-          {redoSymbol}
-        </button>
-      </div>
-      <br />
+      {#if multiVersion}
+        <div class="actions">
+          <button
+            class="action-btn"
+            on:click={revertImage}
+            disabled={!imageDataUrl || image.initial_version}
+            >
+            {undoSymbol}
+          </button>
+          <button
+            class="action-btn"
+            on:click={restoreImage}
+            disabled={!imageDataUrl || image.latest_version}
+            >
+            {redoSymbol}
+          </button>
+        </div>
+        <br />
+      {/if}
       <div class="actions">
         <button class="action-btn download" on:click={downloadImage} disabled={!imageDataUrl}>
           Download

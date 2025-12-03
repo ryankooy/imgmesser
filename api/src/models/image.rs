@@ -23,6 +23,10 @@ pub struct Image {
     pub width: i32,
     pub height: i32,
     pub size: i64,
+    pub version_count: i64,
+    pub version_index: i64,
+    pub latest_version: bool,
+    pub initial_version: bool,
 }
 
 impl<'a> FromRow<'a, PgRow> for Image {
@@ -42,6 +46,10 @@ impl<'a> FromRow<'a, PgRow> for Image {
             width: row.try_get("width")?,
             height: row.try_get("height")?,
             size: row.try_get("size")?,
+            version_count: row.try_get("version_count")?,
+            version_index: row.try_get("version_index")?,
+            latest_version: row.try_get("latest_version")?,
+            initial_version: row.try_get("initial_version")?,
         };
 
         Ok(image)
@@ -49,8 +57,14 @@ impl<'a> FromRow<'a, PgRow> for Image {
 }
 
 #[derive(Clone, Debug, FromRow)]
+pub struct ImageInfo {
+    pub id: Uuid,
+    pub name: String,
+    pub version: String,
+}
+
+#[derive(Clone, Debug, FromRow)]
 pub struct ImageVersion {
-    pub image_id: Uuid,
     pub version: String,
     pub ts: DateTime<Utc>,
 }

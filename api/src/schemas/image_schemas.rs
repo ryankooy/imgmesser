@@ -1,4 +1,9 @@
-use serde::Deserialize;
+use serde::{Deserialize, Serialize};
+
+#[derive(Serialize)]
+pub struct ImageVersionUpdateResponse {
+    pub version_updated: bool,
+}
 
 #[derive(Deserialize)]
 pub struct PaginationParams {
