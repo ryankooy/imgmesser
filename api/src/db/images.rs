@@ -107,7 +107,7 @@ pub async fn find_all(
     db: &PgPool,
     username: &str,
 ) -> Result<Vec<Image>> {
-    let images = match sqlx::query_as::<_, Image>(
+    let images = sqlx::query_as::<_, Image>(
         r#"
         WITH images AS (
             SELECT * FROM image WHERE username = $1

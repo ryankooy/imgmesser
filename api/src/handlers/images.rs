@@ -15,14 +15,13 @@ use tracing::info;
 
 use crate::{
     auth::middleware::RequireAuth,
+    errors::ImageError,
     models::{
         ContentType, ImageData, ImageList, UploadImage, UserInfo,
     },
     schemas::{ImageVersionUpdateResponse, PaginationParams},
     state::AppState,
 };
-
-use super::error::ImageError;
 
 type Result<T> = anyhow::Result<T, ImageError>;
 
@@ -41,8 +40,7 @@ pub async fn get_images(
     let images: ImageList = state
         .image_repo
         .get_all(user, page, limit)
-        .await
-        .map_err(|_| ImageError::S3OperationFailure)?;
+        .await?;
 
     Ok(Json(images))
 }
@@ -56,9 +54,8 @@ pub async fn get_image(
     let image: ImageData = state
         .image_repo
         .get_one(&image_id, user)
-        .await
-        .map_err(|_| ImageError::S3OperationFailure)?
-        .ok_or(ImageError::ObjectNotFound)?;
+        .await?
+        .ok_or(ImageError::NotFound)?;
 
     let response = Response::builder()
         .header(header::CONTENT_TYPE, image.content_type)
@@ -116,15 +113,14 @@ pub async fn upload_image(
             .user_repo
             .find(&username)
             .await
-            .map_err(|_| ImageError::QueryFailure)?
+            .map_err(|e| ImageError::QueryFailure(e.to_string()))?
             .ok_or(ImageError::UserNotFound)?;
 
         // Upload the image to S3
         state
             .image_repo
             .upload(upload_image, user)
-            .await
-            .map_err(|_| ImageError::UploadFailure)?;
+            .await?;
 
         return Ok(Response::default());
     }
@@ -141,8 +137,7 @@ pub async fn revert_image_version(
     let version_updated: bool = state
         .image_repo
         .revert(&image_id, user)
-        .await
-        .map_err(|_| ImageError::RevertFailure)?
+        .await?
         .is_some();
 
     Ok(Json(ImageVersionUpdateResponse { version_updated }))
@@ -157,8 +152,7 @@ pub async fn restore_image_version(
     let version_updated: bool = state
         .image_repo
         .restore(&image_id, user)
-        .await
-        .map_err(|_| ImageError::RestoreFailure)?
+        .await?
         .is_some();
 
     Ok(Json(ImageVersionUpdateResponse { version_updated }))
@@ -173,8 +167,7 @@ pub async fn delete_image(
     state
         .image_repo
         .delete(&image_id, user)
-        .await
-        .map_err(|_| ImageError::DeleteFailure)?;
+        .await?;
 
     Ok(Response::default())
 }

@@ -17,10 +17,8 @@ use jsonwebtoken::{
 use serde::{Deserialize, Serialize};
 use uuid::Uuid;
 
-use super::{
-    error::AuthError,
-    keys::get_keys,
-};
+use crate::errors::AuthError;
+use super::keys::get_keys;
 
 #[derive(Debug, Deserialize, Serialize)]
 pub struct Claims {

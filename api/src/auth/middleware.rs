@@ -10,8 +10,12 @@ use headers::{
     Authorization,
 };
 
-use crate::{models::UserInfo, state::AppState};
-use super::{error::AuthError, jwt};
+use crate::{
+    errors::AuthError,
+    models::UserInfo,
+    state::AppState,
+};
+use super::jwt;
 
 /// Requires valid JWT for protected routes
 pub struct RequireAuth(pub UserInfo);

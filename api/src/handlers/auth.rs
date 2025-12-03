@@ -10,10 +10,10 @@ use tracing::{error, info};
 
 use crate::{
     auth::{
-        error::AuthError,
         middleware::RequireAuth,
         jwt,
     },
+    errors::AuthError,
     models::{User, UserInfo},
     schemas::{
         UserRequest, LoginResponse, UserResponse,

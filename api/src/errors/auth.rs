@@ -53,7 +53,7 @@ impl IntoResponse for AuthError {
                 (StatusCode::BAD_REQUEST, "Authorization header missing or malformed")
             }
             AuthError::QueryFailure => {
-                (StatusCode::INTERNAL_SERVER_ERROR, "Error querying data")
+                (StatusCode::INTERNAL_SERVER_ERROR, "Error querying user data")
             }
         };
 
