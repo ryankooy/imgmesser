@@ -61,7 +61,7 @@ export const logOut = async (): boolean => {
             method: "POST",
         });
 
-        if (response.ok) return true;
+        return response.ok;
     } catch (error) {
         console.error("Error fetching:", error);
     }

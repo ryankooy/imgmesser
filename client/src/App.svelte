@@ -32,8 +32,11 @@
     }
   });
 
-  let selectedImage: ImageData | null = null;
-  let refreshTrigger = 0;
+  let selectedImage: ImageData | null = $state(null);
+  let showUploadModal: boolean = $state(false);
+
+  // Trigger for reloading gallery
+  let refreshTrigger = $state(0);
 
   function handleImageSelect(event: CustomEvent<ImageData>) {
     selectedImage = event.detail;
@@ -55,15 +58,22 @@
     selectedImage = null;
   }
 
+  function handleUploadModalOpen() {
+    showUploadModal = true;
+  }
+
+  function handleUploadModalClose() {
+    showUploadModal = false;
+  }
+
   function handleUploadSuccess() {
-    // Trigger gallery refresh
     refreshTrigger++;
     selectedImage = null;
   }
 
   function handleLoginSuccess(event: CustomEvent) {
     $currentUser = event.detail;
-    $currentView = "upload";
+    $currentView = "gallery";
   }
 
   function showRegisterView() {
@@ -80,14 +90,11 @@
 
   <main>
     <div class="container">
-      {#if $currentView === "upload"}
-        <UploadForm
-          on:uploadSuccess={handleUploadSuccess}
-        />
-      {:else if $currentView === "gallery"}
+      {#if $currentView === "gallery"}
         <ImageGallery
           on:imageSelect={handleImageSelect}
           on:imagesLoaded={handleImagesLoaded}
+          on:upload={handleUploadModalOpen}
           refresh={refreshTrigger}
         />
 
@@ -96,6 +103,11 @@
             image={selectedImage}
             on:close={handleImageClose}
             on:imageUpdate={handleImageUpdate}
+          />
+        {:else if showUploadModal}
+          <UploadForm
+            on:uploadSuccess={handleUploadSuccess}
+            on:close={handleUploadModalClose}
           />
         {/if}
       {:else if $currentView === "register"}

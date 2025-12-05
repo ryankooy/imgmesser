@@ -75,7 +75,7 @@
 <div class="register-card" id="register">
   <h2>Registration</h2>
   <small>Create an account.</small>
-  <p />
+  <br />
 
   <form on:submit|preventDefault={handleSubmit}>
     <div class="field">

@@ -1,14 +1,15 @@
 <script lang="ts">
   import { createEventDispatcher } from "svelte";
+  import IconButton from "@smui/icon-button";
   import { apiUrl, currentUser, getCurrentUser } from "../store.ts";
 
   const dispatch = createEventDispatcher();
 
-  let selectedFile: File | null = null;
-  let previewUrl: string | null = null;
-  let uploading = false;
-  let message = "";
-  let messageType: "success" | "error" | "" = "";
+  let selectedFile: File | null = $state(null);
+  let previewUrl: string | null = $state(null);
+  let uploading: boolean = $state(false);
+  let message: string = $state("");
+  let messageType: "success" | "error" | "" = $state("");
 
   async function userIsValid(): boolean {
     const user = await getCurrentUser();
@@ -97,47 +98,133 @@
     const fileInput = document.querySelector("input[type='file']") as HTMLInputElement;
     if (fileInput) fileInput.value = "";
   }
+
+  function close() {
+    dispatch("close");
+  }
+
+  function handleBackdropClick(event: MouseEvent) {
+    if (event.target === event.currentTarget) {
+      close();
+    }
+  }
 </script>
 
-<div class="upload-card" id="upload">
-  <h2>Upload New Image</h2>
+<div class="modal-backdrop" onclick={handleBackdropClick}>
+  <div class="modal-content" id="upload">
 
-  <div class="upload-section">
-    <input
-      type="file"
-      accept="image/jpeg,image/png,image/gif,image/webp"
-      on:change={handleFileSelect}
-      disabled={uploading}
-    />
+    <IconButton
+      class="material-icons close-btn"
+      onclick={close}
+      aria-label="Close"
+      >
+      close
+    </IconButton>
 
-    {#if previewUrl}
-      <div class="preview">
-        <img src={previewUrl} alt="Preview" />
-      </div>
-    {/if}
+    <div class="upload-section">
+      <h2>Upload New Image</h2>
+      <label for="file-upload" class="file-upload-label">
+        Browse Computer
+      </label>
+      <input
+        id="file-upload"
+        type="file"
+        accept="image/jpeg,image/png,image/gif,image/webp"
+        onchange={handleFileSelect}
+        disabled={uploading}
+      />
 
-    <button
-      on:click={uploadImage}
-      disabled={!selectedFile || uploading}
-      class="upload-btn"
-    >
-      {uploading ? "Uploading..." : "Upload Image"}
-    </button>
+      {#if previewUrl}
+        <div class="preview">
+          <img src={previewUrl} alt="Preview" />
+        </div>
+      {/if}
 
-    {#if message}
-      <div class="message {messageType}">
-        {message}
-      </div>
-    {/if}
+      <button
+        onclick={uploadImage}
+        disabled={!selectedFile || uploading}
+        class="upload-btn"
+      >
+        {uploading ? "Uploading..." : "Upload"}
+      </button>
+
+      {#if message}
+        <div class="message {messageType}">
+          {message}
+        </div>
+      {/if}
+    </div>
   </div>
 </div>
 
 <style>
-  .upload-card {
+  .modal-backdrop {
+    position: fixed;
+    top: 0;
+    left: 0;
+    right: 0;
+    bottom: 0;
+    background: rgba(0, 0, 0, 0.85);
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    z-index: 1000;
+    padding: 20px;
+    animation: fadeIn 0.2s ease-out;
+  }
+
+  @keyframes fadeIn {
+    from {
+      opacity: 0;
+    }
+    to {
+      opacity: 1;
+    }
+  }
+
+  .modal-content {
     background: white;
     border-radius: 16px;
-    padding: 32px;
-    box-shadow: 0 2px 8px rgba(0, 0, 0, 0.1);
+    max-width: 900px;
+    width: 100%;
+    max-height: 90vh;
+    overflow-y: auto;
+    position: relative;
+    animation: slideUp 0.3s ease-out;
+  }
+
+  @keyframes slideUp {
+    from {
+      transform: translateY(20px);
+      opacity: 0;
+    }
+    to {
+      transform: translateY(0);
+      opacity: 1;
+    }
+  }
+
+  :global(.close-btn) {
+    position: absolute;
+    top: 16px;
+    right: 16px;
+    width: 40px;
+    height: 40px;
+    border-radius: 50%;
+    background: rgba(0, 0, 0, 0.5);
+    color: white;
+    border: none;
+    font-size: 24px;
+    cursor: pointer;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    z-index: 10;
+    transition: background 0.2s;
+  }
+
+  :global(.close-btn:hover) {
+    background: rgba(0, 0, 0, 0.7);
   }
 
   h2 {
@@ -147,18 +234,35 @@
   }
 
   .upload-section {
+    width: 100%;
+    height: 500px;
+    overflow: hidden;
     display: flex;
+    align-items: center;
+    justify-content: center;
+    min-height: 300px;
     flex-direction: column;
     gap: 20px;
   }
 
   input[type="file"] {
+    opacity: 0;
+    position: absolute;
+    cursor: pointer;
+  }
+
+  .file-upload-label {
+    display: inline-block;
     padding: 12px;
     border: 2px dashed #667eea;
     border-radius: 8px;
     cursor: pointer;
     background: #f8f9ff;
     transition: border-color 0.2s;
+  }
+
+  input[type="file"]::file-selector-button {
+    display: none;
   }
 
   input[type="file"]:hover:not(:disabled) {

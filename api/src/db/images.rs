@@ -136,7 +136,7 @@ pub async fn find_all(
             v.idx AS version_index,
             v.idx = vc.version_count AS latest_version,
             v.idx = 1 AS initial_version
-        FROM image AS i
+        FROM images AS i
         LEFT JOIN current_version AS v
             ON v.image_id = i.id
         LEFT JOIN version_count AS vc

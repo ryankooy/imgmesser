@@ -1,18 +1,17 @@
 <script lang="ts">
   import { createEventDispatcher, onMount } from "svelte";
+  import IconButton from "@smui/icon-button";
   import { apiUrl } from "../store.ts";
   import type { ImageData } from "../store.ts";
 
-  export let image: ImageData;
+  const { image } = $props();
 
   const dispatch = createEventDispatcher();
 
-  let imageDataUrl: string = "";
-  let loading = true;
-  let multiVersion: boolean = image.version_count > 1;
+  let imageDataUrl: string = $state("");
+  let loading = $state(true);
 
-  const undoSymbol = "↶";
-  const redoSymbol = "↷";
+  let multiVersion: boolean = $derived(image.version_count > 1);
 
   onMount(() => {
     loadImageData();
@@ -45,9 +44,8 @@
 
       if (response.ok) {
         const data = await response.json();
-
         if (data.version_updated) {
-          dispatch("imageUpdate");
+          await handleUpdatedImage();
         }
       } else {
         console.error("Failed to revert image");
@@ -65,9 +63,8 @@
 
       if (response.ok) {
         const data = await response.json();
-
         if (data.version_updated) {
-          dispatch("imageUpdate");
+          await handleUpdatedImage();
         }
       } else {
         console.error("Failed to restore image");
@@ -75,6 +72,11 @@
     } catch (err) {
       console.error("Image restoration failed:", err);
     }
+  }
+
+  async function handleUpdatedImage() {
+    dispatch("imageUpdate");
+    await loadImageData();
   }
 
   function close() {
@@ -122,11 +124,15 @@
 
 <svelte:window on:keydown={handleKeydown} />
 
-<div class="modal-backdrop" on:click={handleBackdropClick}>
+<div class="modal-backdrop" onclick={handleBackdropClick}>
   <div class="modal-content">
-    <button class="close-btn" on:click={close} aria-label="Close">
-      ✕
-    </button>
+    <IconButton
+      class="material-icons close-btn"
+      onclick={close}
+      aria-label="Close"
+      >
+      close
+    </IconButton>
 
     <div class="image-container">
       {#if loading}
@@ -141,8 +147,38 @@
       {/if}
     </div>
 
-    <div class="image-details">
+    <div class="image-header">
       <h3>{image.name}</h3>
+
+      <div class="actions">
+        <IconButton
+          class="material-icons action-btn download"
+          onclick={downloadImage}
+          disabled={!imageDataUrl}
+          >
+          download
+        </IconButton>
+
+        {#if multiVersion}
+          <IconButton
+            class="material-icons action-btn"
+            onclick={revertImage}
+            disabled={!imageDataUrl || image.initial_version}
+            >
+            undo
+          </IconButton>
+          <IconButton
+            class="material-icons action-btn"
+            onclick={restoreImage}
+            disabled={!imageDataUrl || image.latest_version}
+            >
+            redo
+          </IconButton>
+        {/if}
+      </div>
+    </div>
+
+    <div class="image-details">
       <div class="details-grid">
         <div class="detail-item">
           <span class="label">File Size</span>
@@ -170,31 +206,6 @@
             <span class="value">{image.version_index} ({image.version})</span>
           </div>
         {/if}
-      </div>
-
-      {#if multiVersion}
-        <div class="actions">
-          <button
-            class="action-btn"
-            on:click={revertImage}
-            disabled={!imageDataUrl || image.initial_version}
-            >
-            {undoSymbol}
-          </button>
-          <button
-            class="action-btn"
-            on:click={restoreImage}
-            disabled={!imageDataUrl || image.latest_version}
-            >
-            {redoSymbol}
-          </button>
-        </div>
-        <br />
-      {/if}
-      <div class="actions">
-        <button class="action-btn download" on:click={downloadImage} disabled={!imageDataUrl}>
-          Download
-        </button>
       </div>
     </div>
   </div>
@@ -247,34 +258,11 @@
     }
   }
 
-  .close-btn {
-    position: absolute;
-    top: 16px;
-    right: 16px;
-    width: 40px;
-    height: 40px;
-    border-radius: 50%;
-    background: rgba(0, 0, 0, 0.5);
-    color: white;
-    border: none;
-    font-size: 24px;
-    cursor: pointer;
-    display: flex;
-    align-items: center;
-    justify-content: center;
-    z-index: 10;
-    transition: background 0.2s;
-  }
-
-  .close-btn:hover {
-    background: rgba(0, 0, 0, 0.7);
-  }
-
   .image-container {
     width: 100%;
     max-height: 500px;
     overflow: hidden;
-    background: #f0f0f0;
+    background: black;
     display: flex;
     align-items: center;
     justify-content: center;
@@ -314,8 +302,14 @@
     padding: 40px;
   }
 
+  .image-header {
+    display: flex;
+    padding: 24px 24px 0 24px;
+  }
+
   .image-details {
-    padding: 24px;
+    display: flex;
+    padding: 0 24px;
   }
 
   h3 {
@@ -328,7 +322,7 @@
   .details-grid {
     display: flex;
     flex-direction: column;
-    gap: 12px;
+    gap: 10px;
     margin-bottom: 24px;
   }
 
@@ -348,41 +342,58 @@
   }
 
   .actions {
+    margin-left: auto;
+    align-self: flex-start;
     display: flex;
     gap: 12px;
     flex-wrap: wrap;
   }
 
-  .action-btn {
-    flex: 1;
-    min-width: 140px;
-    padding: 12px 20px;
-    background: #f0f0f0;
-    border: 1px solid #ddd;
-    border-radius: 8px;
-    font-weight: 600;
-    cursor: pointer;
-    transition: all 0.2s;
-  }
-
-  .action-btn:hover:not(:disabled) {
-    background: #e0e0e0;
-    transform: translateY(-2px);
-  }
-
-  .action-btn:disabled {
-    opacity: 0.5;
-    cursor: not-allowed;
-  }
-
-  .action-btn.download {
-    background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
+  :global(.close-btn) {
+    position: absolute;
+    top: 16px;
+    right: 16px;
+    width: 40px;
+    height: 40px;
+    border-radius: 50%;
+    background: rgba(0, 0, 0, 0.5);
     color: white;
     border: none;
+    font-size: 24px;
+    cursor: pointer;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    z-index: 10;
+    transition: background 0.2s;
   }
 
-  .action-btn.download:hover:not(:disabled) {
-    box-shadow: 0 4px 12px rgba(102, 126, 234, 0.4);
+  :global(.close-btn:hover) {
+    background: rgba(0, 0, 0, 0.7);
+  }
+
+  :global(.action-btn) {
+    width: 40px;
+    height: 40px;
+    border-radius: 50%;
+    background: none;
+    color: black;
+    border: none;
+    font-size: 24px;
+    cursor: pointer;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    transition: background 0.2s;
+  }
+
+  :global(.action-btn:hover:not(:disabled)) {
+    background: #e0e0e0;
+  }
+
+  :global(.action-btn:disabled) {
+    opacity: 0.5;
+    cursor: not-allowed;
   }
 
   @media (max-width: 640px) {
@@ -393,14 +404,6 @@
     .image-container {
       max-height: 300px;
       min-height: 200px;
-    }
-
-    .actions {
-      flex-direction: column;
-    }
-
-    .action-btn {
-      width: 100%;
     }
   }
 </style>

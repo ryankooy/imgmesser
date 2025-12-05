@@ -1,12 +1,8 @@
 <script lang="ts">
   import { currentView, currentUser, logOut } from "../store.ts";
 
-  export let user: string | null = null;
-  export let userLoggedIn: boolean = false;
-
-  function showUploadView() {
-    $currentView = "upload";
-  }
+  let user: string | null = $state(null);
+  let userLoggedIn: boolean = $state(false);
 
   function showGalleryView() {
     $currentView = "gallery";
@@ -20,11 +16,11 @@
     }
   }
 
-  $: {
+  $effect(() => {
     user = $currentUser;
     userLoggedIn = user != null;
-    if (userLoggedIn) showUploadView();
-  }
+    if (userLoggedIn) showGalleryView();
+  });
 </script>
 
 <header>
@@ -35,9 +31,8 @@
     {#if userLoggedIn}
       <div>Hi, {user}</div>
       <nav>
-        <button on:click={showUploadView}>Upload</button>
-        <button on:click={showGalleryView}>Gallery</button>
-        <button on:click={logOutUser}>Log Out</button>
+        <button onclick={showGalleryView}>Gallery</button>
+        <button onclick={logOutUser}>Log Out</button>
       </nav>
     {/if}
   </div>

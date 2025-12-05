@@ -1,32 +1,37 @@
 <script lang="ts">
   import { createEventDispatcher, onMount } from "svelte";
+  import IconButton from "@smui/icon-button";
   import { apiUrl } from "../store.ts";
   import type { ImageData } from "../store.ts";
 
-  export let refresh = 0;
+  let { refresh = 0 } = $props();
   const dispatch = createEventDispatcher();
 
-  let images: ImageData[] = [];
-  let imageDataUrls: Map<string, string> = new Map();
-  let loading = false;
-  let error = "";
-  let currentPage = 1;
-  let limit = 12;
-  let total = 0;
-  let hasMore = false;
+  let images: ImageData[] = $state([]);
+  let imageDataUrls: Map<string, string> = $state(new Map());
+  let imageVersions: Map<string, string> = $state(new Map());
+  let loading: boolean = $state(false);
+  let error: string = $state("");
+  let currentPage: number = $state(1);
+  let limit: number = $state(12);
+  let total: number = $state(0);
+  let hasMore: boolean = $state(false);
 
-  $: totalPages = Math.ceil(total / limit);
+  let totalPages: number = $derived(Math.ceil(total / limit));
 
   onMount(() => {
     loadImages();
   });
 
-  $: if (refresh > 0) {
-    currentPage = 1;
-    imageDataUrls.clear();
-    loadImages();
-    refresh = 0;
-  }
+  $effect(() => {
+    if (refresh > 0) {
+      currentPage = 1;
+      imageDataUrls.clear();
+      imageVersions.clear();
+      loadImages();
+      refresh = 0;
+    }
+  });
 
   async function loadImages() {
     loading = true;
@@ -61,14 +66,25 @@
   async function loadImageData() {
     // Load images in parallel
     const promises = images.map(async (image) => {
-      if (!imageDataUrls.has(image.id)) {
+      let versionChanged = false;
+
+      if (imageVersions.has(image.id)) {
+        const currentVersion = imageVersions.get(image.id);
+        versionChanged = image.version !== currentVersion;
+      }
+
+      if (!imageDataUrls.has(image.id) || versionChanged) {
         try {
           const response = await fetch(`${apiUrl}/images/${encodeURIComponent(image.id)}`);
           if (response.ok) {
             const blob = await response.blob();
             const dataUrl = URL.createObjectURL(blob);
             imageDataUrls.set(image.id, dataUrl);
-            imageDataUrls = imageDataUrls; // Trigger reactivity
+            imageVersions.set(image.id, image.version);
+
+            // Trigger reactivity
+            imageDataUrls = imageDataUrls;
+            imageVersions = imageVersions;
           }
         } catch (err) {
           console.error(`Failed to load image ${image.name}:`, err);
@@ -77,6 +93,10 @@
     });
 
     await Promise.all(promises);
+  }
+
+  function handleUploadClick() {
+    dispatch("upload");
   }
 
   function handleImageClick(image: ImageData) {
@@ -104,7 +124,18 @@
 </script>
 
 <div class="gallery" id="gallery">
-  <h2>Gallery</h2>
+  <div class="gallery-header">
+    <h2>Gallery</h2>
+
+    <div class="upload">
+      <IconButton
+        class="material-icons btn"
+        onclick={handleUploadClick}
+        >
+        add
+      </IconButton>
+    </div>
+  </div>
 
   <div class="gallery-section">
     {#if loading}
@@ -115,7 +146,7 @@
     {:else if error}
       <div class="error-message">
         {error}
-        <button on:click={loadImages}>Retry</button>
+        <button onclick={loadImages}>Retry</button>
       </div>
     {:else if images.length === 0}
       <div class="empty-state">
@@ -129,7 +160,7 @@
             role="button"
             tabindex="0"
             aria-label="Image viewer"
-            on:click={() => handleImageClick(image)}
+            onclick={() => handleImageClick(image)}
             >
             <div class="image-wrapper">
               {#if imageDataUrls.has(image.id)}
@@ -150,13 +181,13 @@
       </div>
 
       <div class="pagination">
-        <button
-          on:click={prevPage}
+        <IconButton
+          class="material-icons btn"
+          onclick={prevPage}
           disabled={currentPage === 1}
-          class="page-btn"
-        >
-          ← Previous
-        </button>
+          >
+          chevron_left
+        </IconButton>
 
         <div class="page-info">
           <span class="page-numbers">
@@ -165,13 +196,13 @@
           <span class="total-count">({total} total images)</span>
         </div>
 
-        <button
-          on:click={nextPage}
+        <IconButton
+          class="material-icons btn"
+          onclick={nextPage}
           disabled={!hasMore}
-          class="page-btn"
-        >
-          Next →
-        </button>
+          >
+          chevron_right
+        </IconButton>
       </div>
     {/if}
   </div>
@@ -344,22 +375,26 @@
     box-shadow: 0 2px 8px rgba(0, 0, 0, 0.1);
   }
 
-  .page-btn {
-    padding: 10px 20px;
-    background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
-    color: white;
+  :global(.btn) {
+    width: 40px;
+    height: 40px;
+    border-radius: 50%;
+    background: none;
+    color: black;
     border: none;
-    border-radius: 8px;
-    font-weight: 600;
+    font-size: 24px;
     cursor: pointer;
-    transition: transform 0.2s, opacity 0.2s;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    transition: background 0.2s;
   }
 
-  .page-btn:hover:not(:disabled) {
-    transform: scale(1.05);
+  :global(.btn:hover:not(:disabled)) {
+    background: #e0e0e0;
   }
 
-  .page-btn:disabled {
+  :global(.btn:disabled) {
     opacity: 0.3;
     cursor: not-allowed;
     transform: none;
@@ -382,6 +417,15 @@
     color: #666;
   }
 
+  .upload {
+    margin-left: auto;
+    align-self: flex-start;
+  }
+
+  .gallery-header {
+    display: flex;
+  }
+
   @media (max-width: 640px) {
     .grid {
       grid-template-columns: repeat(auto-fill, minmax(150px, 1fr));
@@ -393,7 +437,7 @@
       gap: 12px;
     }
 
-    .page-btn {
+    :global(.btn) {
       width: 100%;
     }
   }
