@@ -156,7 +156,7 @@ pub async fn delete_image(
     image_id: &Uuid,
 ) -> Result<()> {
     sqlx::query!(
-        "DELETE FROM image_version WHERE image_id = $1",
+        "DELETE FROM image WHERE id = $1",
         image_id,
     )
     .execute(db)

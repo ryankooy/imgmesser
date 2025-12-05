@@ -36,6 +36,22 @@
     }
   }
 
+  async function deleteImage() {
+    try {
+      const response = await fetch(`${apiUrl}/images/${imageId()}/delete`, {
+        method: "POST",
+      });
+
+      if (response.ok) {
+        dispatch("imageUpdate");
+      } else {
+        console.error("Failed to delete image");
+      }
+    } catch (err) {
+      console.error("Image delete failed:", err);
+    }
+  }
+
   async function revertImage() {
     try {
       const response = await fetch(`${apiUrl}/images/${imageId()}/revert`, {
@@ -51,7 +67,7 @@
         console.error("Failed to revert image");
       }
     } catch (err) {
-      console.error("Image reversion failed:", err);
+      console.error("Image revert failed:", err);
     }
   }
 
@@ -70,7 +86,7 @@
         console.error("Failed to restore image");
       }
     } catch (err) {
-      console.error("Image restoration failed:", err);
+      console.error("Image restore failed:", err);
     }
   }
 
@@ -151,14 +167,6 @@
       <h3>{image.name}</h3>
 
       <div class="actions">
-        <IconButton
-          class="material-icons action-btn download"
-          onclick={downloadImage}
-          disabled={!imageDataUrl}
-          >
-          download
-        </IconButton>
-
         {#if multiVersion}
           <IconButton
             class="material-icons action-btn"
@@ -175,6 +183,22 @@
             redo
           </IconButton>
         {/if}
+
+        <IconButton
+          class="material-icons action-btn"
+          onclick={downloadImage}
+          disabled={!imageDataUrl}
+          >
+          download
+        </IconButton>
+
+        <IconButton
+          class="material-icons action-btn delete-btn"
+          onclick={deleteImage}
+          disabled={!imageDataUrl}
+          >
+          delete
+        </IconButton>
       </div>
     </div>
 
@@ -394,6 +418,10 @@
   :global(.action-btn:disabled) {
     opacity: 0.5;
     cursor: not-allowed;
+  }
+
+  :global(.delete-btn) {
+    color: darkred;
   }
 
   @media (max-width: 640px) {
