@@ -1,17 +1,25 @@
 <script lang="ts">
-  import { createEventDispatcher, onMount } from "svelte";
+  import { createEventDispatcher, onMount, setContext } from "svelte";
   import IconButton from "@smui/icon-button";
+  import ConfirmModal from "./ConfirmModal.svelte";
+
   import { apiUrl } from "../store.ts";
   import type { ImageData } from "../store.ts";
 
-  const { image } = $props();
-
   const dispatch = createEventDispatcher();
 
-  let imageDataUrl: string = $state("");
-  let loading = $state(true);
+  const { image } = $props();
 
   let multiVersion: boolean = $derived(image.version_count > 1);
+  let imageDataUrl: string = $state("");
+  let loading = $state(true);
+  let showConfirmDeleteModal = $state(false);
+
+  let imageName: string = $derived(image.name);
+  setContext("imageName", () => imageName);
+
+  const modalAction: string = "delete";
+  setContext("modalAction", () => modalAction);
 
   onMount(() => {
     loadImageData();
@@ -133,8 +141,16 @@
 
     const link = document.createElement("a");
     link.href = imageDataUrl;
-    link.download = image.name;
+    link.download = imageName;
     link.click();
+  }
+
+  function handleDeleteImage() {
+    showConfirmDeleteModal = true;
+  }
+
+  function handleCancelDelete() {
+    showConfirmDeleteModal = false;
   }
 </script>
 
@@ -157,82 +173,93 @@
           <p>Loading image...</p>
         </div>
       {:else if imageDataUrl}
-        <img src={imageDataUrl} alt={image.name} />
+        <img src={imageDataUrl} alt={imageName} />
       {:else}
         <div class="error">Failed to load image</div>
       {/if}
     </div>
 
-    <div class="image-header">
-      <h3>{image.name}</h3>
+    <div class="image-info">
+      <div class="inner">
+        <div class="image-header">
+          <h3>{imageName}</h3>
 
-      <div class="actions">
-        {#if multiVersion}
-          <IconButton
-            class="material-icons action-btn"
-            onclick={revertImage}
-            disabled={!imageDataUrl || image.initial_version}
-            >
-            undo
-          </IconButton>
-          <IconButton
-            class="material-icons action-btn"
-            onclick={restoreImage}
-            disabled={!imageDataUrl || image.latest_version}
-            >
-            redo
-          </IconButton>
-        {/if}
+          <div class="actions">
+            {#if multiVersion}
+              <IconButton
+                class="material-icons action-btn"
+                onclick={revertImage}
+                disabled={!imageDataUrl || image.initial_version}
+                >
+                undo
+              </IconButton>
+              <IconButton
+                class="material-icons action-btn"
+                onclick={restoreImage}
+                disabled={!imageDataUrl || image.latest_version}
+                >
+                redo
+              </IconButton>
+            {/if}
 
-        <IconButton
-          class="material-icons action-btn"
-          onclick={downloadImage}
-          disabled={!imageDataUrl}
-          >
-          download
-        </IconButton>
+            <IconButton
+              class="material-icons action-btn"
+              onclick={downloadImage}
+              disabled={!imageDataUrl}
+              >
+              download
+            </IconButton>
 
-        <IconButton
-          class="material-icons action-btn delete-btn"
-          onclick={deleteImage}
-          disabled={!imageDataUrl}
-          >
-          delete
-        </IconButton>
-      </div>
-    </div>
-
-    <div class="image-details">
-      <div class="details-grid">
-        <div class="detail-item">
-          <span class="label">File Size</span>
-          <span class="value">{formatFileSize(image.size)}</span>
-        </div>
-        <div class="detail-item">
-          <span class="label">Image Size</span>
-          <span class="value">{image.width} x {image.height}</span>
-        </div>
-        <div class="detail-item">
-          <span class="label">Type</span>
-          <span class="value">{image.content_type}</span>
-        </div>
-        <div class="detail-item">
-          <span class="label">Uploaded</span>
-          <span class="value">{formatDate(image.created_at)}</span>
-        </div>
-        {#if multiVersion}
-          <div class="detail-item">
-            <span class="label">Modified</span>
-            <span class="value">{formatDate(image.last_modified)}</span>
+            <IconButton
+              class="material-icons action-btn delete-btn"
+              onclick={handleDeleteImage}
+              disabled={!imageDataUrl}
+              >
+              delete
+            </IconButton>
           </div>
-          <div class="detail-item">
-            <span class="label">Version</span>
-            <span class="value">{image.version_index} ({image.version})</span>
+        </div>
+
+        <div class="image-details">
+          <div class="details-grid">
+            <div class="detail-item">
+              <span class="label">File Size</span>
+              <span class="value">{formatFileSize(image.size)}</span>
+            </div>
+            <div class="detail-item">
+              <span class="label">Image Size</span>
+              <span class="value">{image.width} x {image.height}</span>
+            </div>
+            <div class="detail-item">
+              <span class="label">Type</span>
+              <span class="value">{image.content_type}</span>
+            </div>
+            <div class="detail-item">
+              <span class="label">Uploaded</span>
+              <span class="value">{formatDate(image.created_at)}</span>
+            </div>
+            {#if multiVersion}
+              <div class="detail-item">
+                <span class="label">Modified</span>
+                <span class="value">{formatDate(image.last_modified)}</span>
+              </div>
+              <div class="detail-item">
+                <span class="label">Version</span>
+                <span class="value">{image.version_index} ({image.version})</span>
+              </div>
+            {/if}
           </div>
-        {/if}
+        </div>
       </div>
     </div>
   </div>
+
+  {#if showConfirmDeleteModal}
+    <ConfirmModal
+      on:confirm={deleteImage}
+      on:cancel={handleCancelDelete}
+    />
+  {/if}
 </div>
 
 <style>
@@ -261,8 +288,6 @@
   }
 
   .modal-content {
-    background: white;
-    border-radius: 16px;
     max-width: 900px;
     width: 100%;
     max-height: 90vh;
@@ -321,6 +346,16 @@
     to { transform: rotate(360deg); }
   }
 
+  .image-info {
+    background: black;
+    padding: 20px;
+  }
+
+  .inner {
+    padding: 20px;
+    border: var(--im-border);
+  }
+
   .error {
     color: #c33;
     padding: 40px;
@@ -338,7 +373,7 @@
 
   h3 {
     margin: 0 0 20px 0;
-    color: #333;
+    color: var(--im-header-gold);
     font-size: 20px;
     word-break: break-all;
   }
@@ -362,7 +397,7 @@
   }
 
   .value {
-    color: #333;
+    color: ghostwhite;
   }
 
   .actions {
@@ -380,7 +415,7 @@
     width: 40px;
     height: 40px;
     border-radius: 50%;
-    background: rgba(0, 0, 0, 0.5);
+    background: none;
     color: white;
     border: none;
     font-size: 24px;
@@ -393,7 +428,7 @@
   }
 
   :global(.close-btn:hover) {
-    background: rgba(0, 0, 0, 0.7);
+    background: var(--im-hover);
   }
 
   :global(.action-btn) {
@@ -401,7 +436,7 @@
     height: 40px;
     border-radius: 50%;
     background: none;
-    color: black;
+    color: ghostwhite;
     border: none;
     font-size: 24px;
     cursor: pointer;
@@ -412,7 +447,7 @@
   }
 
   :global(.action-btn:hover:not(:disabled)) {
-    background: #e0e0e0;
+    background: var(--im-hover);
   }
 
   :global(.action-btn:disabled) {

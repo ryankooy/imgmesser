@@ -13,10 +13,11 @@
 
 <style>
   footer {
-    background: #2d3748;
-    color: #e2e8f0;
+    background: none;
+    color: ghostwhite;
     padding: 32px 0;
     margin-top: auto;
+    border-top: var(--im-border);
   }
 
   .container {

@@ -172,28 +172,37 @@ async function interceptRequest(request) {
             return response;
         } catch (error) {
             console.error("Error fetching:", error);
-            newRequest = await updateRequest(request, urlPath, tokens);
-            return fetch(newRequest);
+
+            try {
+                newRequest = await updateRequest(request, urlPath, tokens);
+                return fetch(newRequest);
+            } catch (error) {
+                console.error("Error fetching:", error);
+            }
         }
     } else if (isAuthUrl) {
-        const response = await fetch(request);
-        const data = await response.json();
+        try {
+            const response = await fetch(request);
+            const data = await response.json();
 
-        // Stash the tokens from the response
-        await setTokens(data);
+            // Stash the tokens from the response
+            await setTokens(data);
 
-        let newBody = {
-            success: data.success,
-            message: data.message,
-        };
+            let newBody = {
+                success: data.success,
+                message: data.message,
+            };
 
-        if (data.user != null) newBody.user = data.user;
+            if (data.user != null) newBody.user = data.user;
 
-        return new Response(JSON.stringify(newBody), {
-            status: response.status,
-            statusText: response.statusText,
-            headers: new Headers(Array.from(response.headers.entries())),
-        });
+            return new Response(JSON.stringify(newBody), {
+                status: response.status,
+                statusText: response.statusText,
+                headers: new Headers(Array.from(response.headers.entries())),
+            });
+        } catch (error) {
+            console.error("Error fetching:", error);
+        }
     }
 
     // Just return the original request if we got this far,

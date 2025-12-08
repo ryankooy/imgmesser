@@ -124,102 +124,102 @@
 </script>
 
 <div class="gallery" id="gallery">
-  <div class="gallery-header">
-    <h2>Gallery</h2>
+  <div class="inner">
+    <div class="gallery-header">
+      <h2>Gallery</h2>
 
-    <div class="upload">
-      <IconButton
-        class="material-icons btn"
-        onclick={handleUploadClick}
-        >
-        add
-      </IconButton>
+      <div class="upload">
+        <IconButton
+          class="material-icons btn"
+          onclick={handleUploadClick}
+          >
+          add
+        </IconButton>
+      </div>
     </div>
-  </div>
 
-  <div class="gallery-section">
-    {#if loading}
-      <div class="loading">
-        <div class="spinner"></div>
-        <p>Loading images...</p>
-      </div>
-    {:else if error}
-      <div class="error-message">
-        {error}
-        <button onclick={loadImages}>Retry</button>
-      </div>
-    {:else if images.length === 0}
-      <div class="empty-state">
-        <p>No images here.</p>
-      </div>
-    {:else}
-      <div class="grid">
-        {#each images as image (image.name)}
-          <div
-            class="image-card"
-            role="button"
-            tabindex="0"
-            aria-label="Image viewer"
-            onclick={() => handleImageClick(image)}
-            >
-            <div class="image-wrapper">
-              {#if imageDataUrls.has(image.id)}
-                <img src={imageDataUrls.get(image.id)} alt={image.name} />
-              {:else}
-                <div class="image-loading">
-                  <div class="mini-spinner"></div>
+    <div class="gallery-section">
+      {#if loading}
+        <div class="loading">
+          <div class="spinner"></div>
+          <p>Loading images...</p>
+        </div>
+      {:else if error}
+        <div class="error-message">
+          {error}
+          <button onclick={loadImages}>Retry</button>
+        </div>
+      {:else if images.length === 0}
+        <div class="empty-state">
+          <p>No images here.</p>
+        </div>
+      {:else}
+        <div class="grid">
+          {#each images as image (image.name)}
+            <div
+              class="image-card"
+              role="button"
+              tabindex="0"
+              aria-label="Image viewer"
+              onclick={() => handleImageClick(image)}
+              >
+              <div class="image-wrapper">
+                {#if imageDataUrls.has(image.id)}
+                  <img src={imageDataUrls.get(image.id)} alt={image.name} />
+                {:else}
+                  <div class="image-loading">
+                    <div class="mini-spinner"></div>
+                  </div>
+                {/if}
+                <div class="overlay">
+                  <p class="image-name" title={image.name}>
+                    {image.name.length > 25 ? image.name.substring(0, 25) + "..." : image.name}
+                  </p>
                 </div>
-              {/if}
-              <div class="overlay">
-                <p class="image-name" title={image.name}>
-                  {image.name.length > 25 ? image.name.substring(0, 25) + "..." : image.name}
-                </p>
               </div>
             </div>
-          </div>
-        {/each}
-      </div>
-
-      <div class="pagination">
-        <IconButton
-          class="material-icons btn"
-          onclick={prevPage}
-          disabled={currentPage === 1}
-          >
-          chevron_left
-        </IconButton>
-
-        <div class="page-info">
-          <span class="page-numbers">
-            Page {currentPage} of {totalPages}
-          </span>
-          <span class="total-count">({total} total images)</span>
+          {/each}
         </div>
 
-        <IconButton
-          class="material-icons btn"
-          onclick={nextPage}
-          disabled={!hasMore}
-          >
-          chevron_right
-        </IconButton>
-      </div>
-    {/if}
+        <div class="pagination">
+          <IconButton
+            class="material-icons btn"
+            onclick={prevPage}
+            disabled={currentPage === 1}
+            >
+            chevron_left
+          </IconButton>
+
+          <div class="page-info">
+            <span class="page-numbers">
+              Page {currentPage} of {totalPages}
+            </span>
+            <span class="total-count">({total} total images)</span>
+          </div>
+
+          <IconButton
+            class="material-icons btn"
+            onclick={nextPage}
+            disabled={!hasMore}
+            >
+            chevron_right
+          </IconButton>
+        </div>
+      {/if}
+    </div>
   </div>
 </div>
 
 <style>
   .gallery {
     min-height: 400px;
-    background: white;
-    border-radius: 16px;
-    padding: 32px;
-    box-shadow: 0 2px 8px rgba(0, 0, 0, 0.1);
+    background: none;
+    padding: 20px;
   }
 
   h2 {
     margin: 0 0 24px 0;
-    color: #333;
+    color: var(--im-header-gold);
     font-size: 24px;
   }
 
@@ -227,6 +227,11 @@
     display: flex;
     flex-direction: column;
     gap: 20px;
+  }
+
+  .inner {
+    padding: 20px;
+    border: var(--im-border);
   }
 
   .loading {
@@ -265,7 +270,6 @@
     border: 1px solid #fcc;
     color: #c33;
     padding: 20px;
-    border-radius: 8px;
     text-align: center;
   }
 
@@ -275,7 +279,6 @@
     background: #c33;
     color: white;
     border: none;
-    border-radius: 4px;
     cursor: pointer;
   }
 
@@ -293,17 +296,13 @@
   }
 
   .image-card {
-    background: white;
-    border-radius: 12px;
     overflow: hidden;
-    box-shadow: 0 2px 8px rgba(0, 0, 0, 0.1);
     cursor: pointer;
-    transition: transform 0.2s, box-shadow 0.2s;
+    transition: transform 0.2s;
   }
 
   .image-card:hover {
     transform: translateY(-4px);
-    box-shadow: 0 8px 16px rgba(0, 0, 0, 0.15);
   }
 
   .image-wrapper {
@@ -370,9 +369,8 @@
     align-items: center;
     gap: 16px;
     padding: 24px;
-    background: white;
-    border-radius: 12px;
-    box-shadow: 0 2px 8px rgba(0, 0, 0, 0.1);
+    background: var(--img-background-purple);
+    border: var(--im-border);
   }
 
   :global(.btn) {
@@ -380,7 +378,7 @@
     height: 40px;
     border-radius: 50%;
     background: none;
-    color: black;
+    color: ghostwhite;
     border: none;
     font-size: 24px;
     cursor: pointer;
@@ -391,7 +389,7 @@
   }
 
   :global(.btn:hover:not(:disabled)) {
-    background: #e0e0e0;
+    background: rgba(255, 255, 255, 0.1);
   }
 
   :global(.btn:disabled) {

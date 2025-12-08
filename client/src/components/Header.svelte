@@ -4,6 +4,10 @@
   let user: string | null = $state(null);
   let userLoggedIn: boolean = $state(false);
 
+  function showLoginView() {
+    $currentView = "login";
+  }
+
   function showGalleryView() {
     $currentView = "gallery";
   }
@@ -12,7 +16,7 @@
     const userLoggedOut = await logOut();
     if (userLoggedOut) {
       $currentUser = null;
-      $currentView = "login";
+      showLoginView();
     }
   }
 
@@ -31,7 +35,6 @@
     {#if userLoggedIn}
       <div>Hi, {user}</div>
       <nav>
-        <button onclick={showGalleryView}>Gallery</button>
         <button onclick={logOutUser}>Log Out</button>
       </nav>
     {/if}
@@ -40,10 +43,10 @@
 
 <style>
   header {
-    background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
-    color: white;
+    background: none;
+    color: ghostwhite;
     padding: 20px 0;
-    box-shadow: 0 2px 8px rgba(0, 0, 0, 0.1);
+    border-bottom: var(--im-border);
   }
 
   .container {
@@ -72,7 +75,7 @@
     padding: 0;
     border: none;
     background: none;
-    color: white;
+    color: ghostwhite;
     text-decoration: none;
     font-weight: 500;
     transition: opacity 0.2s;

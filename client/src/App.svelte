@@ -127,11 +127,21 @@
 </div>
 
 <style>
+  :root {
+    --im-header-gold: #6e6100;
+    --im-border: 1px solid #483f00;
+    --im-hover: rgba(255, 255, 255, 0.1);
+  }
+
   :global(body) {
     margin: 0;
     padding: 0;
-    font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, Oxygen, Ubuntu, Cantarell, sans-serif;
-    background: #f5f7fa;
+    font-family: century-gothic, sans-serif;
+    background: black;
+  }
+
+  :global(button) {
+    font-family: inherit;
   }
 
   .app {

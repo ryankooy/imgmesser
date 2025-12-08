@@ -64,7 +64,7 @@
       });
 
       if (response.ok) {
-        showMessage("✅ Image uploaded successfully", "success");
+        showMessage("Image uploaded successfully", "success");
         dispatch("uploadSuccess");
 
         // Reset form after successful upload
@@ -112,47 +112,48 @@
 
 <div class="modal-backdrop" onclick={handleBackdropClick}>
   <div class="modal-content" id="upload">
+    <div class="inner-modal">
+      <IconButton
+        class="material-icons close-btn"
+        onclick={close}
+        aria-label="Close"
+        >
+        close
+      </IconButton>
 
-    <IconButton
-      class="material-icons close-btn"
-      onclick={close}
-      aria-label="Close"
-      >
-      close
-    </IconButton>
+      <div class="upload-section">
+        <h2>Upload New Image</h2>
+        <label for="file-upload" class="file-upload-label">
+          Browse Computer
+        </label>
+        <input
+          id="file-upload"
+          type="file"
+          accept="image/jpeg,image/png,image/gif,image/webp"
+          onchange={handleFileSelect}
+          disabled={uploading}
+        />
 
-    <div class="upload-section">
-      <h2>Upload New Image</h2>
-      <label for="file-upload" class="file-upload-label">
-        Browse Computer
-      </label>
-      <input
-        id="file-upload"
-        type="file"
-        accept="image/jpeg,image/png,image/gif,image/webp"
-        onchange={handleFileSelect}
-        disabled={uploading}
-      />
+        {#if previewUrl}
+          <div class="preview">
+            <img src={previewUrl} alt="Preview" />
+          </div>
+        {/if}
 
-      {#if previewUrl}
-        <div class="preview">
-          <img src={previewUrl} alt="Preview" />
-        </div>
-      {/if}
+        <button
+          onclick={uploadImage}
+          disabled={!selectedFile || uploading}
+          class="upload-btn"
+        >
+          {uploading ? "Uploading..." : "Upload"}
+        </button>
 
-      <button
-        onclick={uploadImage}
-        disabled={!selectedFile || uploading}
-        class="upload-btn"
-      >
-        {uploading ? "Uploading..." : "Upload"}
-      </button>
-
-      {#if message}
-        <div class="message {messageType}">
-          {message}
-        </div>
-      {/if}
+        {#if message}
+          <div class="message {messageType}">
+            {message}
+          </div>
+        {/if}
+      </div>
     </div>
   </div>
 </div>
@@ -183,13 +184,14 @@
   }
 
   .modal-content {
-    background: white;
-    border-radius: 16px;
-    max-width: 900px;
+    background: black;
+    color: ghostwhite;
+    max-width: 600px;
     width: 100%;
     max-height: 90vh;
     overflow-y: auto;
     position: relative;
+    padding: 20px;
     animation: slideUp 0.3s ease-out;
   }
 
@@ -204,6 +206,11 @@
     }
   }
 
+  .inner-modal {
+    padding: 20px;
+    border: var(--im-border);
+  }
+
   :global(.close-btn) {
     position: absolute;
     top: 16px;
@@ -211,8 +218,8 @@
     width: 40px;
     height: 40px;
     border-radius: 50%;
-    background: rgba(0, 0, 0, 0.5);
-    color: white;
+    background: none;
+    color: ghostwhite;
     border: none;
     font-size: 24px;
     cursor: pointer;
@@ -224,18 +231,18 @@
   }
 
   :global(.close-btn:hover) {
-    background: rgba(0, 0, 0, 0.7);
+    background: var(--im-hover);
   }
 
   h2 {
     margin: 0 0 24px 0;
-    color: #333;
+    color: var(--im-header-gold);
     font-size: 24px;
   }
 
   .upload-section {
     width: 100%;
-    height: 500px;
+    height: auto;
     overflow: hidden;
     display: flex;
     align-items: center;
@@ -257,7 +264,7 @@
     border: 2px dashed #667eea;
     border-radius: 8px;
     cursor: pointer;
-    background: #f8f9ff;
+    background: none;
     transition: border-color 0.2s;
   }
 
@@ -281,25 +288,21 @@
   .preview img {
     max-width: 100%;
     max-height: 200px;
-    border-radius: 8px;
-    box-shadow: 0 4px 12px rgba(0, 0, 0, 0.1);
   }
 
   .upload-btn {
     padding: 14px 24px;
-    background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
-    color: white;
-    border: none;
-    border-radius: 8px;
+    background: none;
+    border: var(--im-border);
+    color: var(--im-header-gold);
     font-size: 16px;
     font-weight: 600;
     cursor: pointer;
-    transition: transform 0.2s, box-shadow 0.2s;
+    transition: background 0.2s;
   }
 
   .upload-btn:hover:not(:disabled) {
-    transform: translateY(-2px);
-    box-shadow: 0 8px 16px rgba(102, 126, 234, 0.4);
+    background: var(--im-hover);
   }
 
   .upload-btn:disabled {
@@ -310,20 +313,12 @@
 
   .message {
     padding: 12px;
-    border-radius: 8px;
+    color: ghostwhite;
     text-align: center;
     font-weight: 500;
   }
 
-  .message.success {
-    background: #d4edda;
-    color: #155724;
-    border: 1px solid #c3e6cb;
-  }
-
   .message.error {
-    background: #f8d7da;
-    color: #721c24;
-    border: 1px solid #f5c6cb;
+    background: darkred;
   }
 </style>
