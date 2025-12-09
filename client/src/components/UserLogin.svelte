@@ -29,14 +29,15 @@
       const data = await response.json();
 
       if (response.ok) {
-        showMessage("Login successful", "success");
-
         dispatch("loginSuccess", data.user.username);
+        showMessage("Login successful", "success");
 
         // Reset form after successful login
         resetForm();
-      } else {
+      } else if (data.error) {
         showMessage(`Login error: ${data.error}`, "error");
+      } else {
+        showMessage("User not found", "error");
       }
     } catch (error) {
       showMessage(`Login request failed: ${error}`, "error");
@@ -133,7 +134,7 @@
   }
 
   form {
-    color: ghostwhite;
+    color: var(--im-text);
     display: flex;
     flex-direction: column;
     align-content: flex-start;
@@ -167,7 +168,7 @@
     padding: 14px 24px;
     background: none;
     border: var(--im-border);
-    color: var(--im-header-gold);
+    color: var(--im-text);
     font-size: 16px;
     font-weight: 600;
     cursor: pointer;
@@ -175,7 +176,7 @@
   }
 
   .submit-btn:hover:not(:disabled) {
-    background: var(--im-hover);
+    background: var(--im-hover-gold);
   }
 
   .submit-btn:disabled {
@@ -185,7 +186,7 @@
   }
 
   p {
-    color: ghostwhite;
+    color: var(--im-text);
   }
 
   .clickable {
@@ -196,7 +197,7 @@
 
   .message {
     padding: 12px;
-    color: ghostwhite;
+    color: var(--im-text);
     text-align: center;
     font-weight: 500;
   }

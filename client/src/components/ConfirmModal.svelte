@@ -69,7 +69,7 @@
 
   .modal-content {
     background: black;
-    color: ghostwhite;
+    color: var(--im-text);
     max-width: 600px;
     width: 100%;
     max-height: 90vh;
@@ -111,15 +111,15 @@
     padding: 14px 24px;
     background: none;
     border: var(--im-border);
-    color: var(--im-header-gold);
+    color: var(--im-text);
     font-size: 16px;
     font-weight: 600;
     cursor: pointer;
-    transition: color 0.2s, background 0.2s;
+    transition: background 0.2s;
   }
 
   button:hover:not(:disabled) {
-    background: var(--im-hover);
+    background: var(--im-hover-gold);
   }
 
   button:disabled {
@@ -129,7 +129,14 @@
   }
 
   .confirm {
-    color: darkred;
+    color: var(--im-warn);
+    transition: color 0.2s, background 0.2s, border 0.2s;
+  }
+
+  .confirm:hover:not(:disabled) {
+    color: var(--im-text);
+    background: var(--im-warn);
+    border: 1px solid var(--im-warn);
   }
 
   p {

@@ -85,8 +85,6 @@ async function refreshTokens(tokens) {
         if (response.ok) {
             const data = await response.json();
             await setTokens(data);
-        } else {
-            console.error(`Failed to refresh tokens: ${response.status}`);
         }
     } catch (error) {
         console.error("Failed to fetch refresh tokens:", error);

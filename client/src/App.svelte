@@ -129,8 +129,12 @@
 <style>
   :root {
     --im-header-gold: #6e6100;
+    --im-hover-gold: #483f00;
     --im-border: 1px solid #483f00;
-    --im-hover: rgba(255, 255, 255, 0.1);
+    --im-background: black;
+    --im-text: ghostwhite;
+    --im-label: #666;
+    --im-warn: darkred;
   }
 
   :global(body) {

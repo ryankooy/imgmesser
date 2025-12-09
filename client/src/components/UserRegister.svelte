@@ -4,23 +4,28 @@
 
   const dispatch = createEventDispatcher();
 
+  interface Message {
+    msg: string;
+    type: "success" | "error";
+  }
+
   let username: string | null = $state(null);
   let password: string | null = $state(null);
   let confirmPassword: string | null = $state(null);
   let registering: boolean = $state(false);
-  let message: string = $state("");
-  let messageType: "success" | "error" | "" = $state("");
+  let messages: Message[] = $state([]);
 
   async function handleSubmit(event: CustomEvent) {
     event.preventDefault();
 
     // Clear previous messages
-    message = "";
-    messageType = "";
+    messages = [];
     registering = true;
 
-    if (password !== confirmPassword) {
-      showMessage("Passwords do not match", "error");
+    // Validate entered password
+    if (!validatePassword()) {
+      registering = false;
+      return;
     }
 
     try {
@@ -40,7 +45,12 @@
         }, 2000);
       } else {
         const data = await response.json();
-        showMessage(`Registration error: ${data.error}`, "error");
+
+        if (data.error) {
+          showMessage(`Registration error: ${data.error}`, "error");
+        } else {
+          showMessage("Registration failed", "error");
+        }
       }
     } catch (error) {
       showMessage(`Registration request failed: ${error}`, "error");
@@ -51,16 +61,40 @@
   }
 
   function showMessage(msg: string, type: "success" | "error") {
-    message = msg;
-    messageType = type;
+    messages.push({ msg, type });
+  }
+
+  function validatePassword(): boolean {
+    const noConfirmMatch: boolean = password !== confirmPassword;
+    const tooShort: boolean = password.length < 8;
+    const noUpper: boolean = !/[A-Z]/.test(password);
+    const noLower: boolean = !/[a-z]/.test(password);
+    const noNumber: boolean = !/[\d]/.test(password);
+
+    if (noConfirmMatch) {
+      showMessage("Passwords do not match", "error");
+    }
+    if (tooShort) {
+      showMessage("Password must be at least 8 characters long", "error");
+    }
+    if (noUpper) {
+      showMessage("Password must contain at least one upper-case letter", "error");
+    }
+    if (noLower) {
+      showMessage("Password must contain at least one lower-case letter", "error");
+    }
+    if (noNumber) {
+      showMessage("Password must contain at least one number", "error");
+    }
+
+    return !(noConfirmMatch || tooShort || noUpper || noLower || noNumber);
   }
 
   function resetForm() {
     username = null;
     password = null;
     confirmPassword = null;
-    message = "";
-    messageType = "";
+    messages = [];
 
     // Reset inputs
     const usernameInput = document.getElementById("username") as HTMLInputElement;
@@ -101,17 +135,18 @@
           type="submit"
           disabled={registering}
           class="submit-btn"
-        >
+          >
           Register
         </button>
       </div>
-
-      {#if message}
-        <div class="message {messageType}">
-          {message}
-        </div>
-      {/if}
     </form>
+    {#if messages.length !== 0}
+      {#each messages as message}
+        <div class="message {message.type}">
+          {message.msg}
+        </div>
+      {/each}
+    {/if}
   </div>
 </div>
 
@@ -128,7 +163,7 @@
   }
 
   small {
-    color: #666;
+    color: var(--im-label);
   }
 
   .inner {
@@ -137,7 +172,7 @@
   }
 
   form {
-    color: ghostwhite;
+    color: var(--im-text);
     display: flex;
     flex-direction: column;
     align-content: flex-start;
@@ -159,7 +194,6 @@
     flex: 2;
     padding: 8px;
     border: 1px solid #667eea;
-    border-radius: 8px;
     background: #f8f9ff;
     transition: border-color 0.2s;
   }
@@ -172,7 +206,7 @@
     padding: 14px 24px;
     background: none;
     border: var(--im-border);
-    color: var(--im-header-gold);
+    color: var(--im-text);
     font-size: 16px;
     font-weight: 600;
     cursor: pointer;
@@ -180,7 +214,7 @@
   }
 
   .submit-btn:hover:not(:disabled) {
-    background: var(--im-hover);
+    background: var(--im-hover-gold);
   }
 
   .submit-btn:disabled {
@@ -190,8 +224,9 @@
   }
 
   .message {
+    margin-top: 12px;
     padding: 12px;
-    color: ghostwhite;
+    color: var(--im-text);
     text-align: center;
     font-weight: 500;
   }

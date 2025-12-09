@@ -112,7 +112,7 @@
 
 <div class="modal-backdrop" onclick={handleBackdropClick}>
   <div class="modal-content" id="upload">
-    <div class="inner-modal">
+    <div class="inner">
       <IconButton
         class="material-icons close-btn"
         onclick={close}
@@ -123,7 +123,11 @@
 
       <div class="upload-section">
         <h2>Upload New Image</h2>
-        <label for="file-upload" class="file-upload-label">
+        <label
+          for="file-upload"
+          class="file-upload-label"
+          disabled={uploading}
+          >
           Browse Computer
         </label>
         <input
@@ -144,7 +148,7 @@
           onclick={uploadImage}
           disabled={!selectedFile || uploading}
           class="upload-btn"
-        >
+          >
           {uploading ? "Uploading..." : "Upload"}
         </button>
 
@@ -184,8 +188,8 @@
   }
 
   .modal-content {
-    background: black;
-    color: ghostwhite;
+    background: var(--im-background);
+    color: var(--im-text);
     max-width: 600px;
     width: 100%;
     max-height: 90vh;
@@ -206,7 +210,7 @@
     }
   }
 
-  .inner-modal {
+  .inner {
     padding: 20px;
     border: var(--im-border);
   }
@@ -219,7 +223,7 @@
     height: 40px;
     border-radius: 50%;
     background: none;
-    color: ghostwhite;
+    color: var(--im-text);
     border: none;
     font-size: 24px;
     cursor: pointer;
@@ -231,7 +235,7 @@
   }
 
   :global(.close-btn:hover) {
-    background: var(--im-hover);
+    background: var(--im-hover-gold);
   }
 
   h2 {
@@ -253,7 +257,8 @@
   }
 
   input[type="file"] {
-    opacity: 0;
+    display: none;
+    padding: 12px;
     position: absolute;
     cursor: pointer;
   }
@@ -268,16 +273,11 @@
     transition: border-color 0.2s;
   }
 
-  input[type="file"]::file-selector-button {
-    display: none;
-  }
-
-  input[type="file"]:hover:not(:disabled) {
+  .file-upload-label:hover:not(:disabled) {
     border-color: #764ba2;
   }
 
-  input[type="file"]:disabled {
-    opacity: 0.5;
+  .file-upload-label:disabled {
     cursor: not-allowed;
   }
 
@@ -294,7 +294,7 @@
     padding: 14px 24px;
     background: none;
     border: var(--im-border);
-    color: var(--im-header-gold);
+    color: var(--im-text);
     font-size: 16px;
     font-weight: 600;
     cursor: pointer;
@@ -302,7 +302,7 @@
   }
 
   .upload-btn:hover:not(:disabled) {
-    background: var(--im-hover);
+    background: var(--im-hover-gold);
   }
 
   .upload-btn:disabled {
@@ -313,7 +313,7 @@
 
   .message {
     padding: 12px;
-    color: ghostwhite;
+    color: var(--im-text);
     text-align: center;
     font-weight: 500;
   }

@@ -240,7 +240,7 @@
     align-items: center;
     justify-content: center;
     padding: 60px 20px;
-    color: #666;
+    color: var(--im-label);
   }
 
   .spinner {
@@ -285,7 +285,7 @@
   .empty-state {
     text-align: center;
     padding: 60px 20px;
-    color: #666;
+    color: var(--im-label);
   }
 
   .grid {
@@ -378,7 +378,7 @@
     height: 40px;
     border-radius: 50%;
     background: none;
-    color: ghostwhite;
+    color: var(--im-text);
     border: none;
     font-size: 24px;
     cursor: pointer;
@@ -389,7 +389,7 @@
   }
 
   :global(.btn:hover:not(:disabled)) {
-    background: rgba(255, 255, 255, 0.1);
+    background: var(--im-hover-gold);
   }
 
   :global(.btn:disabled) {
@@ -412,7 +412,7 @@
 
   .total-count {
     font-size: 14px;
-    color: #666;
+    color: var(--im-label);
   }
 
   .upload {

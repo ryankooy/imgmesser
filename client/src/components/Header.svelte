@@ -43,8 +43,8 @@
 
 <style>
   header {
-    background: none;
-    color: ghostwhite;
+    background: var(--im-header-gold);
+    color: var(--im-text);
     padding: 20px 0;
     border-bottom: var(--im-border);
   }
@@ -75,7 +75,7 @@
     padding: 0;
     border: none;
     background: none;
-    color: ghostwhite;
+    color: var(--im-text);
     text-decoration: none;
     font-weight: 500;
     transition: opacity 0.2s;

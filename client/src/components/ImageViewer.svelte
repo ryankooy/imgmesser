@@ -330,7 +330,7 @@
     flex-direction: column;
     align-items: center;
     gap: 16px;
-    color: #666;
+    color: var(--im-label);
   }
 
   .spinner {
@@ -373,7 +373,7 @@
 
   h3 {
     margin: 0 0 20px 0;
-    color: var(--im-header-gold);
+    color: var(--im-text);
     font-size: 20px;
     word-break: break-all;
   }
@@ -392,12 +392,12 @@
 
   .label {
     font-weight: 600;
-    color: #666;
+    color: var(--im-label);
     min-width: 80px;
   }
 
   .value {
-    color: ghostwhite;
+    color: var(--im-text);
   }
 
   .actions {
@@ -428,7 +428,7 @@
   }
 
   :global(.close-btn:hover) {
-    background: var(--im-hover);
+    background: var(--im-hover-gold);
   }
 
   :global(.action-btn) {
@@ -436,7 +436,7 @@
     height: 40px;
     border-radius: 50%;
     background: none;
-    color: ghostwhite;
+    color: var(--im-text);
     border: none;
     font-size: 24px;
     cursor: pointer;
@@ -447,7 +447,7 @@
   }
 
   :global(.action-btn:hover:not(:disabled)) {
-    background: var(--im-hover);
+    background: var(--im-hover-gold);
   }
 
   :global(.action-btn:disabled) {
@@ -456,7 +456,13 @@
   }
 
   :global(.delete-btn) {
-    color: darkred;
+    color: var(--im-warn);
+    transition: color 0.2s, background 0.2s;
+  }
+
+  :global(.delete-btn:hover:not(:disabled)) {
+    color: var(--im-text);
+    background: var(--im-warn);
   }
 
   @media (max-width: 640px) {

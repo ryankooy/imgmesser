@@ -14,7 +14,7 @@
 <style>
   footer {
     background: none;
-    color: ghostwhite;
+    color: var(--im-text);
     padding: 32px 0;
     margin-top: auto;
     border-top: var(--im-border);
