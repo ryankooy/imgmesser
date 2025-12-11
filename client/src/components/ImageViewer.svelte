@@ -1,5 +1,5 @@
 <script lang="ts">
-  import { createEventDispatcher, onMount, setContext } from "svelte";
+  import { createEventDispatcher, onMount, getContext, setContext } from "svelte";
   import IconButton from "@smui/icon-button";
   import ConfirmModal from "./ConfirmModal.svelte";
 
@@ -12,7 +12,9 @@
 
   let multiVersion: boolean = $derived(image.version_count > 1);
   let imageDataUrl: string = $state("");
-  let loading = $state(true);
+
+  let loading = $state(false);
+  let editing = $state(false);
   let showConfirmDeleteModal = $state(false);
 
   let imageName: string = $derived(image.name);
@@ -20,6 +22,8 @@
 
   const modalAction: string = "delete";
   setContext("modalAction", () => modalAction);
+
+  let editableImageName = $state(getContext("imageName")());
 
   onMount(() => {
     loadImageData();
@@ -56,7 +60,37 @@
         console.error("Failed to delete image");
       }
     } catch (err) {
-      console.error("Image delete failed:", err);
+      console.error("Error fetching:", err);
+    }
+  }
+
+  async function renameImage() {
+    editing = false;
+
+    if (editableImageName === imageName) {
+      return;
+    }
+
+    let newImageName = updateFileExtension(editableImageName);
+
+    try {
+      const response = await fetch(`${apiUrl}/images/${imageId()}/rename`, {
+        method: "POST",
+        headers: {"Content-Type": "application/json"},
+        body: JSON.stringify({ image_name: newImageName }),
+      });
+
+      if (response.ok) {
+        const data = await response.json();
+        if (data.updated) {
+          await handleUpdatedImage();
+          editing = false;
+        }
+      } else {
+        console.error("Failed to rename image");
+      }
+    } catch (err) {
+      console.error("Error fetching:", err);
     }
   }
 
@@ -68,14 +102,14 @@
 
       if (response.ok) {
         const data = await response.json();
-        if (data.version_updated) {
+        if (data.updated) {
           await handleUpdatedImage();
         }
       } else {
         console.error("Failed to revert image");
       }
     } catch (err) {
-      console.error("Image revert failed:", err);
+      console.error("Error fetching:", err);
     }
   }
 
@@ -87,14 +121,14 @@
 
       if (response.ok) {
         const data = await response.json();
-        if (data.version_updated) {
+        if (data.updated) {
           await handleUpdatedImage();
         }
       } else {
         console.error("Failed to restore image");
       }
     } catch (err) {
-      console.error("Image restore failed:", err);
+      console.error("Error fetching:", err);
     }
   }
 
@@ -136,6 +170,23 @@
     }
   }
 
+  function updateFileExtension(filename: string): string {
+    let origExt = (imageName.includes(".")) ? imageName.split(".").pop() : "jpg";
+
+    if (filename.includes(".")) {
+      let ext = filename.split(".").pop();
+
+      if (ext !== imageName) {
+        const stem = filename.substring(0, filename.lastIndexOf("."));
+        return stem + "." + origExt;
+      } else {
+        return filename;
+      }
+    } else {
+      return filename + "." + origExt;
+    }
+  }
+
   async function downloadImage() {
     if (!imageDataUrl) return;
 
@@ -152,6 +203,25 @@
   function handleCancelDelete() {
     showConfirmDeleteModal = false;
   }
+
+  function enableEditing() {
+    editing = true;
+  }
+
+  function disableEditing(event: Event) {
+    if (
+      event.relatedTarget &&
+      (
+        event.relatedTarget.tagName === "INPUT" ||
+        event.relatedTarget.id === "accept-btn"
+      )
+    ) {
+      return;
+    }
+
+    editing = false;
+    editableImageName = imageName;
+  }
 </script>
 
 <svelte:window on:keydown={handleKeydown} />
@@ -159,7 +229,7 @@
 <div class="modal-backdrop" onclick={handleBackdropClick}>
   <div class="modal-content">
     <IconButton
-      class="material-icons close-btn"
+      class="material-icons icon-btn close-btn"
       onclick={close}
       aria-label="Close"
       >
@@ -182,19 +252,45 @@
     <div class="image-info">
       <div class="inner">
         <div class="image-header">
-          <h3>{imageName}</h3>
+          {#if editing}
+            <div class="name-edit">
+              <input
+                type="text"
+                bind:value={editableImageName}
+                onblur={disableEditing}
+                onkeydown={(e) => {
+                  if (e.key === "Enter") {
+                    editing = false;
+                  }
+                }}
+                autofocus
+              />
+
+              <IconButton
+                class="material-icons icon-btn"
+                id="accept-btn"
+                onclick={renameImage}
+                aria-label="Accept Edit"
+                >
+                check
+              </IconButton>
+            </div>
+          {:else}
+            <h3 onclick={enableEditing}>{imageName}</h3>
+          {/if}
 
           <div class="actions">
             {#if multiVersion}
               <IconButton
-                class="material-icons action-btn"
+                class="material-icons icon-btn"
                 onclick={revertImage}
                 disabled={!imageDataUrl || image.initial_version}
                 >
                 undo
               </IconButton>
+
               <IconButton
-                class="material-icons action-btn"
+                class="material-icons icon-btn"
                 onclick={restoreImage}
                 disabled={!imageDataUrl || image.latest_version}
                 >
@@ -203,7 +299,7 @@
             {/if}
 
             <IconButton
-              class="material-icons action-btn"
+              class="material-icons icon-btn"
               onclick={downloadImage}
               disabled={!imageDataUrl}
               >
@@ -211,7 +307,7 @@
             </IconButton>
 
             <IconButton
-              class="material-icons action-btn delete-btn"
+              class="material-icons icon-btn delete-btn"
               onclick={handleDeleteImage}
               disabled={!imageDataUrl}
               >
@@ -363,19 +459,48 @@
 
   .image-header {
     display: flex;
-    padding: 24px 24px 0 24px;
+    padding: 0 24px;
+  }
+
+  .image-header input {
+    margin: 0 0 20px 0;
+    padding: 8px;
+    font-size: 20px;
+    border: 1px solid #667eea;
+    background: #f8f9ff;
+    transition: border-color 0.2s;
+  }
+
+  input[type="text"]:hover:not(:disabled) {
+    border-color: #764ba2;
+  }
+
+  .image-header h3 {
+    color: var(--im-text);
+    font-size: 20px;
+    word-break: break-all;
+  }
+
+  .image-header h3:hover {
+    cursor: pointer;
+  }
+
+  .name-edit {
+    display: flex;
+    gap: 12px;
+  }
+
+  .actions {
+    margin-left: auto;
+    align-self: center;
+    display: flex;
+    gap: 12px;
+    flex-wrap: wrap;
   }
 
   .image-details {
     display: flex;
     padding: 0 24px;
-  }
-
-  h3 {
-    margin: 0 0 20px 0;
-    color: var(--im-text);
-    font-size: 20px;
-    word-break: break-all;
   }
 
   .details-grid {
@@ -400,38 +525,7 @@
     color: var(--im-text);
   }
 
-  .actions {
-    margin-left: auto;
-    align-self: flex-start;
-    display: flex;
-    gap: 12px;
-    flex-wrap: wrap;
-  }
-
-  :global(.close-btn) {
-    position: absolute;
-    top: 16px;
-    right: 16px;
-    width: 40px;
-    height: 40px;
-    border-radius: 50%;
-    background: none;
-    color: white;
-    border: none;
-    font-size: 24px;
-    cursor: pointer;
-    display: flex;
-    align-items: center;
-    justify-content: center;
-    z-index: 10;
-    transition: background 0.2s;
-  }
-
-  :global(.close-btn:hover) {
-    background: var(--im-hover-gold);
-  }
-
-  :global(.action-btn) {
+  :global(.icon-btn) {
     width: 40px;
     height: 40px;
     border-radius: 50%;
@@ -446,13 +540,20 @@
     transition: background 0.2s;
   }
 
-  :global(.action-btn:hover:not(:disabled)) {
+  :global(.icon-btn:hover:not(:disabled)) {
     background: var(--im-hover-gold);
   }
 
-  :global(.action-btn:disabled) {
+  :global(.icon-btn:disabled) {
     opacity: 0.5;
     cursor: not-allowed;
+  }
+
+  :global(.close-btn) {
+    position: absolute;
+    top: 16px;
+    right: 16px;
+    z-index: 10;
   }
 
   :global(.delete-btn) {

@@ -68,7 +68,7 @@ pub async fn find_one(
 ) -> Result<Option<ImageInfo>> {
     let image = sqlx::query_as::<_, ImageInfo>(
         r#"
-        SELECT i.id, i.name, v.version
+        SELECT i.id, i.name, i.username, v.version
         FROM image AS i
         LEFT JOIN image_version AS v
             ON v.image_id = i.id
@@ -231,6 +231,27 @@ pub async fn restore_image_version(
     }
 
     Ok(None)
+}
+
+/// Update the name of an image.
+pub async fn rename_image(
+    db: &PgPool,
+    image_id: &Uuid,
+    new_name: &str,
+) -> Result<Option<String>> {
+    let image_name: Option<String> = sqlx::query_scalar!(
+        r#"
+        UPDATE image SET name = $1
+        WHERE id = $2
+        RETURNING name
+        "#,
+        new_name,
+        image_id,
+    )
+    .fetch_one(db)
+    .await?;
+
+    Ok(image_name)
 }
 
 /// Unset the `current` flag for any old versions of an image.

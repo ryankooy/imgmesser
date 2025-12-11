@@ -3,8 +3,6 @@
 
   const dispatch = createEventDispatcher();
 
-  //const { action, imageName } = $props();
-
   const imageName = getContext("imageName")();
   const action = getContext("modalAction")();
   const message = `Are you sure you want to ${action} "${imageName}"?`;

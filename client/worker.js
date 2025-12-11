@@ -102,7 +102,6 @@ async function updateRequest(request, urlPath, tokens) {
         let requestBody;
 
         if (urlPath === "/logout") {
-            headers.append("Content-Type", "application/json");
             requestBody = JSON.stringify({
                 refresh_token: tokens.refreshToken,
             });
@@ -110,7 +109,14 @@ async function updateRequest(request, urlPath, tokens) {
             // User is logging out, so delete tokens
             await storage.delete("tokens");
         } else {
-            requestBody = request.body;
+            try {
+                // Try to parse the old request's body as JSON
+                const responseBody = await request.json();
+                requestBody = JSON.stringify(responseBody);
+            } catch (error) {
+                // That didn't work, so use the ReadableStream
+                requestBody = request.body;
+            }
         }
 
         // Build new request

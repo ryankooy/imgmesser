@@ -36,7 +36,7 @@ pub trait ImageRepoOps: Send + Sync {
 
     async fn get_one(
         &self,
-        image_id_str: &str,
+        image_id: &str,
         user: UserInfo,
     ) -> Result<Option<ImageData>>;
 
@@ -49,19 +49,26 @@ pub trait ImageRepoOps: Send + Sync {
 
     async fn delete(
         &self,
-        image_id_str: &str,
+        image_id: &str,
         user: UserInfo,
     ) -> Result<()>;
 
     async fn revert(
         &self,
-        image_id_str: &str,
+        image_id: &str,
         user: UserInfo,
     ) -> Result<Option<String>>;
 
     async fn restore(
         &self,
-        image_id_str: &str,
+        image_id: &str,
+        user: UserInfo,
+    ) -> Result<Option<String>>;
+
+    async fn rename(
+        &self,
+        image_id: &str,
+        new_name: &str,
         user: UserInfo,
     ) -> Result<Option<String>>;
 }
@@ -75,7 +82,13 @@ impl ImageRepoOps for ImageRepo {
         image: UploadImage,
         user: UserInfo,
     ) -> Result<()> {
-        let image_path = get_object_path(&user.object_base_path, &image.name);
+        let image_id = Uuid::now_v7();
+
+        let image_path = get_object_path(
+            &user.object_base_path,
+            &image_id,
+            &image.name,
+        );
         let image_size = image.data.len();
 
         // Upload the image to the S3 bucket and get
@@ -91,7 +104,7 @@ impl ImageRepoOps for ImageRepo {
         // Create a db record for the image
         if let Err(e) = db::insert_image(
             &self.db,
-            &Uuid::now_v7(),
+            &image_id,
             &image.name,
             image.content_type,
             &user.username,
@@ -127,12 +140,10 @@ impl ImageRepoOps for ImageRepo {
     /// Get a single image object from S3.
     async fn get_one(
         &self,
-        image_id_str: &str,
+        image_id: &str,
         user: UserInfo,
     ) -> Result<Option<ImageData>> {
-        let image = match get_metadata(&self.db, image_id_str, &user.username)
-            .await
-        {
+        let image = match get_metadata(&self.db, image_id, &user.username).await {
             Ok(img) => img,
             Err(e) => {
                 error!("Error getting image metadata: {}", e);
@@ -143,6 +154,7 @@ impl ImageRepoOps for ImageRepo {
         // S3 object path of the image
         let image_path = get_object_path(
             &user.object_base_path,
+            &image.id,
             &image.name,
         );
 
@@ -190,9 +202,14 @@ impl ImageRepoOps for ImageRepo {
             .map_err(|e| ImageError::QueryFailure(e.to_string()))?;
 
         // Build map of image metadata
-        let mut image_map: HashMap<&str, Image> = HashMap::new();
+        let mut image_map: HashMap<String, Image> = HashMap::new();
         for image in db_images.iter() {
-            image_map.insert(&image.name, image.clone());
+            let image_path = get_object_path(
+                &user.object_base_path,
+                &image.id,
+                &image.name,
+            );
+            image_map.insert(image_path, image.clone());
         }
 
         // Calculate pagination
@@ -205,12 +222,8 @@ impl ImageRepoOps for ImageRepo {
             .iter()
             .filter_map(|object| {
                 if let Some(key) = object.key() {
-                    let path = Path::new(key);
-                    if let Some(name) = path.file_name() {
-                        let name = name.to_string_lossy().into_owned();
-                        if let Some(image) = image_map.get(name.as_str()) {
-                            return Some(image.clone());
-                        }
+                    if let Some(image) = image_map.get(key) {
+                        return Some(image.clone());
                     }
                 }
                 None
@@ -222,10 +235,10 @@ impl ImageRepoOps for ImageRepo {
 
     async fn delete(
         &self,
-        image_id_str: &str,
+        image_id: &str,
         user: UserInfo,
     ) -> Result<()> {
-        let image = get_metadata(&self.db, image_id_str, &user.username)
+        let image = get_metadata(&self.db, image_id, &user.username)
             .await
             .map_err(|e| ImageError::QueryFailure(e.to_string()))?;
 
@@ -235,7 +248,11 @@ impl ImageRepoOps for ImageRepo {
             .map_err(|e| ImageError::QueryFailure(e.to_string()))?;
 
         // S3 object path of the image
-        let image_path = get_object_path(&user.object_base_path, &image.name);
+        let image_path = get_object_path(
+            &user.object_base_path,
+            &image.id,
+            &image.name,
+        );
 
         // Delete the S3 object
         s3::delete_object(&self.img_store_client, &image_path)
@@ -247,10 +264,10 @@ impl ImageRepoOps for ImageRepo {
 
     async fn revert(
         &self,
-        image_id_str: &str,
+        image_id: &str,
         user: UserInfo,
     ) -> Result<Option<String>> {
-        let image = get_metadata(&self.db, image_id_str, &user.username)
+        let image = get_metadata(&self.db, image_id, &user.username)
             .await
             .map_err(|e| ImageError::QueryFailure(e.to_string()))?;
 
@@ -270,10 +287,10 @@ impl ImageRepoOps for ImageRepo {
 
     async fn restore(
         &self,
-        image_id_str: &str,
+        image_id: &str,
         user: UserInfo,
     ) -> Result<Option<String>> {
-        let image = get_metadata(&self.db, image_id_str, &user.username)
+        let image = get_metadata(&self.db, image_id, &user.username)
             .await
             .map_err(|e| ImageError::QueryFailure(e.to_string()))?;
 
@@ -290,16 +307,34 @@ impl ImageRepoOps for ImageRepo {
 
         Ok(new_current_version)
     }
+
+    async fn rename(
+        &self,
+        image_id: &str,
+        new_name: &str,
+        user: UserInfo,
+    ) -> Result<Option<String>> {
+        let image = get_metadata(&self.db, image_id, &user.username)
+            .await
+            .map_err(|e| ImageError::QueryFailure(e.to_string()))?;
+
+        // Update image's name
+        let image_name = db::rename_image(&self.db, &image.id, new_name)
+            .await
+            .map_err(|e| ImageError::QueryFailure(e.to_string()))?;
+
+        Ok(image_name)
+    }
 }
 
 /// Get image metadata and return it or an error if not found.
 async fn get_metadata(
     db: &PgPool,
-    image_id_str: &str,
+    image_id: &str,
     username: &str,
 ) -> anyhow::Result<ImageInfo> {
-    let image_id = Uuid::parse_str(image_id_str)?;
-    if let Some(image) = db::find_one(db, &image_id, username).await? {
+    let id = Uuid::parse_str(image_id)?;
+    if let Some(image) = db::find_one(db, &id, username).await? {
         Ok(image)
     } else {
         anyhow::bail!("Image not found");
@@ -307,6 +342,15 @@ async fn get_metadata(
 }
 
 /// Get the S3 object path of the image.
-fn get_object_path(base_path: &str, image_name: &str) -> String {
-    format!("{}/{}", base_path, image_name)
+fn get_object_path(
+    base_path: &str,
+    image_id: &Uuid,
+    image_name: &str,
+) -> String {
+    let extension = Path::new(&image_name)
+        .extension()
+        .and_then(|ext| ext.to_str())
+        .unwrap_or("jpg");
+
+    format!("{}/{}.{}", base_path, image_id, extension)
 }

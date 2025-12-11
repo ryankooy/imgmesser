@@ -1,8 +1,8 @@
 use serde::{Deserialize, Serialize};
 
-#[derive(Serialize)]
-pub struct ImageVersionUpdateResponse {
-    pub version_updated: bool,
+#[derive(Deserialize)]
+pub struct ImageRenameRequest {
+    pub image_name: String,
 }
 
 #[derive(Deserialize)]
@@ -16,3 +16,8 @@ pub struct PaginationParams {
 
 fn default_page() -> u32 { 1 }
 fn default_limit() -> u32 { 10 }
+
+#[derive(Serialize)]
+pub struct ImageUpdateResponse {
+    pub updated: bool,
+}

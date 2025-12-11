@@ -19,7 +19,11 @@ use crate::{
     models::{
         ContentType, ImageData, ImageList, UploadImage, UserInfo,
     },
-    schemas::{ImageVersionUpdateResponse, PaginationParams},
+    schemas::{
+        ImageRenameRequest,
+        ImageUpdateResponse,
+        PaginationParams,
+    },
     state::AppState,
 };
 
@@ -128,36 +132,6 @@ pub async fn upload_image(
     Err(ImageError::MissingMultipartField)
 }
 
-/// Route for reverting an image to its previous version.
-pub async fn revert_image_version(
-    State(state): State<AppState>,
-    RequireAuth(user): RequireAuth,
-    Path(image_id): Path<String>,
-) -> Result<Json<ImageVersionUpdateResponse>> {
-    let version_updated: bool = state
-        .image_repo
-        .revert(&image_id, user)
-        .await?
-        .is_some();
-
-    Ok(Json(ImageVersionUpdateResponse { version_updated }))
-}
-
-/// Route for restoring an image back to its newer version.
-pub async fn restore_image_version(
-    State(state): State<AppState>,
-    RequireAuth(user): RequireAuth,
-    Path(image_id): Path<String>,
-) -> Result<Json<ImageVersionUpdateResponse>> {
-    let version_updated: bool = state
-        .image_repo
-        .restore(&image_id, user)
-        .await?
-        .is_some();
-
-    Ok(Json(ImageVersionUpdateResponse { version_updated }))
-}
-
 /// Route for deleting an image.
 pub async fn delete_image(
     State(state): State<AppState>,
@@ -170,6 +144,52 @@ pub async fn delete_image(
         .await?;
 
     Ok(Response::default())
+}
+
+/// Route for renaming an image.
+pub async fn rename_image(
+    State(state): State<AppState>,
+    RequireAuth(user): RequireAuth,
+    Path(image_id): Path<String>,
+    Json(payload): Json<ImageRenameRequest>,
+) -> Result<Json<ImageUpdateResponse>> {
+    let updated: bool = state
+        .image_repo
+        .rename(&image_id, &payload.image_name, user)
+        .await?
+        .is_some();
+
+    Ok(Json(ImageUpdateResponse { updated }))
+}
+
+/// Route for reverting an image to its previous version.
+pub async fn revert_image_version(
+    State(state): State<AppState>,
+    RequireAuth(user): RequireAuth,
+    Path(image_id): Path<String>,
+) -> Result<Json<ImageUpdateResponse>> {
+    let updated: bool = state
+        .image_repo
+        .revert(&image_id, user)
+        .await?
+        .is_some();
+
+    Ok(Json(ImageUpdateResponse { updated }))
+}
+
+/// Route for restoring an image back to its newer version.
+pub async fn restore_image_version(
+    State(state): State<AppState>,
+    RequireAuth(user): RequireAuth,
+    Path(image_id): Path<String>,
+) -> Result<Json<ImageUpdateResponse>> {
+    let updated: bool = state
+        .image_repo
+        .restore(&image_id, user)
+        .await?
+        .is_some();
+
+    Ok(Json(ImageUpdateResponse { updated }))
 }
 
 /// Parse multipart image data.

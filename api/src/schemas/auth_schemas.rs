@@ -2,7 +2,7 @@ use serde::{Deserialize, Serialize};
 
 use crate::models::{User, UserInfo};
 
-#[derive(Debug, Deserialize)]
+#[derive(Deserialize)]
 pub struct UserRequest {
     pub username: String,
     pub password: String,
@@ -17,14 +17,14 @@ impl User {
     }
 }
 
-#[derive(Debug, Serialize)]
+#[derive(Serialize)]
 pub struct LoginResponse {
     pub user: UserInfo,
     pub access_token: String,
     pub refresh_token: String,
 }
 
-#[derive(Debug, Serialize)]
+#[derive(Serialize)]
 pub struct UserResponse {
     pub user: UserInfo,
 }

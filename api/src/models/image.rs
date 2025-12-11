@@ -60,6 +60,7 @@ impl<'a> FromRow<'a, PgRow> for Image {
 pub struct ImageInfo {
     pub id: Uuid,
     pub name: String,
+    pub username: String,
     pub version: String,
 }
 
