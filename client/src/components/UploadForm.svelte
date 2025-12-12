@@ -114,7 +114,7 @@
   <div class="modal-content" id="upload">
     <div class="inner">
       <IconButton
-        class="material-icons close-btn"
+        class="material-icons icon-btn close-btn"
         onclick={close}
         aria-label="Close"
         >
@@ -145,9 +145,9 @@
         {/if}
 
         <button
+          class="btn"
           onclick={uploadImage}
           disabled={!selectedFile || uploading}
-          class="upload-btn"
           >
           {uploading ? "Uploading..." : "Upload"}
         </button>
@@ -163,87 +163,6 @@
 </div>
 
 <style>
-  .modal-backdrop {
-    position: fixed;
-    top: 0;
-    left: 0;
-    right: 0;
-    bottom: 0;
-    background: rgba(0, 0, 0, 0.85);
-    display: flex;
-    align-items: center;
-    justify-content: center;
-    z-index: 1000;
-    padding: 20px;
-    animation: fadeIn 0.2s ease-out;
-  }
-
-  @keyframes fadeIn {
-    from {
-      opacity: 0;
-    }
-    to {
-      opacity: 1;
-    }
-  }
-
-  .modal-content {
-    background: var(--im-background);
-    color: var(--im-text);
-    max-width: 600px;
-    width: 100%;
-    max-height: 90vh;
-    overflow-y: auto;
-    position: relative;
-    padding: 20px;
-    animation: slideUp 0.3s ease-out;
-  }
-
-  @keyframes slideUp {
-    from {
-      transform: translateY(20px);
-      opacity: 0;
-    }
-    to {
-      transform: translateY(0);
-      opacity: 1;
-    }
-  }
-
-  .inner {
-    padding: 20px;
-    border: var(--im-border);
-  }
-
-  :global(.close-btn) {
-    position: absolute;
-    top: 16px;
-    right: 16px;
-    width: 40px;
-    height: 40px;
-    border-radius: 50%;
-    background: none;
-    color: var(--im-text);
-    border: none;
-    font-size: 24px;
-    cursor: pointer;
-    display: flex;
-    align-items: center;
-    justify-content: center;
-    z-index: 10;
-    transition: background 0.2s;
-  }
-
-  :global(.close-btn:hover) {
-    background: var(--im-hover-gold);
-  }
-
-  h2 {
-    margin: 0 0 24px 0;
-    color: var(--im-header-gold);
-    font-size: 24px;
-  }
-
   .upload-section {
     width: 100%;
     height: auto;
@@ -288,27 +207,6 @@
   .preview img {
     max-width: 100%;
     max-height: 200px;
-  }
-
-  .upload-btn {
-    padding: 14px 24px;
-    background: none;
-    border: var(--im-border);
-    color: var(--im-text);
-    font-size: 16px;
-    font-weight: 600;
-    cursor: pointer;
-    transition: background 0.2s;
-  }
-
-  .upload-btn:hover:not(:disabled) {
-    background: var(--im-hover-gold);
-  }
-
-  .upload-btn:disabled {
-    opacity: 0.5;
-    cursor: not-allowed;
-    transform: none;
   }
 
   .message {

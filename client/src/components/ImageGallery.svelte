@@ -1,7 +1,7 @@
 <script lang="ts">
   import { createEventDispatcher, onMount } from "svelte";
   import IconButton from "@smui/icon-button";
-  import { apiUrl } from "../store.ts";
+  import { apiUrl, truncateFileName } from "../store.ts";
   import type { ImageData } from "../store.ts";
 
   let { refresh = 0 } = $props();
@@ -130,7 +130,7 @@
 
       <div class="upload">
         <IconButton
-          class="material-icons btn"
+          class="material-icons icon-btn"
           onclick={handleUploadClick}
           >
           add
@@ -173,7 +173,7 @@
                 {/if}
                 <div class="overlay">
                   <p class="image-name" title={image.name}>
-                    {image.name.length > 25 ? image.name.substring(0, 25) + "..." : image.name}
+                    {truncateFileName(image.name)}
                   </p>
                 </div>
               </div>
@@ -183,7 +183,7 @@
 
         <div class="pagination">
           <IconButton
-            class="material-icons btn"
+            class="material-icons icon-btn"
             onclick={prevPage}
             disabled={currentPage === 1}
             >
@@ -198,7 +198,7 @@
           </div>
 
           <IconButton
-            class="material-icons btn"
+            class="material-icons icon-btn"
             onclick={nextPage}
             disabled={!hasMore}
             >
@@ -217,21 +217,10 @@
     padding: 20px;
   }
 
-  h2 {
-    margin: 0 0 24px 0;
-    color: var(--im-header-gold);
-    font-size: 24px;
-  }
-
   .gallery-section {
     display: flex;
     flex-direction: column;
     gap: 20px;
-  }
-
-  .inner {
-    padding: 20px;
-    border: var(--im-border);
   }
 
   .loading {
@@ -241,15 +230,6 @@
     justify-content: center;
     padding: 60px 20px;
     color: var(--im-label);
-  }
-
-  .spinner {
-    width: 40px;
-    height: 40px;
-    border: 4px solid #e2e8f0;
-    border-top-color: #667eea;
-    border-radius: 50%;
-    animation: spin 0.8s linear infinite;
   }
 
   .mini-spinner {
@@ -345,6 +325,7 @@
     bottom: 0;
     background: rgba(0, 0, 0, 0.5);
     opacity: 0;
+    text-align: center;
     transition: opacity 0.2s;
   }
 
@@ -356,11 +337,7 @@
     font-weight: 600;
     color: white;
     font-size: 14px;
-    display: none;
-  }
-
-  .image-card:hover .image-name {
-    display: block;
+    width: 85%;
   }
 
   .pagination {
@@ -371,31 +348,6 @@
     padding: 24px;
     background: var(--img-background-purple);
     border: var(--im-border);
-  }
-
-  :global(.btn) {
-    width: 40px;
-    height: 40px;
-    border-radius: 50%;
-    background: none;
-    color: var(--im-text);
-    border: none;
-    font-size: 24px;
-    cursor: pointer;
-    display: flex;
-    align-items: center;
-    justify-content: center;
-    transition: background 0.2s;
-  }
-
-  :global(.btn:hover:not(:disabled)) {
-    background: var(--im-hover-gold);
-  }
-
-  :global(.btn:disabled) {
-    opacity: 0.3;
-    cursor: not-allowed;
-    transform: none;
   }
 
   .page-info {
@@ -433,10 +385,6 @@
     .pagination {
       flex-direction: column;
       gap: 12px;
-    }
-
-    :global(.btn) {
-      width: 100%;
     }
   }
 </style>

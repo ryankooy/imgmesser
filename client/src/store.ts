@@ -69,3 +69,8 @@ export const logOut = async (): boolean => {
 
     return false;
 };
+
+export function truncateFileName(val: string): string {
+    const ext = (val.indexOf(".") !== -1) ? val.split(".").pop() : "";
+    return (val.length > 25) ? val.substring(0, 22) + `... .${ext}` : val;
+}

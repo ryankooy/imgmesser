@@ -156,19 +156,8 @@
     padding: 20px;
   }
 
-  h2 {
-    margin: 0;
-    color: var(--im-header-gold);
-    font-size: 24px;
-  }
-
   small {
     color: var(--im-label);
-  }
-
-  .inner {
-    padding: 20px;
-    border: var(--im-border);
   }
 
   form {
@@ -200,27 +189,6 @@
 
   input[type="text"]:hover:not(:disabled) {
     border-color: #764ba2;
-  }
-
-  .submit-btn {
-    padding: 14px 24px;
-    background: none;
-    border: var(--im-border);
-    color: var(--im-text);
-    font-size: 16px;
-    font-weight: 600;
-    cursor: pointer;
-    transition: background 0.2s;
-  }
-
-  .submit-btn:hover:not(:disabled) {
-    background: var(--im-hover-gold);
-  }
-
-  .submit-btn:disabled {
-    opacity: 0.5;
-    cursor: not-allowed;
-    transform: none;
   }
 
   .message {

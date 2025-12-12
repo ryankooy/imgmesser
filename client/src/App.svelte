@@ -4,6 +4,7 @@
     apiUrl, currentView, currentUser, getCurrentUser, registerServiceWorker,
   } from "./store.ts";
   import type { ImageData } from "./store.ts";
+  import "./styles/app.css";
 
   import Header from "./components/Header.svelte";
   import Footer from "./components/Footer.svelte";
@@ -127,16 +128,6 @@
 </div>
 
 <style>
-  :root {
-    --im-header-gold: #6e6100;
-    --im-hover-gold: #483f00;
-    --im-border: 1px solid #483f00;
-    --im-background: black;
-    --im-text: ghostwhite;
-    --im-label: #666;
-    --im-warn: darkred;
-  }
-
   :global(body) {
     margin: 0;
     padding: 0;

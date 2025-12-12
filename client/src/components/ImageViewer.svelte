@@ -66,10 +66,7 @@
 
   async function renameImage() {
     editing = false;
-
-    if (editableImageName === imageName) {
-      return;
-    }
+    if (editableImageName === imageName) return;
 
     let newImageName = updateFileExtension(editableImageName);
 
@@ -84,7 +81,6 @@
         const data = await response.json();
         if (data.updated) {
           await handleUpdatedImage();
-          editing = false;
         }
       } else {
         console.error("Failed to rename image");
@@ -156,6 +152,12 @@
     }
   }
 
+  function handleKeydownOnEdit(event: KeyboardEvent) {
+    if (event.key === "Enter") {
+      renameImage();
+    }
+  }
+
   function formatFileSize(bytes: number): string {
     if (bytes < 1024) return bytes + " B";
     if (bytes < 1024 * 1024) return (bytes / 1024).toFixed(1) + " KB";
@@ -176,7 +178,7 @@
     if (filename.includes(".")) {
       let ext = filename.split(".").pop();
 
-      if (ext !== imageName) {
+      if (ext !== origExt) {
         const stem = filename.substring(0, filename.lastIndexOf("."));
         return stem + "." + origExt;
       } else {
@@ -204,6 +206,11 @@
     showConfirmDeleteModal = false;
   }
 
+  function resetImageName() {
+    editing = false;
+    editableImageName = imageName;
+  }
+
   function enableEditing() {
     editing = true;
   }
@@ -219,8 +226,7 @@
       return;
     }
 
-    editing = false;
-    editableImageName = imageName;
+    resetImageName();
   }
 </script>
 
@@ -258,11 +264,7 @@
                 type="text"
                 bind:value={editableImageName}
                 onblur={disableEditing}
-                onkeydown={(e) => {
-                  if (e.key === "Enter") {
-                    editing = false;
-                  }
-                }}
+                onkeydown={handleKeydownOnEdit}
                 autofocus
               />
 
@@ -359,50 +361,6 @@
 </div>
 
 <style>
-  .modal-backdrop {
-    position: fixed;
-    top: 0;
-    left: 0;
-    right: 0;
-    bottom: 0;
-    background: rgba(0, 0, 0, 0.85);
-    display: flex;
-    align-items: center;
-    justify-content: center;
-    z-index: 1000;
-    padding: 20px;
-    animation: fadeIn 0.2s ease-out;
-  }
-
-  @keyframes fadeIn {
-    from {
-      opacity: 0;
-    }
-    to {
-      opacity: 1;
-    }
-  }
-
-  .modal-content {
-    max-width: 900px;
-    width: 100%;
-    max-height: 90vh;
-    overflow-y: auto;
-    position: relative;
-    animation: slideUp 0.3s ease-out;
-  }
-
-  @keyframes slideUp {
-    from {
-      transform: translateY(20px);
-      opacity: 0;
-    }
-    to {
-      transform: translateY(0);
-      opacity: 1;
-    }
-  }
-
   .image-container {
     width: 100%;
     max-height: 500px;
@@ -429,27 +387,9 @@
     color: var(--im-label);
   }
 
-  .spinner {
-    width: 40px;
-    height: 40px;
-    border: 4px solid #e2e8f0;
-    border-top-color: #667eea;
-    border-radius: 50%;
-    animation: spin 0.8s linear infinite;
-  }
-
-  @keyframes spin {
-    to { transform: rotate(360deg); }
-  }
-
   .image-info {
     background: black;
     padding: 20px;
-  }
-
-  .inner {
-    padding: 20px;
-    border: var(--im-border);
   }
 
   .error {
@@ -462,17 +402,17 @@
     padding: 0 24px;
   }
 
-  .image-header input {
-    margin: 0 0 20px 0;
-    padding: 8px;
-    font-size: 20px;
-    border: 1px solid #667eea;
-    background: #f8f9ff;
-    transition: border-color 0.2s;
+  .name-edit {
+    margin: 14px 0 11px 0;
+    display: flex;
+    gap: 12px;
   }
 
-  input[type="text"]:hover:not(:disabled) {
-    border-color: #764ba2;
+  .name-edit input {
+    all: unset;
+    color: ghostwhite;
+    font-style: oblique;
+    font-size: 20px;
   }
 
   .image-header h3 {
@@ -483,11 +423,6 @@
 
   .image-header h3:hover {
     cursor: pointer;
-  }
-
-  .name-edit {
-    display: flex;
-    gap: 12px;
   }
 
   .actions {
@@ -525,45 +460,12 @@
     color: var(--im-text);
   }
 
-  :global(.icon-btn) {
-    width: 40px;
-    height: 40px;
-    border-radius: 50%;
-    background: none;
-    color: var(--im-text);
-    border: none;
-    font-size: 24px;
-    cursor: pointer;
-    display: flex;
-    align-items: center;
-    justify-content: center;
-    transition: background 0.2s;
-  }
-
-  :global(.icon-btn:hover:not(:disabled)) {
-    background: var(--im-hover-gold);
-  }
-
-  :global(.icon-btn:disabled) {
-    opacity: 0.5;
-    cursor: not-allowed;
-  }
-
-  :global(.close-btn) {
-    position: absolute;
-    top: 16px;
-    right: 16px;
-    z-index: 10;
-  }
-
-  :global(.delete-btn) {
-    color: var(--im-warn);
-    transition: color 0.2s, background 0.2s;
-  }
-
   :global(.delete-btn:hover:not(:disabled)) {
-    color: var(--im-text);
     background: var(--im-warn);
+  }
+
+  :global(.delete-btn:active:not(:disabled)) {
+    background: var(--im-btn-active-warn);
   }
 
   @media (max-width: 640px) {
