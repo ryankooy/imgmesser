@@ -1,6 +1,6 @@
 //! ImgMesser Server
 
-use anyhow::Result;
+use anyhow::{Context, Result};
 use axum::{
     http::{
         header, method::Method, HeaderValue,
@@ -8,6 +8,8 @@ use axum::{
     routing::{get, post},
     Router,
 };
+use dotenv;
+use std::env;
 use std::net::SocketAddr;
 use tokio::net::TcpListener;
 use tower::ServiceBuilder;
@@ -46,8 +48,14 @@ async fn main() -> Result<()> {
 
     let state = AppState::new().await?;
 
+    // Load environment variables
+    dotenv::dotenv().ok();
+    let origin_address = env::var("ORIGIN_ADDRESS")
+        .context("Missing env variable: ORIGIN_ADDRESS")?;
+    let listen_address = env::var("LISTEN_ADDRESS")
+        .context("Missing env variable: LISTEN_ADDRESS")?;
+
     // Configure CORS
-    let origin_address = "http://127.0.0.1:5173";
     let cors = CorsLayer::new()
         .allow_origin(AllowOrigin::exact(
             origin_address.parse::<HeaderValue>()?,
@@ -85,8 +93,7 @@ async fn main() -> Result<()> {
                 .make_span_with(DefaultMakeSpan::default().include_headers(true)),
         );
 
-    let listen_address = "127.0.0.1:3000";
-    let listener = TcpListener::bind(listen_address).await?;
+    let listener = TcpListener::bind(&listen_address).await?;
     info!("Listening on {}...", listen_address);
 
     axum::serve(

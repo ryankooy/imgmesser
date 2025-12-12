@@ -9,7 +9,7 @@ use aws_sdk_s3::{
     Client,
 };
 use bytes::Bytes;
-use std::env;
+use dotenv;
 use tracing::error;
 
 use super::error::S3Error;
@@ -82,7 +82,7 @@ pub async fn delete_object(
 }
 
 fn bucket_name() -> String {
-    match env::var("S3_BUCKET_NAME") {
+    match dotenv::var("S3_BUCKET_NAME") {
         Ok(name) => name,
         Err(_) => {
             error!("No env variable set for S3 bucket name");

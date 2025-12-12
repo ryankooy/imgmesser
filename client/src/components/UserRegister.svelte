@@ -132,9 +132,9 @@
 
       <div class="field">
         <button
+          class="btn"
           type="submit"
           disabled={registering}
-          class="submit-btn"
           >
           Register
         </button>

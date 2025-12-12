@@ -21,7 +21,6 @@ cargo install sqlx-cli
 sudo service postgresql start
 cargo sqlx prepare --workspace
 cargo build
-
 ```
 
 Each run (from repo root):
@@ -45,7 +44,6 @@ npm run dev
 To Do
 -----
 
-- [ ] Image deletion
 - [ ] Image reversion
 - [ ] Basic image editing
 - [ ] Advanced image processing
@@ -59,3 +57,4 @@ Completed Tasks
 - [x] Use JWT for user authentication
 - [x] Store access and refresh tokens client-side using a service worker and IndexedDB
 - [x] Use PostgreSQL and Rust crate `sqlx` for storing user, image, and refresh token data
+- [x] Image deletion
