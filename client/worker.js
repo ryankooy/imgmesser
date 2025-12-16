@@ -1,4 +1,5 @@
-const apiUrl = "http://127.0.0.1:3000";
+const urlParams = new URLSearchParams(self.location.search);
+const apiUrl = urlParams.get("api_url");
 const authUrls = ["/login"];
 const protectedUrls = ["/images", "/logout", "/user"];
 
@@ -163,7 +164,7 @@ async function interceptRequest(request) {
             newRequest = await updateRequest(request, urlPath, tokens);
             const response = await fetch(newRequest);
 
-            if (response.status === 401 && apiUrl !== "/user") {
+            if (response.status === 401 && urlPath !== "/user") {
                 await refreshTokens(tokens);
                 tokens = await storage.get("tokens");
 

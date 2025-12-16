@@ -1,9 +1,9 @@
 import { writable } from "svelte/store";
 
-export const currentView = writable("login");
-export const currentUser = writable(null);
+export const currentView: string = writable("login");
+export const currentUser: string | null = writable(null);
 
-export const apiUrl = "http://127.0.0.1:3000";
+export const apiUrl: string = import.meta.env.VITE_API_URL;
 
 export interface ImageData {
     id: string;
@@ -24,7 +24,9 @@ export interface ImageData {
 export const registerServiceWorker = async () => {
     if ("serviceWorker" in navigator) {
         try {
-            const registration = await navigator.serviceWorker.register("worker.js");
+            const registration = await navigator.serviceWorker.register(
+                "worker.js?api_url=" + apiUrl
+            );
 
             if (registration.installing) {
                 console.log("Service worker installing");
