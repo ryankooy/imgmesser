@@ -34,7 +34,6 @@ pub struct AppState {
 impl AppState {
     pub async fn new() -> Result<Self> {
         let db = db::create_conn_pool().await?;
-        //FIXME: sqlx::migrate!("./migrations").run(&db).await?;
 
         let refresh_token_repo: Arc<dyn RefreshTokenRepoOps> = Arc::new(
             RefreshTokenRepo::new(db.clone()),

@@ -63,7 +63,12 @@ pub async fn get_image(
 
     let response = Response::builder()
         .header(header::CONTENT_TYPE, image.content_type)
-        .header(header::CACHE_CONTROL, "public, max-age=31536000")
+        .header(
+            header::CACHE_CONTROL,
+            "no-store, no-cache, must-revalidate, proxy-revalidate",
+        )
+        .header(header::PRAGMA, "no-cache")
+        .header(header::EXPIRES, "0")
         .body(Body::from(image.data))
         .unwrap();
 

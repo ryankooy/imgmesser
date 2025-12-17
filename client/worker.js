@@ -92,6 +92,35 @@ async function refreshTokens(tokens) {
     }
 }
 
+// Build new request object from original request.
+async function buildNewRequest(request, headers, body = null) {
+    let newBody;
+
+    if (body != null) {
+        newBody = body;
+    } else {
+        try {
+            // Try to parse the old request's body as JSON
+            const responseJson = await request.json();
+            newBody = JSON.stringify(responseJson);
+        } catch (error) {
+            // That didn't work, so use the ReadableStream
+            newBody = request.body;
+        }
+    }
+
+    return new Request(request.url, {
+        method: request.method,
+        headers: headers,
+        credentials: request.credentials,
+        cache: request.cache,
+        redirect: request.redirect,
+        referrer: request.referrer,
+        body: newBody,
+        context: request.context,
+    });
+}
+
 // Update request with an Authorization header
 async function updateRequest(request, urlPath, tokens) {
     const headers = new Headers(Array.from(request.headers.entries()));
@@ -100,37 +129,20 @@ async function updateRequest(request, urlPath, tokens) {
     headers.append("Authorization", `Bearer ${tokens.accessToken}`);
 
     try {
-        let requestBody;
+        let body = null;
 
         if (urlPath === "/logout") {
-            requestBody = JSON.stringify({
+            body = JSON.stringify({
                 refresh_token: tokens.refreshToken,
             });
 
             // User is logging out, so delete tokens
             await storage.delete("tokens");
-        } else {
-            try {
-                // Try to parse the old request's body as JSON
-                const responseBody = await request.json();
-                requestBody = JSON.stringify(responseBody);
-            } catch (error) {
-                // That didn't work, so use the ReadableStream
-                requestBody = request.body;
-            }
         }
 
         // Build new request
-        return new Request(request.url, {
-            method: request.method,
-            headers: headers,
-            credentials: "include",
-            cache: request.cache,
-            redirect: request.redirect,
-            referrer: request.referrer,
-            body: requestBody,
-            context: request.context,
-        });
+        const newRequest = await buildNewRequest(request, headers, body);
+        return newRequest;
     } catch (e) {
         console.error("Error making authorization request:", e);
     }
@@ -142,6 +154,7 @@ async function interceptRequest(request) {
     const url = new URL(request.url);
     const urlPath = url.pathname;
     const isApiOrigin = apiUrl === url.origin;
+    const isUploadRequest = urlPath === "/images" && request.method === "POST";
 
     let tokens = await storage.get("tokens");
 
@@ -152,7 +165,7 @@ async function interceptRequest(request) {
         // We handle user authentication differently for image upload
         // requests, so we won't consider `/images` a protected URL
         // if the request message is POST
-        !(urlPath === "/images" && request.method === "POST");
+        !isUploadRequest;
 
     const isAuthUrl = isApiOrigin && authUrls.includes(urlPath);
 

@@ -14,5 +14,7 @@ pub async fn create_conn_pool() -> Result<PgPool> {
         .connect(config.url.as_str())
         .await?;
 
+    sqlx::migrate!("./migrations").run(&pool).await?;
+
     Ok(pool)
 }

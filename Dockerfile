@@ -1,0 +1,47 @@
+# --------------
+# 1. BUILD IMAGE
+# --------------
+
+FROM devraymondsh/ubuntu-rust:24.04-1.89 AS build
+
+WORKDIR /app
+
+# Install build dependencies
+RUN apt-get update && apt-get install -y \
+    musl-tools lld libssl-dev pkg-config build-essential
+
+# Add musl target
+RUN rustup target add x86_64-unknown-linux-musl
+
+# Copy source code and configs
+COPY Cargo.toml Cargo.lock ./
+COPY ./api ./api
+COPY ./imgmesser ./imgmesser
+
+# Install sqlx-cli
+RUN cargo install sqlx-cli --no-default-features --features postgres
+
+# Enable offline mode for sqlx
+ENV SQLX_OFFLINE=true
+
+# Copy sqlx directory
+COPY ./.sqlx ./.sqlx
+
+# Build release using musl target
+RUN cargo build --release --target x86_64-unknown-linux-musl
+
+# --------------
+# 2. FINAL IMAGE
+# --------------
+
+FROM debian:bookworm-slim
+
+WORKDIR /app
+
+# Install runtime dependencies for libpq
+RUN apt-get update && apt-get install -y \
+    curl libpq-dev ca-certificates libssl3
+
+COPY --from=build /app/target/x86_64-unknown-linux-musl/release/imgmesser-api /app/imgmesser-api
+
+ENTRYPOINT ["./imgmesser-api"]
