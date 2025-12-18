@@ -13,6 +13,8 @@ COPY . .
 
 RUN npm run build
 
+COPY worker.js /app/dist
+
 # STAGE 2: Serve with Nginx
 
 FROM nginx:stable-alpine
