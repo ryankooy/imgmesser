@@ -7,6 +7,8 @@ services:
       - "1986:1986"
     env_file:
       - .env
+    volumes:
+      - ~/.aws:/root/.aws
     depends_on:
       - db
     networks:
