@@ -13,7 +13,6 @@ pub use objects::{delete_object, get_object, get_objects, upload_object};
 pub async fn get_client() -> Result<Client> {
     // Load AWS config from environment
     let config = aws_config::defaults(BehaviorVersion::latest())
-        .profile_name("imgmesser-client")
         .load()
         .await;
 
