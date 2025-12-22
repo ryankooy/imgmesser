@@ -61,6 +61,7 @@ pub struct ImageInfo {
     pub id: Uuid,
     pub name: String,
     pub username: String,
+    pub content_type: i32,
     pub version: String,
 }
 

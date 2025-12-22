@@ -61,14 +61,14 @@ pub async fn insert_image_version(
 }
 
 /// Retrieve database data for a single image.
-pub async fn find_one(
+pub async fn find_image(
     db: &PgPool,
     id: &Uuid,
     username: &str,
 ) -> Result<Option<ImageInfo>> {
     let image = sqlx::query_as::<_, ImageInfo>(
         r#"
-        SELECT i.id, i.name, i.username, v.version
+        SELECT i.id, i.name, i.username, i.content_type, v.version
         FROM image AS i
         LEFT JOIN image_version AS v
             ON v.image_id = i.id
@@ -85,8 +85,59 @@ pub async fn find_one(
     Ok(image)
 }
 
+/// Retrieve database data (including extra version data)
+/// for a single image.
+pub async fn find_image_with_version_info(
+    db: &PgPool,
+    id: &Uuid,
+    username: &str,
+) -> Result<Option<Image>> {
+    let image = sqlx::query_as::<_, Image>(
+        r#"
+        WITH image_info AS (
+            SELECT * FROM image
+            WHERE id = $1 AND username = $2
+        ),
+        versions AS (
+            SELECT ROW_NUMBER() OVER (
+                ORDER BY ts
+            ) AS idx, *
+            FROM image_version
+            WHERE image_id = (SELECT id FROM image_info)
+            ORDER BY ts DESC
+        ),
+        current_version AS (
+            SELECT * FROM versions
+            WHERE current
+                AND image_id = (SELECT id FROM image_info)
+        ),
+        version_count AS (
+            SELECT COUNT(1) AS version_count
+            FROM versions
+        )
+        SELECT i.id, i.name, i.content_type, i.created_at,
+            v.ts AS last_modified, v.version,
+            v.width, v.height, v.size, vc.version_count,
+            v.idx AS version_index,
+            v.idx = vc.version_count AS latest_version,
+            v.idx = 1 AS initial_version
+        FROM image_info AS i
+        LEFT JOIN current_version AS v
+            ON TRUE
+        LEFT JOIN version_count AS vc
+            ON TRUE
+        "#,
+    )
+    .bind(id)
+    .bind(username)
+    .fetch_optional(db)
+    .await?;
+
+    Ok(image)
+}
+
 /// Retrieve database data for a single image.
-pub async fn find_id_by_name(
+pub async fn find_image_id_by_name(
     db: &PgPool,
     name: &str,
     username: &str,
@@ -103,7 +154,7 @@ pub async fn find_id_by_name(
 }
 
 /// Retrieve database data for all of the given user's images.
-pub async fn find_all(
+pub async fn find_all_images(
     db: &PgPool,
     username: &str,
 ) -> Result<Vec<Image>> {

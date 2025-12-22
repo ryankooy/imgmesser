@@ -45,9 +45,8 @@ export const registerServiceWorker = async () => {
 export const getCurrentUser = async (): string | null => {
     try {
         const response = await fetch(`${apiUrl}/user`);
-        const data = await response.json();
-
         if (response.ok) {
+            const data = await response.json();
             return data.user.username;
         }
     } catch (error) {
@@ -71,6 +70,35 @@ export const logOut = async (): boolean => {
 
     return false;
 };
+
+export const getImageDataUrl = async (imageId: string): object | null => {
+    try {
+      const response = await fetch(`${apiUrl}/images/${encodeURIComponent(imageId)}`);
+      if (response.ok) {
+        const blob = await response.blob();
+        const dataUrl = URL.createObjectURL(blob);
+        return dataUrl;
+      }
+    } catch (err) {
+      console.error(`Failed to fetch image data:`, err);
+    }
+
+    return null;
+}
+
+export const getImageMetadata = async (imageId: string): ImageData | null => {
+    try {
+      const response = await fetch(`${apiUrl}/images/${encodeURIComponent(imageId)}/meta`);
+      if (response.ok) {
+        const data = await response.json();
+        return data;
+      }
+    } catch (err) {
+      console.error(`Failed to fetch image metadata:`, err);
+    }
+
+    return null;
+}
 
 export function truncateFileName(val: string): string {
     const ext = (val.indexOf(".") !== -1) ? val.split(".").pop() : "";

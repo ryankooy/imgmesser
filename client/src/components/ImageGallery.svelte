@@ -1,7 +1,7 @@
 <script lang="ts">
   import { createEventDispatcher, onMount } from "svelte";
   import IconButton from "@smui/icon-button";
-  import { apiUrl, truncateFileName } from "../store.ts";
+  import { apiUrl, getImageDataUrl, truncateFileName } from "../store.ts";
   import type { ImageData } from "../store.ts";
 
   let { refresh = 0 } = $props();
@@ -74,20 +74,15 @@
       }
 
       if (!imageDataUrls.has(image.id) || versionChanged) {
-        try {
-          const response = await fetch(`${apiUrl}/images/${encodeURIComponent(image.id)}`);
-          if (response.ok) {
-            const blob = await response.blob();
-            const dataUrl = URL.createObjectURL(blob);
-            imageDataUrls.set(image.id, dataUrl);
-            imageVersions.set(image.id, image.version);
+        const dataUrl = await getImageDataUrl(image.id);
 
-            // Trigger reactivity
-            imageDataUrls = imageDataUrls;
-            imageVersions = imageVersions;
-          }
-        } catch (err) {
-          console.error(`Failed to load image ${image.name}:`, err);
+        if (dataUrl) {
+          imageDataUrls.set(image.id, dataUrl);
+          imageVersions.set(image.id, image.version);
+
+          // Trigger reactivity
+          imageDataUrls = imageDataUrls;
+          imageVersions = imageVersions;
         }
       }
     });
