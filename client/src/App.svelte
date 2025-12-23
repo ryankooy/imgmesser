@@ -25,29 +25,56 @@
 
   let selectedImage: ImageData | null = $state(null);
   let showUploadModal: boolean = $state(false);
+  let selectingNext: boolean = $state(false);
+  let selectingPrevious: boolean = $state(false);
+  let imageIds: string[] = $state([]);
 
   // Triggers for reloading gallery
   let refreshAllTrigger = $state(0);
   let refreshOneTrigger = $state(0);
 
   function handleImageSelect(event: CustomEvent<ImageData>) {
+    selectingNext = selectingPrevious = false;
     selectedImage = event.detail;
   }
 
   function handleImagesLoaded(event: CustomEvent<ImageData[]>) {
+    const images = event.detail;
+    imageIds = images.map((img) => img.id);
+
     if (selectedImage) {
-      const imageId = selectedImage.id;
-      const images = event.detail;
+      const imageId: string = selectedImage.id;
       selectedImage = images.find((img) => img.id === imageId);
     }
   }
 
   function handleImageUpdate(event: Event) {
-    refreshOneTrigger++;
+    const updateOne = event.detail;
+    if (updateOne) {
+      refreshOneTrigger++;
+    } else {
+      refreshAllTrigger++;
+    }
   }
 
   function handleImageClose() {
     selectedImage = null;
+  }
+
+  function handleSelectNextImage() {
+    const index: number = imageIds.indexOf(selectedImage.id);
+    if (index !== -1 && index !== imageIds.length - 1) {
+      selectingNext = true;
+      refreshOneTrigger++;
+    }
+  }
+
+  function handleSelectPreviousImage() {
+    const index: number = imageIds.indexOf(selectedImage.id);
+    if (index > 0) {
+      selectingPrevious = true;
+      refreshOneTrigger++;
+    }
   }
 
   function handleUploadModalOpen() {
@@ -88,16 +115,23 @@
           on:imagesLoaded={handleImagesLoaded}
           on:upload={handleUploadModalOpen}
           selectedImage={selectedImage}
+          selectingNext={selectingNext}
+          selectingPrevious={selectingPrevious}
           refreshAll={refreshAllTrigger}
           refreshOne={refreshOneTrigger}
         />
 
         {#if selectedImage}
-          <ImageViewer
-            image={selectedImage}
-            on:close={handleImageClose}
-            on:imageUpdate={handleImageUpdate}
-          />
+          {#key selectedImage}
+            <ImageViewer
+              image={selectedImage}
+              imageIds={imageIds}
+              on:close={handleImageClose}
+              on:imageUpdate={handleImageUpdate}
+              on:selectNextImage={handleSelectNextImage}
+              on:selectPreviousImage={handleSelectPreviousImage}
+            />
+          {/key}
         {:else if showUploadModal}
           <UploadForm
             on:uploadSuccess={handleUploadSuccess}

@@ -33,3 +33,17 @@ export const handlePageRefresh = async () => {
         });
     }
 }
+
+export function getFileExtension(filename: string): string {
+    return (filename.indexOf(".") !== -1) ? filename.split(".").pop() : "jpg";
+}
+
+export function getFileStem(filename: string): string {
+    if (filename.indexOf(".") === -1) return filename;
+    return filename.substring(0, filename.lastIndexOf("."));
+}
+
+export function truncateFileName(val: string): string {
+    const ext = getFileExtension(val);
+    return (val.length > 25) ? val.substring(0, 22) + `... .${ext}` : val;
+}

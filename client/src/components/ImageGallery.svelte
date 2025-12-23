@@ -4,16 +4,18 @@
   import { apiUrl } from "../store.ts";
   import type { ImageData } from "../store.ts";
   import { getImageDataUrl, getImageMetadata } from "../utils/api.ts";
+  import { truncateFileName } from "../utils/app.ts";
 
   let {
     refreshAll = 0,
     refreshOne = 0,
+    selectingNext = false,
+    selectingPrevious = false,
     selectedImage = null
   } = $props();
 
   const dispatch = createEventDispatcher();
 
-  let currentImage = $derived(selectedImage);
   let images: ImageData[] = $state([]);
   let imageDataUrls: Map<string, string> = $state(new Map());
   let imageVersions: Map<string, string> = $state(new Map());
@@ -103,31 +105,38 @@
   }
 
   async function handleUpdatedImage() {
-    if (currentImage) {
-      const imageId = currentImage.id;
+    if (selectedImage) {
+      const imageId = selectedImage.id;
+      let index: number = images.findIndex((img) => img.id === imageId);
 
-      // Fetch a new data URL for the image
-      const dataUrl = await getImageDataUrl(imageId);
-      if (dataUrl) {
-        // Update data URLs
-        imageDataUrls.set(imageId, dataUrl);
-        imageDataUrls = imageDataUrls;
-      }
+      if (selectingNext) {
+        dispatch("imageSelect", images[++index]);
+      } else if (selectingPrevious) {
+        dispatch("imageSelect", images[--index]);
+      } else {
+        // Fetch a new data URL for the image
+        const dataUrl = await getImageDataUrl(imageId);
+        if (dataUrl) {
+          // Update data URLs
+          imageDataUrls.set(imageId, dataUrl);
+          imageDataUrls = imageDataUrls;
+        }
 
-      // Fetch new metadata for the image
-      const image = await getImageMetadata(imageId);
-      if (image) {
-        // Update image versions
-        imageVersions.set(imageId, image.version);
-        imageVersions = imageVersions;
+        // Fetch new metadata for the image
+        const image = await getImageMetadata(imageId);
+        if (image) {
+          // Update image versions
+          imageVersions.set(imageId, image.version);
+          imageVersions = imageVersions;
 
-        const imageIndex = images.findIndex((img) => img.id === imageId);
-        if (imageIndex !== -1) {
-          // Update the array of images
-          images[imageIndex] = image;
+          index = images.findIndex((img) => img.id === imageId);
+          if (index !== -1) {
+            // Update the array of images
+            images[index] = image;
 
-          // Reselect the current image
-          dispatch("imageSelect", image);
+            // Reselect the current image
+            dispatch("imageSelect", image);
+          }
         }
       }
     }
@@ -158,11 +167,6 @@
       currentPage--;
       loadImages();
     }
-  }
-
-  function truncateFileName(val: string): string {
-    const ext = (val.indexOf(".") !== -1) ? val.split(".").pop() : "";
-    return (val.length > 25) ? val.substring(0, 22) + `... .${ext}` : val;
   }
 </script>
 
