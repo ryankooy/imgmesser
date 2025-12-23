@@ -40,6 +40,12 @@ pub trait ImageRepoOps: Send + Sync {
         user: UserInfo,
     ) -> Result<Option<ImageData>>;
 
+    async fn get_metadata_for_one(
+        &self,
+        image_id: &str,
+        user: UserInfo,
+    ) -> Result<Option<Image>>;
+
     async fn get_metadata_for_all(
         &self,
         user: UserInfo,
@@ -180,6 +186,37 @@ impl ImageRepoOps for ImageRepo {
             .to_string();
 
         Ok(Some(ImageData { content_type, data }))
+    }
+
+    /// Get a single image object from S3 along with extra
+    /// version info from the database.
+    async fn get_metadata_for_one(
+        &self,
+        image_id: &str,
+        user: UserInfo,
+    ) -> Result<Option<Image>> {
+        let id = match Uuid::parse_str(image_id) {
+            Ok(id) => id,
+            Err(e) => {
+                error!("Error parsing image id: {}", e);
+                return Ok(None);
+            }
+        };
+
+        let image: Option<Image> = match db::find_image_with_version_info(
+            &self.db,
+            &id,
+            &user.username,
+        )
+        .await {
+            Ok(img) => img,
+            Err(e) => {
+                error!("Error getting image and version metadata: {}", e);
+                return Ok(None);
+            }
+        };
+
+        Ok(image)
     }
 
     /// Get metadata for all of a user's images.

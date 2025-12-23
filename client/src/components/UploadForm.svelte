@@ -1,7 +1,8 @@
 <script lang="ts">
   import { createEventDispatcher } from "svelte";
   import IconButton from "@smui/icon-button";
-  import { apiUrl, currentUser, getCurrentUser } from "../store.ts";
+  import { apiUrl, currentUser } from "../store.ts";
+  import { getCurrentUser } from "../utils/api.ts";
 
   const dispatch = createEventDispatcher();
 

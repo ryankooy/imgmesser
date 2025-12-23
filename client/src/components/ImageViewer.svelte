@@ -2,9 +2,9 @@
   import { createEventDispatcher, onMount, getContext, setContext } from "svelte";
   import IconButton from "@smui/icon-button";
   import ConfirmModal from "./ConfirmModal.svelte";
-
   import { apiUrl } from "../store.ts";
   import type { ImageData } from "../store.ts";
+  import { getImageDataUrl } from "../utils/api.ts";
 
   const dispatch = createEventDispatcher();
 
@@ -35,17 +35,13 @@
 
   async function loadImageData() {
     loading = true;
-    try {
-      const response = await fetch(`${apiUrl}/images/${imageId()}`);
-      if (response.ok) {
-        const blob = await response.blob();
-        imageDataUrl = URL.createObjectURL(blob);
-      }
-    } catch (err) {
-      console.error("Failed to load image:", err);
-    } finally {
-      loading = false;
+    const dataUrl = await getImageDataUrl(image.id);
+
+    if (dataUrl) {
+      imageDataUrl = dataUrl;
     }
+
+    loading = false;
   }
 
   async function deleteImage() {
@@ -129,7 +125,7 @@
   }
 
   async function handleUpdatedImage() {
-    dispatch("imageUpdate");
+    dispatch("imageUpdate", image.id);
     await loadImageData();
   }
 
