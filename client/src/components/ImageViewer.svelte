@@ -2,9 +2,9 @@
   import { createEventDispatcher, onMount, getContext, setContext } from "svelte";
   import IconButton from "@smui/icon-button";
   import ConfirmModal from "./ConfirmModal.svelte";
-
-  import { apiUrl, getImageDataUrl } from "../store.ts";
+  import { apiUrl } from "../store.ts";
   import type { ImageData } from "../store.ts";
+  import { getImageDataUrl } from "../utils/api.ts";
 
   const dispatch = createEventDispatcher();
 
@@ -125,7 +125,7 @@
   }
 
   async function handleUpdatedImage() {
-    dispatch("imageUpdate");
+    dispatch("imageUpdate", image.id);
     await loadImageData();
   }
 

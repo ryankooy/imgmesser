@@ -1,9 +1,9 @@
 <script lang="ts">
   import { onMount } from "svelte";
-  import {
-    apiUrl, currentView, currentUser, getCurrentUser, registerServiceWorker,
-  } from "./store.ts";
+  import { apiUrl, currentView, currentUser } from "./store.ts";
   import type { ImageData } from "./store.ts";
+  import { getCurrentUser } from "./utils/api.ts";
+  import { handlePageRefresh, registerServiceWorker } from "./utils/app.ts";
   import "./styles/app.css";
 
   import Header from "./components/Header.svelte";
@@ -17,27 +17,18 @@
   registerServiceWorker();
 
   onMount(() => {
-    if (performance.navigation.type === 1 && navigator.serviceWorker) {
-      // The page was refreshed; send the service worker a
-      // REFRESH message so that if the user's logged in,
-      // we can keep them logged in
-      navigator.serviceWorker.ready.then(async (registration) => {
-        if (registration.active) {
-          registration.active.postMessage({
-            type: "REFRESH",
-          });
-
-          $currentUser = await getCurrentUser();
-        }
-      });
-    }
+    handlePageRefresh();
+    (async () => {
+      $currentUser = await getCurrentUser();
+    })();
   });
 
   let selectedImage: ImageData | null = $state(null);
   let showUploadModal: boolean = $state(false);
 
-  // Trigger for reloading gallery
-  let refreshTrigger = $state(0);
+  // Triggers for reloading gallery
+  let refreshAllTrigger = $state(0);
+  let refreshOneTrigger = $state(0);
 
   function handleImageSelect(event: CustomEvent<ImageData>) {
     selectedImage = event.detail;
@@ -51,8 +42,8 @@
     }
   }
 
-  function handleImageUpdate() {
-    refreshTrigger++;
+  function handleImageUpdate(event: Event) {
+    refreshOneTrigger++;
   }
 
   function handleImageClose() {
@@ -68,7 +59,7 @@
   }
 
   function handleUploadSuccess() {
-    refreshTrigger++;
+    refreshAllTrigger++;
     selectedImage = null;
   }
 
@@ -96,7 +87,9 @@
           on:imageSelect={handleImageSelect}
           on:imagesLoaded={handleImagesLoaded}
           on:upload={handleUploadModalOpen}
-          refresh={refreshTrigger}
+          selectedImage={selectedImage}
+          refreshAll={refreshAllTrigger}
+          refreshOne={refreshOneTrigger}
         />
 
         {#if selectedImage}

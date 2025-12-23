@@ -1,12 +1,19 @@
 <script lang="ts">
   import { createEventDispatcher, onMount } from "svelte";
   import IconButton from "@smui/icon-button";
-  import { apiUrl, getImageDataUrl, truncateFileName } from "../store.ts";
+  import { apiUrl } from "../store.ts";
   import type { ImageData } from "../store.ts";
+  import { getImageDataUrl, getImageMetadata } from "../utils/api.ts";
 
-  let { refresh = 0 } = $props();
+  let {
+    refreshAll = 0,
+    refreshOne = 0,
+    selectedImage = null
+  } = $props();
+
   const dispatch = createEventDispatcher();
 
+  let currentImage = $derived(selectedImage);
   let images: ImageData[] = $state([]);
   let imageDataUrls: Map<string, string> = $state(new Map());
   let imageVersions: Map<string, string> = $state(new Map());
@@ -24,12 +31,17 @@
   });
 
   $effect(() => {
-    if (refresh > 0) {
+    if (refreshAll > 0) {
       currentPage = 1;
       imageDataUrls.clear();
       imageVersions.clear();
       loadImages();
-      refresh = 0;
+      refreshAll = 0;
+    } else if (refreshOne > 0) {
+      (async () => {
+        await handleUpdatedImage();
+      })();
+      refreshOne = 0;
     }
   });
 
@@ -90,6 +102,37 @@
     await Promise.all(promises);
   }
 
+  async function handleUpdatedImage() {
+    if (currentImage) {
+      const imageId = currentImage.id;
+
+      // Fetch a new data URL for the image
+      const dataUrl = await getImageDataUrl(imageId);
+      if (dataUrl) {
+        // Update data URLs
+        imageDataUrls.set(imageId, dataUrl);
+        imageDataUrls = imageDataUrls;
+      }
+
+      // Fetch new metadata for the image
+      const image = await getImageMetadata(imageId);
+      if (image) {
+        // Update image versions
+        imageVersions.set(imageId, image.version);
+        imageVersions = imageVersions;
+
+        const imageIndex = images.findIndex((img) => img.id === imageId);
+        if (imageIndex !== -1) {
+          // Update the array of images
+          images[imageIndex] = image;
+
+          // Reselect the current image
+          dispatch("imageSelect", image);
+        }
+      }
+    }
+  }
+
   function handleUploadClick() {
     dispatch("upload");
   }
@@ -115,6 +158,11 @@
       currentPage--;
       loadImages();
     }
+  }
+
+  function truncateFileName(val: string): string {
+    const ext = (val.indexOf(".") !== -1) ? val.split(".").pop() : "";
+    return (val.length > 25) ? val.substring(0, 22) + `... .${ext}` : val;
   }
 </script>
 
