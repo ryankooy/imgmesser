@@ -1,5 +1,6 @@
 <script lang="ts">
-  import { currentView, currentUser, logOut } from "../store.ts";
+  import { currentView, currentUser } from "../store.ts";
+  import { logOut } from "../utils/api.ts";
 
   let user: string | null = $state(null);
   let userLoggedIn: boolean = $state(false);

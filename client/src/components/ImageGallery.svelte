@@ -1,10 +1,19 @@
 <script lang="ts">
   import { createEventDispatcher, onMount } from "svelte";
   import IconButton from "@smui/icon-button";
-  import { apiUrl, truncateFileName } from "../store.ts";
+  import { apiUrl } from "../store.ts";
   import type { ImageData } from "../store.ts";
+  import { getImageDataUrl, getImageMetadata } from "../utils/api.ts";
+  import { truncateFileName } from "../utils/app.ts";
 
-  let { refresh = 0 } = $props();
+  let {
+    refreshAll = 0,
+    refreshOne = 0,
+    selectingNext = false,
+    selectingPrevious = false,
+    selectedImage = null
+  } = $props();
+
   const dispatch = createEventDispatcher();
 
   let images: ImageData[] = $state([]);
@@ -24,12 +33,17 @@
   });
 
   $effect(() => {
-    if (refresh > 0) {
+    if (refreshAll > 0) {
       currentPage = 1;
       imageDataUrls.clear();
       imageVersions.clear();
       loadImages();
-      refresh = 0;
+      refreshAll = 0;
+    } else if (refreshOne > 0) {
+      (async () => {
+        await handleUpdatedImage();
+      })();
+      refreshOne = 0;
     }
   });
 
@@ -74,25 +88,58 @@
       }
 
       if (!imageDataUrls.has(image.id) || versionChanged) {
-        try {
-          const response = await fetch(`${apiUrl}/images/${encodeURIComponent(image.id)}`);
-          if (response.ok) {
-            const blob = await response.blob();
-            const dataUrl = URL.createObjectURL(blob);
-            imageDataUrls.set(image.id, dataUrl);
-            imageVersions.set(image.id, image.version);
+        const dataUrl = await getImageDataUrl(image.id);
 
-            // Trigger reactivity
-            imageDataUrls = imageDataUrls;
-            imageVersions = imageVersions;
-          }
-        } catch (err) {
-          console.error(`Failed to load image ${image.name}:`, err);
+        if (dataUrl) {
+          imageDataUrls.set(image.id, dataUrl);
+          imageVersions.set(image.id, image.version);
+
+          // Trigger reactivity
+          imageDataUrls = imageDataUrls;
+          imageVersions = imageVersions;
         }
       }
     });
 
     await Promise.all(promises);
+  }
+
+  async function handleUpdatedImage() {
+    if (selectedImage) {
+      const imageId = selectedImage.id;
+      let index: number = images.findIndex((img) => img.id === imageId);
+
+      if (selectingNext) {
+        dispatch("imageSelect", images[++index]);
+      } else if (selectingPrevious) {
+        dispatch("imageSelect", images[--index]);
+      } else {
+        // Fetch a new data URL for the image
+        const dataUrl = await getImageDataUrl(imageId);
+        if (dataUrl) {
+          // Update data URLs
+          imageDataUrls.set(imageId, dataUrl);
+          imageDataUrls = imageDataUrls;
+        }
+
+        // Fetch new metadata for the image
+        const image = await getImageMetadata(imageId);
+        if (image) {
+          // Update image versions
+          imageVersions.set(imageId, image.version);
+          imageVersions = imageVersions;
+
+          index = images.findIndex((img) => img.id === imageId);
+          if (index !== -1) {
+            // Update the array of images
+            images[index] = image;
+
+            // Reselect the current image
+            dispatch("imageSelect", image);
+          }
+        }
+      }
+    }
   }
 
   function handleUploadClick() {

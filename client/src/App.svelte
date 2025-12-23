@@ -1,9 +1,9 @@
 <script lang="ts">
   import { onMount } from "svelte";
-  import {
-    apiUrl, currentView, currentUser, getCurrentUser, registerServiceWorker,
-  } from "./store.ts";
+  import { apiUrl, currentView, currentUser } from "./store.ts";
   import type { ImageData } from "./store.ts";
+  import { getCurrentUser } from "./utils/api.ts";
+  import { handlePageRefresh, registerServiceWorker } from "./utils/app.ts";
   import "./styles/app.css";
 
   import Header from "./components/Header.svelte";
@@ -17,46 +17,64 @@
   registerServiceWorker();
 
   onMount(() => {
-    if (performance.navigation.type === 1 && navigator.serviceWorker) {
-      // The page was refreshed; send the service worker a
-      // REFRESH message so that if the user's logged in,
-      // we can keep them logged in
-      navigator.serviceWorker.ready.then(async (registration) => {
-        if (registration.active) {
-          registration.active.postMessage({
-            type: "REFRESH",
-          });
-
-          $currentUser = await getCurrentUser();
-        }
-      });
-    }
+    handlePageRefresh();
+    (async () => {
+      $currentUser = await getCurrentUser();
+    })();
   });
 
   let selectedImage: ImageData | null = $state(null);
   let showUploadModal: boolean = $state(false);
+  let selectingNext: boolean = $state(false);
+  let selectingPrevious: boolean = $state(false);
+  let imageIds: string[] = $state([]);
 
-  // Trigger for reloading gallery
-  let refreshTrigger = $state(0);
+  // Triggers for reloading gallery
+  let refreshAllTrigger = $state(0);
+  let refreshOneTrigger = $state(0);
 
   function handleImageSelect(event: CustomEvent<ImageData>) {
+    selectingNext = selectingPrevious = false;
     selectedImage = event.detail;
   }
 
   function handleImagesLoaded(event: CustomEvent<ImageData[]>) {
+    const images = event.detail;
+    imageIds = images.map((img) => img.id);
+
     if (selectedImage) {
-      const imageId = selectedImage.id;
-      const images = event.detail;
+      const imageId: string = selectedImage.id;
       selectedImage = images.find((img) => img.id === imageId);
     }
   }
 
-  function handleImageUpdate() {
-    refreshTrigger++;
+  function handleImageUpdate(event: Event) {
+    const updateOne = event.detail;
+    if (updateOne) {
+      refreshOneTrigger++;
+    } else {
+      refreshAllTrigger++;
+    }
   }
 
   function handleImageClose() {
     selectedImage = null;
+  }
+
+  function handleSelectNextImage() {
+    const index: number = imageIds.indexOf(selectedImage.id);
+    if (index !== -1 && index !== imageIds.length - 1) {
+      selectingNext = true;
+      refreshOneTrigger++;
+    }
+  }
+
+  function handleSelectPreviousImage() {
+    const index: number = imageIds.indexOf(selectedImage.id);
+    if (index > 0) {
+      selectingPrevious = true;
+      refreshOneTrigger++;
+    }
   }
 
   function handleUploadModalOpen() {
@@ -68,7 +86,7 @@
   }
 
   function handleUploadSuccess() {
-    refreshTrigger++;
+    refreshAllTrigger++;
     selectedImage = null;
   }
 
@@ -96,15 +114,24 @@
           on:imageSelect={handleImageSelect}
           on:imagesLoaded={handleImagesLoaded}
           on:upload={handleUploadModalOpen}
-          refresh={refreshTrigger}
+          selectedImage={selectedImage}
+          selectingNext={selectingNext}
+          selectingPrevious={selectingPrevious}
+          refreshAll={refreshAllTrigger}
+          refreshOne={refreshOneTrigger}
         />
 
         {#if selectedImage}
-          <ImageViewer
-            image={selectedImage}
-            on:close={handleImageClose}
-            on:imageUpdate={handleImageUpdate}
-          />
+          {#key selectedImage}
+            <ImageViewer
+              image={selectedImage}
+              imageIds={imageIds}
+              on:close={handleImageClose}
+              on:imageUpdate={handleImageUpdate}
+              on:selectNextImage={handleSelectNextImage}
+              on:selectPreviousImage={handleSelectPreviousImage}
+            />
+          {/key}
         {:else if showUploadModal}
           <UploadForm
             on:uploadSuccess={handleUploadSuccess}

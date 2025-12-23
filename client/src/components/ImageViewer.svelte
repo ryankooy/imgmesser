@@ -1,29 +1,30 @@
 <script lang="ts">
-  import { createEventDispatcher, onMount, getContext, setContext } from "svelte";
+  import { createEventDispatcher, onMount, setContext } from "svelte";
   import IconButton from "@smui/icon-button";
   import ConfirmModal from "./ConfirmModal.svelte";
-
   import { apiUrl } from "../store.ts";
   import type { ImageData } from "../store.ts";
+  import { getImageDataUrl } from "../utils/api.ts";
+  import { getFileExtension, getFileStem } from "../utils/app.ts";
 
   const dispatch = createEventDispatcher();
 
-  const { image } = $props();
+  const { image = null, imageIds = [] } = $props();
 
-  let multiVersion: boolean = $derived(image.version_count > 1);
+  const multiVersion: boolean = $derived(image.version_count > 1);
   let imageDataUrl: string = $state("");
 
   let loading = $state(false);
   let editing = $state(false);
   let showConfirmDeleteModal = $state(false);
 
-  let imageName: string = $derived(image.name);
+  const imageName: string = $derived(image.name);
   setContext("imageName", () => imageName);
 
   const modalAction: string = "delete";
   setContext("modalAction", () => modalAction);
 
-  let editableImageName = $state(getContext("imageName")());
+  let editableFileStem: string = $derived(getFileStem(imageName));
 
   onMount(() => {
     loadImageData();
@@ -35,17 +36,13 @@
 
   async function loadImageData() {
     loading = true;
-    try {
-      const response = await fetch(`${apiUrl}/images/${imageId()}`);
-      if (response.ok) {
-        const blob = await response.blob();
-        imageDataUrl = URL.createObjectURL(blob);
-      }
-    } catch (err) {
-      console.error("Failed to load image:", err);
-    } finally {
-      loading = false;
+    const dataUrl = await getImageDataUrl(image.id);
+
+    if (dataUrl) {
+      imageDataUrl = dataUrl;
     }
+
+    loading = false;
   }
 
   async function deleteImage() {
@@ -66,9 +63,9 @@
 
   async function renameImage() {
     editing = false;
-    if (editableImageName === imageName) return;
 
-    let newImageName = updateFileExtension(editableImageName);
+    const newImageName = getNewImageFileName();
+    if (newImageName === imageName) return;
 
     try {
       const response = await fetch(`${apiUrl}/images/${imageId()}/rename`, {
@@ -129,8 +126,16 @@
   }
 
   async function handleUpdatedImage() {
-    dispatch("imageUpdate");
+    dispatch("imageUpdate", true);
     await loadImageData();
+  }
+
+  function handleNextImage() {
+    dispatch("selectNextImage");
+  }
+
+  function handlePreviousImage() {
+    dispatch("selectPreviousImage");
   }
 
   function close() {
@@ -149,6 +154,10 @@
   function handleKeydown(event: KeyboardEvent) {
     if (event.key === "Escape") {
       close();
+    } else if (event.key === "ArrowRight") {
+      handleNextImage();
+    } else if (event.key === "ArrowLeft") {
+      handlePreviousImage();
     }
   }
 
@@ -172,21 +181,11 @@
     }
   }
 
-  function updateFileExtension(filename: string): string {
-    let origExt = (imageName.includes(".")) ? imageName.split(".").pop() : "jpg";
-
-    if (filename.includes(".")) {
-      let ext = filename.split(".").pop();
-
-      if (ext !== origExt) {
-        const stem = filename.substring(0, filename.lastIndexOf("."));
-        return stem + "." + origExt;
-      } else {
-        return filename;
-      }
-    } else {
-      return filename + "." + origExt;
+  function getNewImageFileName(): string {
+    if (editableFileStem.indexOf(".") !== -1) {
+      editableFileStem = getFileStem(editableFileStem);
     }
+    return editableFileStem + "." + getFileExtension(imageName);
   }
 
   async function downloadImage() {
@@ -208,7 +207,7 @@
 
   function resetImageName() {
     editing = false;
-    editableImageName = imageName;
+    editableFileStem = getFileStem(imageName);
   }
 
   function enableEditing() {
@@ -233,6 +232,14 @@
 <svelte:window on:keydown={handleKeydown} />
 
 <div class="modal-backdrop" onclick={handleBackdropClick}>
+  <IconButton
+    class="material-icons icon-btn"
+    onclick={handlePreviousImage}
+    disabled={imageIds.indexOf(image.id) === 0}
+    >
+    chevron_left
+  </IconButton>
+
   <div class="modal-content">
     <IconButton
       class="material-icons icon-btn close-btn"
@@ -258,28 +265,30 @@
     <div class="image-info">
       <div class="inner">
         <div class="image-header">
-          {#if editing}
-            <div class="name-edit">
-              <input
-                type="text"
-                bind:value={editableImageName}
-                onblur={disableEditing}
-                onkeydown={handleKeydownOnEdit}
-                autofocus
-              />
+          <div class="image-name">
+            {#if editing}
+              <div class="name-edit">
+                <input
+                  type="text"
+                  bind:value={editableFileStem}
+                  onblur={disableEditing}
+                  onkeydown={handleKeydownOnEdit}
+                  autofocus
+                />
 
-              <IconButton
-                class="material-icons icon-btn"
-                id="accept-btn"
-                onclick={renameImage}
-                aria-label="Accept Edit"
-                >
-                check
-              </IconButton>
-            </div>
-          {:else}
-            <h3 onclick={enableEditing}>{imageName}</h3>
-          {/if}
+                <IconButton
+                  class="material-icons icon-btn"
+                  id="accept-btn"
+                  onclick={renameImage}
+                  aria-label="Accept Edit"
+                  >
+                  check
+                </IconButton>
+              </div>
+            {:else}
+              <h3 onclick={enableEditing}>{imageName}</h3>
+            {/if}
+          </div>
 
           <div class="actions">
             {#if multiVersion}
@@ -343,7 +352,7 @@
               </div>
               <div class="detail-item">
                 <span class="label">Version</span>
-                <span class="value">{image.version_index} ({image.version})</span>
+                <span class="value">{image.version_index}</span>
               </div>
             {/if}
           </div>
@@ -351,6 +360,14 @@
       </div>
     </div>
   </div>
+
+  <IconButton
+    class="material-icons icon-btn"
+    onclick={handleNextImage}
+    disabled={imageIds.indexOf(image.id) === imageIds.length - 1}
+    >
+    chevron_right
+  </IconButton>
 
   {#if showConfirmDeleteModal}
     <ConfirmModal
@@ -399,7 +416,13 @@
 
   .image-header {
     display: flex;
+    flex-wrap: wrap;
     padding: 0 24px;
+    align-items: flex-start;
+  }
+
+  .image-name {
+    flex-grow: 1;
   }
 
   .name-edit {
@@ -430,7 +453,7 @@
     align-self: center;
     display: flex;
     gap: 12px;
-    flex-wrap: wrap;
+    flex-grow: 0;
   }
 
   .image-details {

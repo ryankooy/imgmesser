@@ -17,7 +17,7 @@ use crate::{
     auth::middleware::RequireAuth,
     errors::ImageError,
     models::{
-        ContentType, ImageData, ImageList,
+        ContentType, Image, ImageData, ImageList,
         UploadImage, UserInfo,
     },
     schemas::{
@@ -74,6 +74,21 @@ pub async fn get_image(
         .unwrap();
 
     Ok(response)
+}
+
+/// Route for retrieving metadata for a specific image.
+pub async fn get_image_metadata(
+    State(state): State<AppState>,
+    RequireAuth(user): RequireAuth,
+    Path(image_id): Path<String>,
+) -> Result<Json<Image>> {
+    let image: Image = state
+        .image_repo
+        .get_metadata_for_one(&image_id, user)
+        .await?
+        .ok_or(ImageError::NotFound)?;
+
+    Ok(Json(image))
 }
 
 /// Route for uploading an image.
