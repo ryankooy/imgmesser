@@ -10,7 +10,7 @@ use crate::{
     db,
     errors::ImageError,
     models::{
-        Image, ImageData, ImageInfo, ImageList,
+        ContentType, Image, ImageData, ImageInfo, ImageList,
         UploadImage, UserInfo,
     },
     s3,
@@ -40,7 +40,7 @@ pub trait ImageRepoOps: Send + Sync {
         user: UserInfo,
     ) -> Result<Option<ImageData>>;
 
-    async fn get_all(
+    async fn get_metadata_for_all(
         &self,
         user: UserInfo,
         page: u32,
@@ -82,7 +82,21 @@ impl ImageRepoOps for ImageRepo {
         image: UploadImage,
         user: UserInfo,
     ) -> Result<()> {
-        let image_id = Uuid::now_v7();
+        let mut is_new: bool = true;
+
+        // If an image by the given name exists for this user,
+        // get the image id; otherwise, make a new one
+        let image_id: Uuid = if let Ok(Some(image_id)) = db::find_image_id_by_name(
+            &self.db,
+            &image.name,
+            &user.username,
+        )
+        .await {
+            is_new = false;
+            image_id
+        } else {
+            Uuid::now_v7()
+        };
 
         let image_path = get_object_path(
             &user.object_base_path,
@@ -101,8 +115,8 @@ impl ImageRepoOps for ImageRepo {
         .await
         .map_err(|e| ImageError::S3OperationFailure(e.to_string()))?;
 
-        // Create a db record for the image
-        if let Err(e) = db::insert_image(
+        // If it's a new image, create a db record for it
+        if is_new && let Err(e) = db::insert_image(
             &self.db,
             &image_id,
             &image.name,
@@ -113,19 +127,12 @@ impl ImageRepoOps for ImageRepo {
             error!("Image insert failed: {}", e);
         }
 
-        if let Ok(Some(image_id)) = db::find_id_by_name(
-            &self.db,
-            &image.name,
-            &user.username,
-        )
-        .await {
-            let version_id = output.version_id().unwrap_or("");
-
+        if let Some(version) = output.version_id() {
             // Add the image object version in the db
             if let Err(e) = db::insert_image_version(
                 &self.db,
                 &image_id,
-                version_id,
+                version,
                 image.dimensions,
                 image_size,
             )
@@ -143,7 +150,7 @@ impl ImageRepoOps for ImageRepo {
         image_id: &str,
         user: UserInfo,
     ) -> Result<Option<ImageData>> {
-        let image = match get_metadata(&self.db, image_id, &user.username).await {
+        let image = match get_image_info(&self.db, image_id, &user.username).await {
             Ok(img) => img,
             Err(e) => {
                 error!("Error getting image metadata: {}", e);
@@ -158,28 +165,25 @@ impl ImageRepoOps for ImageRepo {
             &image.name,
         );
 
-        let output = s3::get_object(
+        let data = s3::get_object(
             &self.img_store_client, &image_path, &image.version,
         )
         .await
-        .map_err(|e| ImageError::S3OperationFailure(e.to_string()))?;
+        .map_err(|e| ImageError::S3OperationFailure(e.to_string()))?
+        .body
+        .collect()
+        .await
+        .map_err(|_| ImageError::ReadFailure)?
+        .into_bytes();
 
-        let content_type = output
-            .content_type()
-            .unwrap_or("image/jpeg")
+        let content_type = ContentType::from_int(image.content_type)
             .to_string();
 
-        let data = output.body
-            .collect()
-            .await
-            .map_err(|_| ImageError::ReadFailure)?
-            .into_bytes();
-
-        return Ok(Some(ImageData { content_type, data }));
+        Ok(Some(ImageData { content_type, data }))
     }
 
     /// Get metadata for all of a user's images.
-    async fn get_all(
+    async fn get_metadata_for_all(
         &self,
         user: UserInfo,
         page: u32,
@@ -197,7 +201,7 @@ impl ImageRepoOps for ImageRepo {
         let total = objects.len();
 
         // Get image metadata from db
-        let db_images = db::find_all(&self.db, &user.username)
+        let db_images = db::find_all_images(&self.db, &user.username)
             .await
             .map_err(|e| ImageError::QueryFailure(e.to_string()))?;
 
@@ -238,7 +242,7 @@ impl ImageRepoOps for ImageRepo {
         image_id: &str,
         user: UserInfo,
     ) -> Result<()> {
-        let image = get_metadata(&self.db, image_id, &user.username)
+        let image = get_image_info(&self.db, image_id, &user.username)
             .await
             .map_err(|e| ImageError::QueryFailure(e.to_string()))?;
 
@@ -267,7 +271,7 @@ impl ImageRepoOps for ImageRepo {
         image_id: &str,
         user: UserInfo,
     ) -> Result<Option<String>> {
-        let image = get_metadata(&self.db, image_id, &user.username)
+        let image = get_image_info(&self.db, image_id, &user.username)
             .await
             .map_err(|e| ImageError::QueryFailure(e.to_string()))?;
 
@@ -290,7 +294,7 @@ impl ImageRepoOps for ImageRepo {
         image_id: &str,
         user: UserInfo,
     ) -> Result<Option<String>> {
-        let image = get_metadata(&self.db, image_id, &user.username)
+        let image = get_image_info(&self.db, image_id, &user.username)
             .await
             .map_err(|e| ImageError::QueryFailure(e.to_string()))?;
 
@@ -314,7 +318,7 @@ impl ImageRepoOps for ImageRepo {
         new_name: &str,
         user: UserInfo,
     ) -> Result<Option<String>> {
-        let image = get_metadata(&self.db, image_id, &user.username)
+        let image = get_image_info(&self.db, image_id, &user.username)
             .await
             .map_err(|e| ImageError::QueryFailure(e.to_string()))?;
 
@@ -328,13 +332,13 @@ impl ImageRepoOps for ImageRepo {
 }
 
 /// Get image metadata and return it or an error if not found.
-async fn get_metadata(
+async fn get_image_info(
     db: &PgPool,
     image_id: &str,
     username: &str,
 ) -> anyhow::Result<ImageInfo> {
     let id = Uuid::parse_str(image_id)?;
-    if let Some(image) = db::find_one(db, &id, username).await? {
+    if let Some(image) = db::find_image(db, &id, username).await? {
         Ok(image)
     } else {
         anyhow::bail!("Image not found");

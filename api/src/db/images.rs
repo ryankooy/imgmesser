@@ -61,14 +61,14 @@ pub async fn insert_image_version(
 }
 
 /// Retrieve database data for a single image.
-pub async fn find_one(
+pub async fn find_image(
     db: &PgPool,
     id: &Uuid,
     username: &str,
 ) -> Result<Option<ImageInfo>> {
     let image = sqlx::query_as::<_, ImageInfo>(
         r#"
-        SELECT i.id, i.name, i.username, v.version
+        SELECT i.id, i.name, i.username, i.content_type, v.version
         FROM image AS i
         LEFT JOIN image_version AS v
             ON v.image_id = i.id
@@ -86,7 +86,7 @@ pub async fn find_one(
 }
 
 /// Retrieve database data for a single image.
-pub async fn find_id_by_name(
+pub async fn find_image_id_by_name(
     db: &PgPool,
     name: &str,
     username: &str,
@@ -103,7 +103,7 @@ pub async fn find_id_by_name(
 }
 
 /// Retrieve database data for all of the given user's images.
-pub async fn find_all(
+pub async fn find_all_images(
     db: &PgPool,
     username: &str,
 ) -> Result<Vec<Image>> {

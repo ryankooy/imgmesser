@@ -17,7 +17,8 @@ use crate::{
     auth::middleware::RequireAuth,
     errors::ImageError,
     models::{
-        ContentType, ImageData, ImageList, UploadImage, UserInfo,
+        ContentType, ImageData, ImageList,
+        UploadImage, UserInfo,
     },
     schemas::{
         ImageRenameRequest,
@@ -30,7 +31,7 @@ use crate::{
 type Result<T> = anyhow::Result<T, ImageError>;
 
 /// Route for retrieving images.
-pub async fn get_images(
+pub async fn get_all_images_metadata(
     State(state): State<AppState>,
     ConnectInfo(addr): ConnectInfo<SocketAddr>,
     RequireAuth(user): RequireAuth,
@@ -43,13 +44,13 @@ pub async fn get_images(
 
     let images: ImageList = state
         .image_repo
-        .get_all(user, page, limit)
+        .get_metadata_for_all(user, page, limit)
         .await?;
 
     Ok(Json(images))
 }
 
-/// Route for retrieving a specific image.
+/// Route for retrieving data for a specific image.
 pub async fn get_image(
     State(state): State<AppState>,
     RequireAuth(user): RequireAuth,
