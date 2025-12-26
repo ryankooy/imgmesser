@@ -4,7 +4,7 @@ export const currentView: string | null = writable(null);
 export const currentUser: string | null = writable(null);
 export const apiUrl: string = import.meta.env.VITE_API_URL;
 
-export interface ImageData {
+export interface ImageMeta {
     id: string;
     name: string;
     content_type: string;
@@ -18,4 +18,10 @@ export interface ImageData {
     version_index: number;
     latest_version: boolean;
     initial_version: boolean;
+}
+
+export interface ImageData {
+    id: string;
+    url: string;
+    meta: ImageMeta;
 }

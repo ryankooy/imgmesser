@@ -3,16 +3,18 @@
   import IconButton from "@smui/icon-button";
   import AlertModal from "./AlertModal.svelte";
   import ConfirmModal from "./ConfirmModal.svelte";
-  import type { ImageData } from "../store.ts";
+  import type { ImageMeta } from "../store.ts";
   import { getImageDataUrl, imageUrl } from "../utils/api.ts";
   import { getFileExtension, getFileStem } from "../utils/app.ts";
 
   const dispatch = createEventDispatcher();
 
-  const { image = null, imageIds = [] } = $props();
+  let { image = null, imageIds = [] } = $props();
 
-  const multiVersion: boolean = $derived(image.version_count > 1);
-  let imageDataUrl: string = $state("");
+  const meta: ImageMeta | null = $derived(image.meta ?? null);
+  let imageDataUrl: string = $derived(image.url ?? "");
+
+  const multiVersion: boolean = $derived(meta.version_count > 1);
 
   let loading: boolean = $state(false);
   let editing: boolean = $state(false);
@@ -21,7 +23,7 @@
 
   let alertText: string | null = $state(null);
 
-  const imageName: string = $derived(image.name);
+  const imageName: string = $derived(meta.name);
   setContext("imageName", () => imageName);
 
   const modalAction: string = "delete";
@@ -38,7 +40,8 @@
     const dataUrl = await getImageDataUrl(image.id);
 
     if (dataUrl) {
-      imageDataUrl = dataUrl;
+      //imageDataUrl = dataUrl;
+      dispatch("selectDataUrl", imageDataUrl);
     }
 
     loading = false;
@@ -138,18 +141,18 @@
     dispatch("selectNextImage");
   }
 
-  function handlePreviousImage() {
-    dispatch("selectPreviousImage");
+  function handlePrevImage() {
+    dispatch("selectPrevImage");
   }
 
   function close() {
     const modal = document.getElementById("image-backdrop");
     modal.classList.add("closing");
+    //if (imageDataUrl) {
+    //  URL.revokeObjectURL(imageDataUrl);
+    //}
 
     modal.addEventListener("animationend", () => {
-      if (imageDataUrl) {
-        URL.revokeObjectURL(imageDataUrl);
-      }
       dispatch("close");
     });
   }
@@ -166,7 +169,7 @@
     } else if (event.key === "ArrowRight") {
       handleNextImage();
     } else if (event.key === "ArrowLeft") {
-      handlePreviousImage();
+      handlePrevImage();
     }
   }
 
@@ -257,7 +260,7 @@
   >
   <IconButton
     class="material-icons icon-btn"
-    onclick={handlePreviousImage}
+    onclick={handlePrevImage}
     disabled={imageIds.indexOf(image.id) === 0}
     >
     chevron_left
@@ -265,7 +268,7 @@
 
   <div class="modal-content">
     <IconButton
-      class="material-icons icon-btn close-btn"
+      class="material-icons icon-btn close-btn low-opac"
       onclick={close}
       aria-label="Close"
       >
@@ -318,7 +321,7 @@
               <IconButton
                 class="material-icons icon-btn"
                 onclick={revertImage}
-                disabled={!imageDataUrl || image.initial_version}
+                disabled={!imageDataUrl || meta.initial_version}
                 >
                 undo
               </IconButton>
@@ -326,7 +329,7 @@
               <IconButton
                 class="material-icons icon-btn"
                 onclick={restoreImage}
-                disabled={!imageDataUrl || image.latest_version}
+                disabled={!imageDataUrl || meta.latest_version}
                 >
                 redo
               </IconButton>
@@ -354,28 +357,28 @@
           <div class="details-grid">
             <div class="detail-item">
               <span class="label">File Size</span>
-              <span class="value">{formatFileSize(image.size)}</span>
+              <span class="value">{formatFileSize(meta.size)}</span>
             </div>
             <div class="detail-item">
               <span class="label">Image Size</span>
-              <span class="value">{image.width} x {image.height}</span>
+              <span class="value">{meta.width} x {meta.height}</span>
             </div>
             <div class="detail-item">
               <span class="label">Type</span>
-              <span class="value">{image.content_type}</span>
+              <span class="value">{meta.content_type}</span>
             </div>
             <div class="detail-item">
               <span class="label">Uploaded</span>
-              <span class="value">{formatDate(image.created_at)}</span>
+              <span class="value">{formatDate(meta.created_at)}</span>
             </div>
             {#if multiVersion}
               <div class="detail-item">
                 <span class="label">Modified</span>
-                <span class="value">{formatDate(image.last_modified)}</span>
+                <span class="value">{formatDate(meta.last_modified)}</span>
               </div>
               <div class="detail-item">
                 <span class="label">Version</span>
-                <span class="value">{image.version_index}</span>
+                <span class="value">{meta.version_index}</span>
               </div>
             {/if}
           </div>

@@ -1,7 +1,7 @@
 <script lang="ts">
   import { createEventDispatcher, onMount } from "svelte";
   import IconButton from "@smui/icon-button";
-  import type { ImageData } from "../store.ts";
+  import type { ImageData, ImageMeta } from "../store.ts";
   import { getImageDataUrl, getImageMetadata, imageGalleryUrl } from "../utils/api.ts";
   import { truncateFileName } from "../utils/app.ts";
 
@@ -9,13 +9,13 @@
     refreshAll = 0,
     refreshOne = 0,
     selectingNext = false,
-    selectingPrevious = false,
-    selectedImage = null
+    selectingPrev = false,
+    selectedId = null
   } = $props();
 
   const dispatch = createEventDispatcher();
 
-  let images: ImageData[] = $state([]);
+  let images: ImageMeta[] = $state([]);
   let imageDataUrls: Map<string, string> = $state(new Map());
   let imageVersions: Map<string, string> = $state(new Map());
   let loading: boolean = $state(false);
@@ -102,37 +102,36 @@
   }
 
   async function handleUpdatedImage() {
-    if (selectedImage) {
-      const imageId = selectedImage.id;
-      let index: number = images.findIndex((img) => img.id === imageId);
+    if (selectedId) {
+      let index: number = images.findIndex((img) => img.id === selectedId);
 
       if (selectingNext) {
-        dispatch("imageSelect", images[++index]);
-      } else if (selectingPrevious) {
-        dispatch("imageSelect", images[--index]);
+        selectImage(images[++index]);
+      } else if (selectingPrev) {
+        selectImage(images[--index]);
       } else {
         // Fetch a new data URL for the image
-        const dataUrl = await getImageDataUrl(imageId);
+        const dataUrl = await getImageDataUrl(selectedId);
         if (dataUrl) {
           // Update data URLs
-          imageDataUrls.set(imageId, dataUrl);
+          imageDataUrls.set(selectedId, dataUrl);
           imageDataUrls = imageDataUrls;
         }
 
         // Fetch new metadata for the image
-        const image = await getImageMetadata(imageId);
+        const image = await getImageMetadata(selectedId);
         if (image) {
           // Update image versions
-          imageVersions.set(imageId, image.version);
+          imageVersions.set(selectedId, image.version);
           imageVersions = imageVersions;
 
-          index = images.findIndex((img) => img.id === imageId);
+          index = images.findIndex((img) => img.id === selectedId);
           if (index !== -1) {
             // Update the array of images
             images[index] = image;
 
             // Reselect the current image
-            dispatch("imageSelect", image);
+            selectImage(image);
           }
         }
       }
@@ -143,8 +142,18 @@
     dispatch("upload");
   }
 
-  function handleImageClick(image: ImageData) {
-    dispatch("imageSelect", image);
+  function handleImageClick(image: ImageMeta) {
+    selectImage(image);
+  }
+
+  function selectImage(image: ImageMeta) {
+    const imageData: ImageData = {
+      id: image.id,
+      url: imageDataUrls.get(image.id),
+      meta: image,
+    };
+
+    dispatch("imageSelect", imageData);
   }
 
   function goToPage(page: number) {

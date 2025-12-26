@@ -41,7 +41,7 @@
     onclick={handleModalClick}
     >
     <IconButton
-      class="material-icons icon-btn close-btn"
+      class="material-icons icon-btn close-btn no-bkg"
       onclick={close}
       aria-label="Close"
       >
