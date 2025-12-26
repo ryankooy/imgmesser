@@ -1,9 +1,8 @@
 <script lang="ts">
   import { createEventDispatcher, onMount } from "svelte";
   import IconButton from "@smui/icon-button";
-  import { apiUrl } from "../store.ts";
   import type { ImageData } from "../store.ts";
-  import { getImageDataUrl, getImageMetadata } from "../utils/api.ts";
+  import { getImageDataUrl, getImageMetadata, imageGalleryUrl } from "../utils/api.ts";
   import { truncateFileName } from "../utils/app.ts";
 
   let {
@@ -52,9 +51,7 @@
     error = "";
 
     try {
-      const response = await fetch(
-        `${apiUrl}/images?page=${currentPage}&limit=${limit}`
-      );
+      const response = await fetch(imageGalleryUrl(currentPage, limit));
       const data = await response.json();
 
       if (response.ok) {

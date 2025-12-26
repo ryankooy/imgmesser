@@ -50,7 +50,7 @@ impl IntoResponse for ImageError {
             }
             ImageError::QueryFailure(e) => {
                 (
-                    StatusCode::UNAUTHORIZED,
+                    StatusCode::INTERNAL_SERVER_ERROR,
                     format!("Database operation error: {}", e),
                 )
             }

@@ -143,3 +143,29 @@ h2 {
         opacity: 1;
     }
 }
+
+.modal-backdrop.closing {
+    animation: fadeOut 0.3s forwards;
+}
+
+.modal-backdrop.closing .modal-content {
+    animation: shrinkDown 0.3s forwards;
+}
+
+@keyframes fadeOut {
+    from {
+      opacity: 1;
+    }
+    to {
+      opacity: 0;
+    }
+}
+
+@keyframes shrinkDown {
+    from {
+      transform: scale(1);
+    }
+    to {
+      transform: scale(0.9);
+    }
+}

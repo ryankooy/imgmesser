@@ -1,10 +1,10 @@
 <script lang="ts">
   import { createEventDispatcher, onMount, setContext } from "svelte";
   import IconButton from "@smui/icon-button";
+  import AlertModal from "./AlertModal.svelte";
   import ConfirmModal from "./ConfirmModal.svelte";
-  import { apiUrl } from "../store.ts";
   import type { ImageData } from "../store.ts";
-  import { getImageDataUrl } from "../utils/api.ts";
+  import { getImageDataUrl, imageUrl } from "../utils/api.ts";
   import { getFileExtension, getFileStem } from "../utils/app.ts";
 
   const dispatch = createEventDispatcher();
@@ -14,9 +14,12 @@
   const multiVersion: boolean = $derived(image.version_count > 1);
   let imageDataUrl: string = $state("");
 
-  let loading = $state(false);
-  let editing = $state(false);
-  let showConfirmDeleteModal = $state(false);
+  let loading: boolean = $state(false);
+  let editing: boolean = $state(false);
+  let showConfirmDeleteModal: boolean = $state(false);
+  let showAlertModal: boolean = $state(false);
+
+  let alertText: string | null = $state(null);
 
   const imageName: string = $derived(image.name);
   setContext("imageName", () => imageName);
@@ -29,10 +32,6 @@
   onMount(() => {
     loadImageData();
   });
-
-  function imageId(): string {
-    return encodeURIComponent(image.id);
-  }
 
   async function loadImageData() {
     loading = true;
@@ -47,14 +46,14 @@
 
   async function deleteImage() {
     try {
-      const response = await fetch(`${apiUrl}/images/${imageId()}/delete`, {
+      const response = await fetch(`${imageUrl(image.id)}/delete`, {
         method: "POST",
       });
 
       if (response.ok) {
         dispatch("imageUpdate");
       } else {
-        console.error("Failed to delete image");
+        setAlertMessage("Failed to delete image");
       }
     } catch (err) {
       console.error("Error fetching:", err);
@@ -68,19 +67,24 @@
     if (newImageName === imageName) return;
 
     try {
-      const response = await fetch(`${apiUrl}/images/${imageId()}/rename`, {
+      const response = await fetch(`${imageUrl(image.id)}/rename`, {
         method: "POST",
         headers: {"Content-Type": "application/json"},
         body: JSON.stringify({ image_name: newImageName }),
       });
 
+      const data = await response.json();
+
       if (response.ok) {
-        const data = await response.json();
         if (data.updated) {
           await handleUpdatedImage();
         }
       } else {
-        console.error("Failed to rename image");
+        if (data.error && data.error.includes("duplicate")) {
+          setAlertMessage("An image with that name already exists");
+        } else {
+          setAlertMessage("Failed to rename image");
+        }
       }
     } catch (err) {
       console.error("Error fetching:", err);
@@ -89,7 +93,7 @@
 
   async function revertImage() {
     try {
-      const response = await fetch(`${apiUrl}/images/${imageId()}/revert`, {
+      const response = await fetch(`${imageUrl(image.id)}/revert`, {
         method: "POST",
       });
 
@@ -99,7 +103,7 @@
           await handleUpdatedImage();
         }
       } else {
-        console.error("Failed to revert image");
+        setAlertMessage("Failed to revert image");
       }
     } catch (err) {
       console.error("Error fetching:", err);
@@ -108,7 +112,7 @@
 
   async function restoreImage() {
     try {
-      const response = await fetch(`${apiUrl}/images/${imageId()}/restore`, {
+      const response = await fetch(`${imageUrl(image.id)}/restore`, {
         method: "POST",
       });
 
@@ -118,7 +122,7 @@
           await handleUpdatedImage();
         }
       } else {
-        console.error("Failed to restore image");
+        setAlertMessage("Failed to restore image");
       }
     } catch (err) {
       console.error("Error fetching:", err);
@@ -139,10 +143,15 @@
   }
 
   function close() {
-    if (imageDataUrl) {
-      URL.revokeObjectURL(imageDataUrl);
-    }
-    dispatch("close");
+    const modal = document.getElementById("image-backdrop");
+    modal.classList.add("closing");
+
+    modal.addEventListener("animationend", () => {
+      if (imageDataUrl) {
+        URL.revokeObjectURL(imageDataUrl);
+      }
+      dispatch("close");
+    });
   }
 
   function handleBackdropClick(event: MouseEvent) {
@@ -205,6 +214,16 @@
     showConfirmDeleteModal = false;
   }
 
+  function handleCloseAlertModal() {
+    showAlertModal = false;
+    alertText = null;
+  }
+
+  function setAlertMessage(message: string) {
+    alertText = message;
+    showAlertModal = true;
+  }
+
   function resetImageName() {
     editing = false;
     editableFileStem = getFileStem(imageName);
@@ -231,7 +250,11 @@
 
 <svelte:window on:keydown={handleKeydown} />
 
-<div class="modal-backdrop" onclick={handleBackdropClick}>
+<div
+  class="modal-backdrop"
+  id="image-backdrop"
+  onclick={handleBackdropClick}
+  >
   <IconButton
     class="material-icons icon-btn"
     onclick={handlePreviousImage}
@@ -373,6 +396,11 @@
     <ConfirmModal
       on:confirm={deleteImage}
       on:cancel={handleCancelDelete}
+    />
+  {:else if showAlertModal}
+    <AlertModal
+      message={alertText}
+      on:close={handleCloseAlertModal}
     />
   {/if}
 </div>

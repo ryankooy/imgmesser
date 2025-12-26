@@ -8,12 +8,21 @@
   const message = `Are you sure you want to ${action} "${imageName}"?`;
   const actionTitle = action.charAt(0).toUpperCase() + action.slice(1);
 
+  function closeModal(eventName: string) {
+    const modal = document.getElementById("confirm-action-backdrop");
+    modal.classList.add("closing");
+
+    modal.addEventListener("animationend", () => {
+      dispatch(eventName);
+    });
+  }
+
   function handleConfirm() {
-    dispatch("confirm");
+    closeModal("confirm");
   }
 
   function handleCancel() {
-    dispatch("cancel");
+    closeModal("cancel");
   }
 
   function handleModalClick(event: CustomEvent) {
@@ -22,12 +31,12 @@
   }
 </script>
 
-<div class="modal-backdrop" onclick={handleCancel}>
-  <div
-    class="modal-content"
-    id="confirm-action"
-    onclick={handleModalClick}
-    >
+<div
+  class="modal-backdrop"
+  id="confirm-action-backdrop"
+  onclick={handleCancel}
+  >
+  <div class="modal-content" onclick={handleModalClick}>
     <div class="inner">
       <!-- svelte-ignore state_referenced_locally -->
       <h2>Confirm {actionTitle}</h2>

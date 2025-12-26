@@ -1,6 +1,6 @@
 <script lang="ts">
   import { onMount } from "svelte";
-  import { apiUrl, currentView, currentUser } from "./store.ts";
+  import { currentView, currentUser } from "./store.ts";
   import type { ImageData } from "./store.ts";
   import { getCurrentUser } from "./utils/api.ts";
   import { handlePageRefresh, registerServiceWorker } from "./utils/app.ts";
@@ -20,6 +20,7 @@
     handlePageRefresh();
     (async () => {
       $currentUser = await getCurrentUser();
+      if ($currentUser == null) setLoginView();
     })();
   });
 
@@ -95,11 +96,11 @@
     $currentView = "gallery";
   }
 
-  function showRegisterView() {
+  function setRegisterView() {
     $currentView = "register";
   }
 
-  function showLoginView() {
+  function setLoginView() {
     $currentView = "login";
   }
 </script>
@@ -122,7 +123,7 @@
         />
 
         {#if selectedImage}
-          {#key selectedImage}
+          <!--{#key selectedImage}-->
             <ImageViewer
               image={selectedImage}
               imageIds={imageIds}
@@ -131,7 +132,7 @@
               on:selectNextImage={handleSelectNextImage}
               on:selectPreviousImage={handleSelectPreviousImage}
             />
-          {/key}
+          <!--{/key}-->
         {:else if showUploadModal}
           <UploadForm
             on:uploadSuccess={handleUploadSuccess}
@@ -140,12 +141,12 @@
         {/if}
       {:else if $currentView === "register"}
         <UserRegister
-          on:registrationSuccess={showLoginView}
+          on:registrationSuccess={setLoginView}
         />
       {:else if $currentView === "login"}
         <UserLogin
           on:loginSuccess={handleLoginSuccess}
-          on:registerClicked={showRegisterView}
+          on:registerClicked={setRegisterView}
         />
       {/if}
     </div>

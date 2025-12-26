@@ -1,30 +1,20 @@
 <script lang="ts">
-  import { currentView, currentUser } from "../store.ts";
+  import { currentUser, currentView } from "../store.ts";
   import { logOut } from "../utils/api.ts";
 
   let user: string | null = $state(null);
-  let userLoggedIn: boolean = $state(false);
-
-  function showLoginView() {
-    $currentView = "login";
-  }
-
-  function showGalleryView() {
-    $currentView = "gallery";
-  }
 
   async function logOutUser() {
     const userLoggedOut = await logOut();
     if (userLoggedOut) {
       $currentUser = null;
-      showLoginView();
+      $currentView = "login";
     }
   }
 
   $effect(() => {
     user = $currentUser;
-    userLoggedIn = user != null;
-    if (userLoggedIn) showGalleryView();
+    if (user != null) $currentView = "gallery";
   });
 </script>
 
@@ -33,7 +23,7 @@
     <div class="logo">
       <span class="title">ImgMesser</span>
     </div>
-    {#if userLoggedIn}
+    {#if user != null}
       <div>Hi, {user}</div>
       <nav>
         <button onclick={logOutUser}>Log Out</button>
