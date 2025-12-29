@@ -77,11 +77,27 @@ h2 {
     transform: none;
 }
 
-.close-btn {
+.icon-btn.close-btn {
     position: absolute;
     top: 16px;
     right: 16px;
     z-index: 10;
+}
+
+.icon-btn.close-btn.no-bkg:hover:not(:disabled) {
+    background: none;
+}
+
+.icon-btn.close-btn.no-bkg:active:not(:disabled) {
+    background: none;
+}
+
+.icon-btn.close-btn.low-opac:hover:not(:disabled) {
+    opacity: 0.8;
+}
+
+.icon-btn.close-btn.low-opac:active:not(:disabled) {
+    opacity: 0.9;
 }
 
 .spinner {
@@ -141,5 +157,31 @@ h2 {
     to {
         transform: translateY(0);
         opacity: 1;
+    }
+}
+
+.modal-backdrop.closing {
+    animation: fadeOut 0.3s forwards;
+}
+
+.modal-backdrop.closing .modal-content {
+    animation: shrinkDown 0.3s forwards;
+}
+
+@keyframes fadeOut {
+    from {
+      opacity: 1;
+    }
+    to {
+      opacity: 0;
+    }
+}
+
+@keyframes shrinkDown {
+    from {
+      transform: scale(1);
+    }
+    to {
+      transform: scale(0.9);
     }
 }

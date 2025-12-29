@@ -1,8 +1,8 @@
 <script lang="ts">
   import { createEventDispatcher } from "svelte";
   import IconButton from "@smui/icon-button";
-  import { apiUrl, currentUser } from "../store.ts";
-  import { getCurrentUser } from "../utils/api.ts";
+  import { currentUser } from "../store.ts";
+  import { getCurrentUser, imageUploadUrl } from "../utils/api.ts";
 
   const dispatch = createEventDispatcher();
 
@@ -59,7 +59,7 @@
       formData.append("user", $currentUser);
 
       // Send multipart form data request
-      const response = await fetch(`${apiUrl}/images`, {
+      const response = await fetch(imageUploadUrl(), {
         method: "POST",
         body: formData,
       });
@@ -101,7 +101,12 @@
   }
 
   function close() {
-    dispatch("close");
+    const modal = document.getElementById("upload-backdrop");
+    modal.classList.add("closing");
+
+    modal.addEventListener("animationend", () => {
+      dispatch("close");
+    });
   }
 
   function handleBackdropClick(event: MouseEvent) {
@@ -111,8 +116,12 @@
   }
 </script>
 
-<div class="modal-backdrop" onclick={handleBackdropClick}>
-  <div class="modal-content" id="upload">
+<div
+  class="modal-backdrop"
+  id="upload-backdrop"
+  onclick={handleBackdropClick}
+  >
+  <div class="modal-content">
     <div class="inner">
       <IconButton
         class="material-icons icon-btn close-btn"
@@ -218,6 +227,6 @@
   }
 
   .message.error {
-    background: darkred;
+    background: var(--im-warn);
   }
 </style>

@@ -123,7 +123,8 @@ async function buildNewRequest(request, headers, body = null) {
 
 // Update request with an Authorization header
 async function updateRequest(request, urlPath, tokens) {
-    const headers = new Headers(Array.from(request.headers.entries()));
+    const r = request.clone();
+    const headers = new Headers(Array.from(r.headers.entries()));
 
     // Add Authorization header with access token
     headers.append("Authorization", `Bearer ${tokens.accessToken}`);
@@ -141,7 +142,7 @@ async function updateRequest(request, urlPath, tokens) {
         }
 
         // Build new request
-        const newRequest = await buildNewRequest(request, headers, body);
+        const newRequest = await buildNewRequest(r, headers, body);
         return newRequest;
     } catch (e) {
         console.error("Error making authorization request:", e);
@@ -236,9 +237,9 @@ self.addEventListener("fetch", (event) => {
     event.respondWith(interceptRequest(event.request));
 });
 
-// If the app sends a REFRESH message, request tokens from the server
+// If the app signals a page refresh, request tokens from the server
 self.addEventListener("message", async (event) => {
-    if (event.data && event.data.type === "REFRESH") {
+    if (event.data && event.data.refresh) {
         const tokens = await storage.get("tokens");
         if (!!tokens) await refreshTokens(tokens);
     }

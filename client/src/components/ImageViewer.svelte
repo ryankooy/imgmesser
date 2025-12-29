@@ -1,24 +1,32 @@
 <script lang="ts">
   import { createEventDispatcher, onMount, setContext } from "svelte";
   import IconButton from "@smui/icon-button";
+  import AlertModal from "./AlertModal.svelte";
   import ConfirmModal from "./ConfirmModal.svelte";
-  import { apiUrl } from "../store.ts";
-  import type { ImageData } from "../store.ts";
-  import { getImageDataUrl } from "../utils/api.ts";
-  import { getFileExtension, getFileStem } from "../utils/app.ts";
+  import type { ImageMeta } from "../store.ts";
+  import { getImageDataUrl, imageUrl } from "../utils/api.ts";
+  import {
+    formatDate, formatFileSize, formatImageType,
+    getFileExtension, getFileStem,
+  } from "../utils/app.ts";
 
   const dispatch = createEventDispatcher();
 
-  const { image = null, imageIds = [] } = $props();
+  let { image = null, imageIds = [] } = $props();
 
-  const multiVersion: boolean = $derived(image.version_count > 1);
-  let imageDataUrl: string = $state("");
+  const meta: ImageMeta | null = $derived(image.meta ?? null);
+  let imageDataUrl: string = $derived(image.url ?? "");
 
-  let loading = $state(false);
-  let editing = $state(false);
-  let showConfirmDeleteModal = $state(false);
+  const multiVersion: boolean = $derived(meta.version_count > 1);
 
-  const imageName: string = $derived(image.name);
+  let loading: boolean = $state(false);
+  let editing: boolean = $state(false);
+  let showConfirmDeleteModal: boolean = $state(false);
+  let showAlertModal: boolean = $state(false);
+
+  let alertText: string | null = $state(null);
+
+  const imageName: string = $derived(meta.name);
   setContext("imageName", () => imageName);
 
   const modalAction: string = "delete";
@@ -30,15 +38,12 @@
     loadImageData();
   });
 
-  function imageId(): string {
-    return encodeURIComponent(image.id);
-  }
-
   async function loadImageData() {
     loading = true;
     const dataUrl = await getImageDataUrl(image.id);
 
     if (dataUrl) {
+      dispatch("selectDataUrl", dataUrl);
       imageDataUrl = dataUrl;
     }
 
@@ -47,14 +52,14 @@
 
   async function deleteImage() {
     try {
-      const response = await fetch(`${apiUrl}/images/${imageId()}/delete`, {
+      const response = await fetch(`${imageUrl(image.id)}/delete`, {
         method: "POST",
       });
 
       if (response.ok) {
         dispatch("imageUpdate");
       } else {
-        console.error("Failed to delete image");
+        setAlertMessage("Failed to delete image");
       }
     } catch (err) {
       console.error("Error fetching:", err);
@@ -68,19 +73,24 @@
     if (newImageName === imageName) return;
 
     try {
-      const response = await fetch(`${apiUrl}/images/${imageId()}/rename`, {
+      const response = await fetch(`${imageUrl(image.id)}/rename`, {
         method: "POST",
         headers: {"Content-Type": "application/json"},
         body: JSON.stringify({ image_name: newImageName }),
       });
 
+      const data = await response.json();
+
       if (response.ok) {
-        const data = await response.json();
         if (data.updated) {
           await handleUpdatedImage();
         }
       } else {
-        console.error("Failed to rename image");
+        if (data.error && data.error.includes("duplicate")) {
+          setAlertMessage("An image with that name already exists");
+        } else {
+          setAlertMessage("Failed to rename image");
+        }
       }
     } catch (err) {
       console.error("Error fetching:", err);
@@ -89,7 +99,7 @@
 
   async function revertImage() {
     try {
-      const response = await fetch(`${apiUrl}/images/${imageId()}/revert`, {
+      const response = await fetch(`${imageUrl(image.id)}/revert`, {
         method: "POST",
       });
 
@@ -99,7 +109,7 @@
           await handleUpdatedImage();
         }
       } else {
-        console.error("Failed to revert image");
+        setAlertMessage("Failed to revert image");
       }
     } catch (err) {
       console.error("Error fetching:", err);
@@ -108,7 +118,7 @@
 
   async function restoreImage() {
     try {
-      const response = await fetch(`${apiUrl}/images/${imageId()}/restore`, {
+      const response = await fetch(`${imageUrl(image.id)}/restore`, {
         method: "POST",
       });
 
@@ -118,7 +128,7 @@
           await handleUpdatedImage();
         }
       } else {
-        console.error("Failed to restore image");
+        setAlertMessage("Failed to restore image");
       }
     } catch (err) {
       console.error("Error fetching:", err);
@@ -134,15 +144,17 @@
     dispatch("selectNextImage");
   }
 
-  function handlePreviousImage() {
-    dispatch("selectPreviousImage");
+  function handlePrevImage() {
+    dispatch("selectPrevImage");
   }
 
   function close() {
-    if (imageDataUrl) {
-      URL.revokeObjectURL(imageDataUrl);
-    }
-    dispatch("close");
+    const modal = document.getElementById("image-backdrop");
+    modal.classList.add("closing");
+
+    modal.addEventListener("animationend", () => {
+      dispatch("close");
+    });
   }
 
   function handleBackdropClick(event: MouseEvent) {
@@ -157,27 +169,13 @@
     } else if (event.key === "ArrowRight") {
       handleNextImage();
     } else if (event.key === "ArrowLeft") {
-      handlePreviousImage();
+      handlePrevImage();
     }
   }
 
   function handleKeydownOnEdit(event: KeyboardEvent) {
     if (event.key === "Enter") {
       renameImage();
-    }
-  }
-
-  function formatFileSize(bytes: number): string {
-    if (bytes < 1024) return bytes + " B";
-    if (bytes < 1024 * 1024) return (bytes / 1024).toFixed(1) + " KB";
-    return (bytes / (1024 * 1024)).toFixed(1) + " MB";
-  }
-
-  function formatDate(dateStr: string): string {
-    try {
-      return new Date(dateStr).toLocaleString();
-    } catch {
-      return dateStr;
     }
   }
 
@@ -203,6 +201,16 @@
 
   function handleCancelDelete() {
     showConfirmDeleteModal = false;
+  }
+
+  function handleCloseAlertModal() {
+    showAlertModal = false;
+    alertText = null;
+  }
+
+  function setAlertMessage(message: string) {
+    alertText = message;
+    showAlertModal = true;
   }
 
   function resetImageName() {
@@ -231,10 +239,14 @@
 
 <svelte:window on:keydown={handleKeydown} />
 
-<div class="modal-backdrop" onclick={handleBackdropClick}>
+<div
+  class="modal-backdrop"
+  id="image-backdrop"
+  onclick={handleBackdropClick}
+  >
   <IconButton
     class="material-icons icon-btn"
-    onclick={handlePreviousImage}
+    onclick={handlePrevImage}
     disabled={imageIds.indexOf(image.id) === 0}
     >
     chevron_left
@@ -242,7 +254,7 @@
 
   <div class="modal-content">
     <IconButton
-      class="material-icons icon-btn close-btn"
+      class="material-icons icon-btn close-btn low-opac"
       onclick={close}
       aria-label="Close"
       >
@@ -295,7 +307,7 @@
               <IconButton
                 class="material-icons icon-btn"
                 onclick={revertImage}
-                disabled={!imageDataUrl || image.initial_version}
+                disabled={!imageDataUrl || meta.initial_version}
                 >
                 undo
               </IconButton>
@@ -303,7 +315,7 @@
               <IconButton
                 class="material-icons icon-btn"
                 onclick={restoreImage}
-                disabled={!imageDataUrl || image.latest_version}
+                disabled={!imageDataUrl || meta.latest_version}
                 >
                 redo
               </IconButton>
@@ -331,28 +343,28 @@
           <div class="details-grid">
             <div class="detail-item">
               <span class="label">File Size</span>
-              <span class="value">{formatFileSize(image.size)}</span>
+              <span class="value">{formatFileSize(meta.size)}</span>
             </div>
             <div class="detail-item">
               <span class="label">Image Size</span>
-              <span class="value">{image.width} x {image.height}</span>
+              <span class="value">{meta.width} x {meta.height}</span>
             </div>
             <div class="detail-item">
               <span class="label">Type</span>
-              <span class="value">{image.content_type}</span>
+              <span class="value">{formatImageType(meta.content_type)}</span>
             </div>
             <div class="detail-item">
               <span class="label">Uploaded</span>
-              <span class="value">{formatDate(image.created_at)}</span>
+              <span class="value">{formatDate(meta.created_at)}</span>
             </div>
             {#if multiVersion}
               <div class="detail-item">
                 <span class="label">Modified</span>
-                <span class="value">{formatDate(image.last_modified)}</span>
+                <span class="value">{formatDate(meta.last_modified)}</span>
               </div>
               <div class="detail-item">
                 <span class="label">Version</span>
-                <span class="value">{image.version_index}</span>
+                <span class="value">{meta.version_index}</span>
               </div>
             {/if}
           </div>
@@ -373,6 +385,11 @@
     <ConfirmModal
       on:confirm={deleteImage}
       on:cancel={handleCancelDelete}
+    />
+  {:else if showAlertModal}
+    <AlertModal
+      message={alertText}
+      on:close={handleCloseAlertModal}
     />
   {/if}
 </div>
@@ -464,22 +481,27 @@
   .details-grid {
     display: flex;
     flex-direction: column;
-    gap: 10px;
+    align-content: flex-start;
+    row-gap: 10px;
     margin-bottom: 24px;
+    width: 100%;
   }
 
   .detail-item {
     display: flex;
-    gap: 12px;
+    justify-content: flex-end;
+    gap: 10px;
   }
 
   .label {
+    flex: 1;
     font-weight: 600;
     color: var(--im-label);
     min-width: 80px;
   }
 
   .value {
+    flex: 2;
     color: var(--im-text);
   }
 

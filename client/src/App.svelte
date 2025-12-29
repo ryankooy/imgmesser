@@ -1,7 +1,7 @@
 <script lang="ts">
   import { onMount } from "svelte";
-  import { apiUrl, currentView, currentUser } from "./store.ts";
-  import type { ImageData } from "./store.ts";
+  import { currentView, currentUser } from "./store.ts";
+  import type { ImageData, ImageMeta } from "./store.ts";
   import { getCurrentUser } from "./utils/api.ts";
   import { handlePageRefresh, registerServiceWorker } from "./utils/app.ts";
   import "./styles/app.css";
@@ -20,13 +20,15 @@
     handlePageRefresh();
     (async () => {
       $currentUser = await getCurrentUser();
+      if ($currentUser == null) setLoginView();
     })();
   });
 
   let selectedImage: ImageData | null = $state(null);
+  let selectedImageId: string | null = $state(null);
   let showUploadModal: boolean = $state(false);
   let selectingNext: boolean = $state(false);
-  let selectingPrevious: boolean = $state(false);
+  let selectingPrev: boolean = $state(false);
   let imageIds: string[] = $state([]);
 
   // Triggers for reloading gallery
@@ -34,17 +36,17 @@
   let refreshOneTrigger = $state(0);
 
   function handleImageSelect(event: CustomEvent<ImageData>) {
-    selectingNext = selectingPrevious = false;
+    selectingNext = selectingPrev = false;
     selectedImage = event.detail;
+    selectedImageId = selectedImage.id;
   }
 
-  function handleImagesLoaded(event: CustomEvent<ImageData[]>) {
+  function handleImagesLoaded(event: CustomEvent<ImageMeta[]>) {
     const images = event.detail;
     imageIds = images.map((img) => img.id);
 
     if (selectedImage) {
-      const imageId: string = selectedImage.id;
-      selectedImage = images.find((img) => img.id === imageId);
+      selectedImage.meta = images.find((img) => img.id === selectedImageId);
     }
   }
 
@@ -53,28 +55,38 @@
     if (updateOne) {
       refreshOneTrigger++;
     } else {
+      handleImageClose();
       refreshAllTrigger++;
     }
   }
 
   function handleImageClose() {
     selectedImage = null;
+    selectedImageId = null;
   }
 
   function handleSelectNextImage() {
-    const index: number = imageIds.indexOf(selectedImage.id);
-    if (index !== -1 && index !== imageIds.length - 1) {
-      selectingNext = true;
-      refreshOneTrigger++;
+    if (selectedImageId) {
+      const index: number = imageIds.indexOf(selectedImageId);
+      if (index !== -1 && index !== imageIds.length - 1) {
+        selectingNext = true;
+        refreshOneTrigger++;
+      }
     }
   }
 
-  function handleSelectPreviousImage() {
-    const index: number = imageIds.indexOf(selectedImage.id);
-    if (index > 0) {
-      selectingPrevious = true;
-      refreshOneTrigger++;
+  function handleSelectPrevImage() {
+    if (selectedImageId) {
+      const index: number = imageIds.indexOf(selectedImageId);
+      if (index > 0) {
+        selectingPrev = true;
+        refreshOneTrigger++;
+      }
     }
+  }
+
+  function handleSelectDataUrl(event: Event) {
+    if (selectedImage) selectedImage.url = event.detail;
   }
 
   function handleUploadModalOpen() {
@@ -86,20 +98,20 @@
   }
 
   function handleUploadSuccess() {
+    handleImageClose();
     refreshAllTrigger++;
-    selectedImage = null;
   }
 
-  function handleLoginSuccess(event: CustomEvent) {
+  function handleLoginSuccess(event: Event) {
     $currentUser = event.detail;
     $currentView = "gallery";
   }
 
-  function showRegisterView() {
+  function setRegisterView() {
     $currentView = "register";
   }
 
-  function showLoginView() {
+  function setLoginView() {
     $currentView = "login";
   }
 </script>
@@ -114,24 +126,23 @@
           on:imageSelect={handleImageSelect}
           on:imagesLoaded={handleImagesLoaded}
           on:upload={handleUploadModalOpen}
-          selectedImage={selectedImage}
+          selectedId={selectedImageId}
           selectingNext={selectingNext}
-          selectingPrevious={selectingPrevious}
+          selectingPrev={selectingPrev}
           refreshAll={refreshAllTrigger}
           refreshOne={refreshOneTrigger}
         />
 
         {#if selectedImage}
-          {#key selectedImage}
-            <ImageViewer
-              image={selectedImage}
-              imageIds={imageIds}
-              on:close={handleImageClose}
-              on:imageUpdate={handleImageUpdate}
-              on:selectNextImage={handleSelectNextImage}
-              on:selectPreviousImage={handleSelectPreviousImage}
-            />
-          {/key}
+          <ImageViewer
+            image={selectedImage}
+            imageIds={imageIds}
+            on:close={handleImageClose}
+            on:imageUpdate={handleImageUpdate}
+            on:selectNextImage={handleSelectNextImage}
+            on:selectPrevImage={handleSelectPrevImage}
+            on:selectDataUrl={handleSelectDataUrl}
+          />
         {:else if showUploadModal}
           <UploadForm
             on:uploadSuccess={handleUploadSuccess}
@@ -140,12 +151,12 @@
         {/if}
       {:else if $currentView === "register"}
         <UserRegister
-          on:registrationSuccess={showLoginView}
+          on:registrationSuccess={setLoginView}
         />
       {:else if $currentView === "login"}
         <UserLogin
           on:loginSuccess={handleLoginSuccess}
-          on:registerClicked={showRegisterView}
+          on:registerClicked={setRegisterView}
         />
       {/if}
     </div>

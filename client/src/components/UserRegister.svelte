@@ -1,6 +1,6 @@
 <script lang="ts">
   import { createEventDispatcher } from "svelte";
-  import { apiUrl } from "../store.ts";
+  import { userRegisterUrl } from "../utils/api.ts";
 
   const dispatch = createEventDispatcher();
 
@@ -30,7 +30,7 @@
 
     try {
       // Send user registration request
-      const response = await fetch(`${apiUrl}/register`, {
+      const response = await fetch(userRegisterUrl(), {
         method: "POST",
         body: JSON.stringify({ username, password }),
         headers: { "Content-Type": "application/json" }

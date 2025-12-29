@@ -1,6 +1,6 @@
 <script lang="ts">
   import { createEventDispatcher } from "svelte";
-  import { apiUrl } from "../store.ts";
+  import { userLoginUrl } from "../utils/api.ts";
 
   const dispatch = createEventDispatcher();
 
@@ -20,7 +20,7 @@
 
     try {
       // Send user login request
-      const response = await fetch(`${apiUrl}/login`, {
+      const response = await fetch(userLoginUrl(), {
         method: "POST",
         body: JSON.stringify({ username, password }),
         headers: { "Content-Type": "application/json" }
