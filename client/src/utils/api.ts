@@ -1,4 +1,5 @@
 import { apiUrl } from "../store.ts";
+import type { ImageMeta } from "../store.ts";
 
 export function userLoginUrl(): string {
     return `${apiUrl}/login`;
@@ -64,7 +65,7 @@ export const getImageDataUrl = async (imageId: string): object | null => {
     return null;
 }
 
-export const getImageMetadata = async (imageId: string): ImageData | null => {
+export const getImageMetadata = async (imageId: string): ImageMeta | null => {
     try {
       const response = await fetch(`${imageUrl(imageId)}/meta`);
       if (response.ok) {

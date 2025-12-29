@@ -28,7 +28,7 @@
 
   setTimeout(() => {
     close();
-  }, 5000);
+  }, 4000);
 </script>
 
 <div

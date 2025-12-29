@@ -53,3 +53,23 @@ export function truncateFileName(val: string): string {
     if (val.length < 26) return val;
     return `${val.substring(0, 22)}... .${getFileExtension(val)}`;
 }
+
+// Get the display value for an image's content type.
+export function formatImageType(contentType: string): string {
+    if (!contentType.startsWith("image/")) return "UNKNOWN";
+    return contentType.split("/").pop().toUpperCase();
+}
+
+export function formatFileSize(bytes: number): string {
+    if (bytes < 1024) return bytes + " B";
+    if (bytes < 1024 * 1024) return (bytes / 1024).toFixed(1) + " KB";
+    return (bytes / (1024 * 1024)).toFixed(1) + " MB";
+}
+
+export function formatDate(dateStr: string): string {
+    try {
+        return new Date(dateStr).toLocaleString();
+    } catch {
+        return dateStr;
+    }
+}

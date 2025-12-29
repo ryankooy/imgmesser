@@ -46,8 +46,7 @@
     imageIds = images.map((img) => img.id);
 
     if (selectedImage) {
-      const imageId: string = selectedImageId;
-      selectedImage.meta = images.find((img) => img.id === imageId);
+      selectedImage.meta = images.find((img) => img.id === selectedImageId);
     }
   }
 
@@ -86,6 +85,10 @@
     }
   }
 
+  function handleSelectDataUrl(event: Event) {
+    if (selectedImage) selectedImage.url = event.detail;
+  }
+
   function handleUploadModalOpen() {
     showUploadModal = true;
   }
@@ -95,8 +98,8 @@
   }
 
   function handleUploadSuccess() {
-    refreshAllTrigger++;
     handleImageClose();
+    refreshAllTrigger++;
   }
 
   function handleLoginSuccess(event: Event) {
@@ -110,10 +113,6 @@
 
   function setLoginView() {
     $currentView = "login";
-  }
-
-  function handleSelectDataUrl(event: Event) {
-    if (selectedImage) selectedImage.url = event.detail;
   }
 </script>
 

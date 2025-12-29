@@ -5,7 +5,10 @@
   import ConfirmModal from "./ConfirmModal.svelte";
   import type { ImageMeta } from "../store.ts";
   import { getImageDataUrl, imageUrl } from "../utils/api.ts";
-  import { getFileExtension, getFileStem } from "../utils/app.ts";
+  import {
+    formatDate, formatFileSize, formatImageType,
+    getFileExtension, getFileStem,
+  } from "../utils/app.ts";
 
   const dispatch = createEventDispatcher();
 
@@ -40,8 +43,8 @@
     const dataUrl = await getImageDataUrl(image.id);
 
     if (dataUrl) {
-      //imageDataUrl = dataUrl;
-      dispatch("selectDataUrl", imageDataUrl);
+      dispatch("selectDataUrl", dataUrl);
+      imageDataUrl = dataUrl;
     }
 
     loading = false;
@@ -148,9 +151,6 @@
   function close() {
     const modal = document.getElementById("image-backdrop");
     modal.classList.add("closing");
-    //if (imageDataUrl) {
-    //  URL.revokeObjectURL(imageDataUrl);
-    //}
 
     modal.addEventListener("animationend", () => {
       dispatch("close");
@@ -176,20 +176,6 @@
   function handleKeydownOnEdit(event: KeyboardEvent) {
     if (event.key === "Enter") {
       renameImage();
-    }
-  }
-
-  function formatFileSize(bytes: number): string {
-    if (bytes < 1024) return bytes + " B";
-    if (bytes < 1024 * 1024) return (bytes / 1024).toFixed(1) + " KB";
-    return (bytes / (1024 * 1024)).toFixed(1) + " MB";
-  }
-
-  function formatDate(dateStr: string): string {
-    try {
-      return new Date(dateStr).toLocaleString();
-    } catch {
-      return dateStr;
     }
   }
 
@@ -365,7 +351,7 @@
             </div>
             <div class="detail-item">
               <span class="label">Type</span>
-              <span class="value">{meta.content_type}</span>
+              <span class="value">{formatImageType(meta.content_type)}</span>
             </div>
             <div class="detail-item">
               <span class="label">Uploaded</span>
@@ -495,22 +481,27 @@
   .details-grid {
     display: flex;
     flex-direction: column;
-    gap: 10px;
+    align-content: flex-start;
+    row-gap: 10px;
     margin-bottom: 24px;
+    width: 100%;
   }
 
   .detail-item {
     display: flex;
-    gap: 12px;
+    justify-content: flex-end;
+    gap: 10px;
   }
 
   .label {
+    flex: 1;
     font-weight: 600;
     color: var(--im-label);
     min-width: 80px;
   }
 
   .value {
+    flex: 2;
     color: var(--im-text);
   }
 

@@ -4,6 +4,7 @@ export const currentView: string | null = writable(null);
 export const currentUser: string | null = writable(null);
 export const apiUrl: string = import.meta.env.VITE_API_URL;
 
+// Metadata from the server
 export interface ImageMeta {
     id: string;
     name: string;
@@ -21,7 +22,12 @@ export interface ImageMeta {
 }
 
 export interface ImageData {
+    // Image ID
     id: string;
+
+    // Image data URL
     url: string;
+
+    // Image metadata
     meta: ImageMeta;
 }
