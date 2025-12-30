@@ -1,0 +1,17 @@
+[package]
+name = "state"
+version = "0.0.0"
+edition.workspace = true
+authors.workspace = true
+rust-version.workspace = true
+
+[dependencies]
+# Local
+db.workspace = true
+repos.workspace = true
+s3.workspace = true
+
+# Non-local
+anyhow.workspace = true
+aws-sdk-s3.workspace = true
+sqlx.workspace = true
