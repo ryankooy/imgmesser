@@ -1,9 +1,35 @@
 [workspace]
-members = [
-    "imgmesser",
-    "api"
-]
+members = ["api/*"]
+exclude = ["api/db/migrations"]
 resolver = "3"
 
 [workspace.package]
+rust-version = "1.89"
 edition = "2024"
+authors = ["Ryan Kooy"]
+repository = "https://github.com/ryankooy/imgmesser"
+
+[workspace.dependencies]
+# Local
+auth = { path = "./api/auth", version = "0.0.0" }
+db = { path = "./api/db", version = "0.0.0" }
+errors = { path = "./api/errors", version = "0.0.0" }
+handlers = { path = "./api/handlers", version = "0.0.0" }
+imgmesser = { path = "./api/imgmesser", version = "0.0.0" }
+models = { path = "./api/models", version = "0.0.0" }
+repos = { path = "./api/repos", version = "0.0.0" }
+s3 = { path = "./api/s3", version = "0.0.0" }
+schemas = { path = "./api/schemas", version = "0.0.0" }
+state = { path = "./api/state", version = "0.0.0" }
+
+# Non-local
+anyhow = "1.0"
+aws-sdk-s3 = "1.108.0"
+axum = { version = "0.8", features = ["http2", "multipart"] }
+bytes = "1.10.1"
+chrono = { version = "0.4.42", features = ["clock", "serde"] }
+dotenv = "0.15"
+serde = { version = "1.0", features = ["derive"] }
+sqlx = { version = "0.8.6", features = ["runtime-tokio", "postgres", "macros", "uuid", "chrono"] }
+tracing = "0.1"
+uuid = { version = "1.18", features = ["serde", "v7"] }

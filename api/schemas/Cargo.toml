@@ -1,0 +1,13 @@
+[package]
+name = "schemas"
+version = "0.0.0"
+edition.workspace = true
+authors.workspace = true
+rust-version.workspace = true
+
+[dependencies]
+# Local
+models.workspace = true
+
+# Non-local
+serde.workspace = true

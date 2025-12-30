@@ -1,0 +1,13 @@
+[package]
+name = "models"
+version = "0.0.0"
+edition.workspace = true
+authors.workspace = true
+rust-version.workspace = true
+
+[dependencies]
+bytes.workspace = true
+chrono.workspace = true
+serde.workspace = true
+sqlx.workspace = true
+uuid.workspace = true

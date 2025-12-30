@@ -1,0 +1,20 @@
+[package]
+name = "handlers"
+version = "0.0.0"
+edition.workspace = true
+authors.workspace = true
+rust-version.workspace = true
+
+[dependencies]
+# Local
+auth.workspace = true
+errors.workspace = true
+models.workspace = true
+schemas.workspace = true
+state.workspace = true
+
+# Non-local
+anyhow.workspace = true
+axum.workspace = true
+image = "0.25"
+tracing.workspace = true
