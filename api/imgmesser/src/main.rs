@@ -57,12 +57,11 @@ async fn main() -> Result<()> {
         .allow_origin(AllowOrigin::exact(
             origin_address.parse::<HeaderValue>()?,
         ))
-        .allow_methods([Method::GET, Method::POST])
+        .allow_methods([Method::GET, Method::POST, Method::OPTIONS])
         .allow_headers([
             header::ACCEPT,
             header::AUTHORIZATION,
             header::CONTENT_TYPE,
-            header::COOKIE,
             header::ORIGIN,
         ])
         .allow_credentials(true);
@@ -80,6 +79,7 @@ async fn main() -> Result<()> {
         .route("/images/{id}/rename", post(rename_image))
         .route("/images/{id}/revert", post(revert_image_version))
         .route("/images/{id}/restore", post(restore_image_version))
+        // TODO: add handlers, etc. for this route:
         //.route("/images/{id}/transform", post(process_image))
         .with_state(state)
         .layer(
