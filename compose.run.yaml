@@ -1,0 +1,42 @@
+services:
+  app:
+    image: rkooy/imgmesser-app:latest
+    ports:
+      - "80:80"
+    environment:
+      VITE_API_URL: http://172.20.0.10:8080
+    networks:
+      - imgmesser-nw
+
+  api:
+    image: rkooy/imgmesser-api:latest
+    ports:
+      - "8080:8080"
+    env_file:
+      - .env
+    depends_on:
+      - db
+    networks:
+      imgmesser-nw:
+        ipv4_address: 172.20.0.10
+
+  db:
+    image: postgres:16-alpine
+    restart: always
+    environment:
+      POSTGRES_USER: "${POSTGRES_USER}"
+      POSTGRES_PASSWORD: "${POSTGRES_PASSWORD}"
+      POSTGRES_DB: "${POSTGRES_DB}"
+    volumes:
+      # Persist database data to a volume on the host machine
+      - postgres_data:/var/lib/postgresql/data
+    networks:
+      - imgmesser-nw
+
+networks:
+  imgmesser-nw:
+    external: true
+    name: imgmesser-nw
+
+volumes:
+  postgres_data:

@@ -4,16 +4,16 @@ FROM node:lts-alpine AS build-stage
 
 WORKDIR /app
 
-COPY package*.json ./
+COPY ./client/package*.json ./
 
 # Clean install
 RUN npm ci
 
-COPY . .
+COPY ./client .
 
 RUN npm run build
 
-COPY worker.js /app/dist
+COPY ./client/worker.js /app/dist
 
 # STAGE 2: Serve with Nginx
 
