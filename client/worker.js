@@ -1,5 +1,3 @@
-const urlParams = new URLSearchParams(self.location.search);
-const apiUrl = urlParams.get("api_url");
 const authUrls = ["/login"];
 const protectedUrls = ["/images", "/logout", "/user"];
 
@@ -73,7 +71,7 @@ async function setTokens(data) {
 }
 
 // Request tokens from server
-async function refreshTokens(tokens) {
+async function refreshTokens(apiUrl, tokens) {
     try {
         const response = await fetch(`${apiUrl}/refresh`, {
             method: "POST",
@@ -154,13 +152,11 @@ async function updateRequest(request, urlPath, tokens) {
 async function interceptRequest(request) {
     const url = new URL(request.url);
     const urlPath = url.pathname;
-    const isApiOrigin = apiUrl === url.origin;
     const isUploadRequest = urlPath === "/images" && request.method === "POST";
 
     let tokens = await storage.get("tokens");
 
     const isProtectedUrl =
-        isApiOrigin &&
         protectedUrls.some((path) => urlPath.startsWith(path)) &&
         !!tokens &&
         // We handle user authentication differently for image upload
@@ -168,7 +164,7 @@ async function interceptRequest(request) {
         // if the request message is POST
         !isUploadRequest;
 
-    const isAuthUrl = isApiOrigin && authUrls.includes(urlPath);
+    const isAuthUrl = authUrls.includes(urlPath);
 
     if (isProtectedUrl) {
         let newRequest;
@@ -240,7 +236,10 @@ self.addEventListener("fetch", (event) => {
 // If the app signals a page refresh, request tokens from the server
 self.addEventListener("message", async (event) => {
     if (event.data && event.data.refresh) {
-        const tokens = await storage.get("tokens");
-        if (!!tokens) await refreshTokens(tokens);
+        const apiUrl = event.data.apiUrl;
+        if (!!apiUrl) {
+            const tokens = await storage.get("tokens");
+            if (!!tokens) await refreshTokens(apiUrl, tokens);
+        }
     }
 });
