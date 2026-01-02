@@ -16,7 +16,7 @@ RUN rustup target add x86_64-unknown-linux-musl
 # Copy source code and configs
 COPY Cargo.toml Cargo.lock ./
 COPY ./api ./api
-COPY ./imgmesser ./imgmesser
+COPY .env ./
 
 # Install sqlx-cli
 RUN cargo install sqlx-cli --no-default-features --features postgres
@@ -42,6 +42,6 @@ WORKDIR /app
 RUN apt-get update && apt-get install -y \
     curl libpq-dev ca-certificates libssl3
 
-COPY --from=build /app/target/x86_64-unknown-linux-musl/release/imgmesser-api /app/imgmesser-api
+COPY --from=build /app/target/x86_64-unknown-linux-musl/release/imgmesser /app/imgmesser
 
-ENTRYPOINT ["./imgmesser-api"]
+ENTRYPOINT ["./imgmesser"]
