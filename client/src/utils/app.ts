@@ -5,7 +5,7 @@ export const registerServiceWorker = async () => {
     if ("serviceWorker" in navigator) {
         try {
             const registration = await navigator.serviceWorker.register(
-                "worker.js?api_url=" + apiUrl
+                "worker.js"
             );
 
             if (registration.installing) {
@@ -30,7 +30,10 @@ export const handlePageRefresh = async () => {
         // we can keep them logged in
         navigator.serviceWorker.ready.then(async (registration) => {
             if (registration.active) {
-                registration.active.postMessage({ refresh: true });
+                registration.active.postMessage({
+                    refresh: true,
+                    apiUrl,
+                });
             }
         });
     }
