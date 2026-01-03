@@ -1,5 +1,5 @@
-const authUrls = ["/login"];
-const protectedUrls = ["/images", "/logout", "/user"];
+const authUrls = ["/data/login"];
+const protectedUrls = ["/data/images", "/data/logout", "/data/user"];
 
 // Prevent the worker from waiting until next
 // page load to take over
