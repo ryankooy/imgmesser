@@ -130,10 +130,11 @@ async function updateRequest(request, urlPath, tokens) {
     try {
         let body = null;
 
-        if (urlPath === "/logout") {
+        if (urlPath === "/data/logout") {
             body = JSON.stringify({
                 refresh_token: tokens.refreshToken,
             });
+            headers.append("Content-Type", "application/json");
 
             // User is logging out, so delete tokens
             await storage.delete("tokens");
@@ -152,7 +153,7 @@ async function updateRequest(request, urlPath, tokens) {
 async function interceptRequest(request) {
     const url = new URL(request.url);
     const urlPath = url.pathname;
-    const isUploadRequest = urlPath === "/images" && request.method === "POST";
+    const isUploadRequest = urlPath === "/data/images" && request.method === "POST";
 
     let tokens = await storage.get("tokens");
 
@@ -174,7 +175,7 @@ async function interceptRequest(request) {
             newRequest = await updateRequest(request, urlPath, tokens);
             const response = await fetch(newRequest);
 
-            if (response.status === 401 && urlPath !== "/user") {
+            if (response.status === 401 && urlPath !== "/data/user") {
                 await refreshTokens(tokens);
                 tokens = await storage.get("tokens");
 

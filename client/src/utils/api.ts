@@ -39,7 +39,6 @@ export const logOut = async (): boolean => {
     try {
         const response = await fetch(`${apiUrl}/logout`, {
             method: "POST",
-            headers: {"Content-Type": "application/json"},
         });
 
         return response.ok;

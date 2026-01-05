@@ -3,10 +3,8 @@ services:
     image: rkooy/imgmesser-app:latest
     ports:
       - "80:80"
-    environment:
-      VITE_API_URL: "${VITE_API_URL}"
     volumes:
-      - ./custom_nginx.conf:/etc/nginx/conf.d/custom_nginx.conf:ro
+      - ./custom_nginx.conf:/etc/nginx/conf.d/default.conf:ro
     networks:
       - imgmesser-nw
 
@@ -17,12 +15,9 @@ services:
     environment:
       ORIGIN_ADDRESS: "${ORIGIN_ADDRESS}"
       LISTEN_ADDRESS: "${LISTEN_ADDRESS}"
-      AWS_PROFILE: "${AWS_PROFILE}"
       S3_BUCKET_NAME: "${S3_BUCKET_NAME}"
       DATABASE_URL: "${DATABASE_URL}"
       MAX_CONNS: "${MAX_CONNS}"
-    volumes:
-      - ~/.aws:/root/.aws
     depends_on:
       - db
     networks:
