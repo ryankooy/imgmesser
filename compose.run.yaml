@@ -1,3 +1,5 @@
+name: imgmesser
+
 services:
   app:
     image: rkooy/imgmesser-app:latest

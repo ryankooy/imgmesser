@@ -1,5 +1,5 @@
-const authUrls = ["/data/login"];
-const protectedUrls = ["/data/images", "/data/logout", "/data/user"];
+const apiPath = "/data";
+const protectedUrls = ["/images", "/logout", "/user"];
 
 // Prevent the worker from waiting until next
 // page load to take over
@@ -71,9 +71,9 @@ async function setTokens(data) {
 }
 
 // Request tokens from server
-async function refreshTokens(apiUrl, tokens) {
+async function refreshTokens(tokens) {
     try {
-        const response = await fetch(`${apiUrl}/refresh`, {
+        const response = await fetch(`${apiPath}/refresh`, {
             method: "POST",
             body: JSON.stringify({
                 refresh_token: tokens.refreshToken,
@@ -130,7 +130,7 @@ async function updateRequest(request, urlPath, tokens) {
     try {
         let body = null;
 
-        if (urlPath === "/data/logout") {
+        if (urlPath === `${apiPath}/logout`) {
             body = JSON.stringify({
                 refresh_token: tokens.refreshToken,
             });
@@ -153,19 +153,17 @@ async function updateRequest(request, urlPath, tokens) {
 async function interceptRequest(request) {
     const url = new URL(request.url);
     const urlPath = url.pathname;
-    const isUploadRequest = urlPath === "/data/images" && request.method === "POST";
+    const isUploadRequest = urlPath === `${apiPath}/images` && request.method === "POST";
 
     let tokens = await storage.get("tokens");
 
     const isProtectedUrl =
-        protectedUrls.some((path) => urlPath.startsWith(path)) &&
         !!tokens &&
+        protectedUrls.some((path) => urlPath.startsWith(apiPath + path)) &&
         // We handle user authentication differently for image upload
         // requests, so we won't consider `/images` a protected URL
         // if the request message is POST
         !isUploadRequest;
-
-    const isAuthUrl = authUrls.includes(urlPath);
 
     if (isProtectedUrl) {
         let newRequest;
@@ -175,7 +173,7 @@ async function interceptRequest(request) {
             newRequest = await updateRequest(request, urlPath, tokens);
             const response = await fetch(newRequest);
 
-            if (response.status === 401 && urlPath !== "/data/user") {
+            if (response.status === 401 && urlPath !== `${apiPath}/user`) {
                 await refreshTokens(tokens);
                 tokens = await storage.get("tokens");
 
@@ -196,7 +194,7 @@ async function interceptRequest(request) {
                 console.error("Error fetching:", error);
             }
         }
-    } else if (isAuthUrl) {
+    } else if (urlPath === `${apiPath}/login`) {
         try {
             const response = await fetch(request);
             const data = await response.json();
@@ -237,10 +235,7 @@ self.addEventListener("fetch", (event) => {
 // If the app signals a page refresh, request tokens from the server
 self.addEventListener("message", async (event) => {
     if (event.data && event.data.refresh) {
-        const apiUrl = event.data.apiUrl;
-        if (!!apiUrl) {
-            const tokens = await storage.get("tokens");
-            if (!!tokens) await refreshTokens(apiUrl, tokens);
-        }
+        const tokens = await storage.get("tokens");
+        if (!!tokens) await refreshTokens(tokens);
     }
 });
