@@ -1,29 +1,29 @@
-import { apiUrl } from "../store.ts";
+import { apiPath } from "../store.ts";
 import type { ImageMeta } from "../store.ts";
 
 export function userLoginUrl(): string {
-    return `${apiUrl}/login`;
+    return `${apiPath}/login`;
 }
 
 export function userRegisterUrl(): string {
-    return `${apiUrl}/register`;
+    return `${apiPath}/register`;
 }
 
 export function imageUploadUrl(): string {
-    return `${apiUrl}/images`;
+    return `${apiPath}/images`;
 }
 
 export function imageGalleryUrl(currentPage: number, limit: number): string {
-    return `${apiUrl}/images?page=${currentPage}&limit=${limit}`;
+    return `${apiPath}/images?page=${currentPage}&limit=${limit}`;
 }
 
 export function imageUrl(imageId: string): string {
-    return `${apiUrl}/images/${encodeURIComponent(imageId)}`;
+    return `${apiPath}/images/${encodeURIComponent(imageId)}`;
 }
 
 export const getCurrentUser = async (): string | null => {
     try {
-        const response = await fetch(`${apiUrl}/user`);
+        const response = await fetch(`${apiPath}/user`);
         if (response.ok) {
             const data = await response.json();
             return data.user.username;
@@ -37,7 +37,7 @@ export const getCurrentUser = async (): string | null => {
 
 export const logOut = async (): boolean => {
     try {
-        const response = await fetch(`${apiUrl}/logout`, {
+        const response = await fetch(`${apiPath}/logout`, {
             method: "POST",
         });
 

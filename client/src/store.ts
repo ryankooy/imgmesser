@@ -3,7 +3,7 @@ import { writable } from "svelte/store";
 export const currentView: string | null = writable(null);
 export const currentUser: string | null = writable(null);
 
-export const apiUrl: string = "/data";
+export const apiPath: string = "/data";
 
 // Metadata from the server
 export interface ImageMeta {

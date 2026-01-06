@@ -1,5 +1,3 @@
-import { apiUrl } from "../store.ts";
-
 // Register the service worker.
 export const registerServiceWorker = async () => {
     if ("serviceWorker" in navigator) {
@@ -30,10 +28,7 @@ export const handlePageRefresh = async () => {
         // we can keep them logged in
         navigator.serviceWorker.ready.then(async (registration) => {
             if (registration.active) {
-                registration.active.postMessage({
-                    refresh: true,
-                    apiUrl,
-                });
+                registration.active.postMessage({ refresh: true });
             }
         });
     }
