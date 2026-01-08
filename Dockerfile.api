@@ -16,10 +16,11 @@ RUN rustup target add x86_64-unknown-linux-musl
 # Copy source code and configs
 COPY Cargo.toml Cargo.lock ./
 COPY ./api ./api
-COPY .env ./
+COPY .env.prod ./
 
 # Install sqlx-cli
-RUN cargo install sqlx-cli --no-default-features --features postgres
+RUN source .env.prod && \
+    cargo install sqlx-cli --no-default-features --features postgres
 
 # Enable offline mode for sqlx
 ENV SQLX_OFFLINE=true
@@ -28,7 +29,7 @@ ENV SQLX_OFFLINE=true
 COPY ./.sqlx ./.sqlx
 
 # Build release using musl target
-RUN cargo build --release --target x86_64-unknown-linux-musl
+RUN ENV=prod cargo build --release --target x86_64-unknown-linux-musl
 
 # --------------
 # 2. FINAL IMAGE

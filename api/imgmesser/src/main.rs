@@ -9,7 +9,6 @@ use axum::{
     Router,
 };
 use dotenv;
-use std::env;
 use std::net::SocketAddr;
 use tokio::net::TcpListener;
 use tower::ServiceBuilder;
@@ -24,6 +23,7 @@ use tracing_subscriber::{
     EnvFilter,
 };
 
+use config;
 use handlers::{
     current_user, login, logout, register, refresh,
     delete_image, get_all_images_metadata, get_image,
@@ -37,7 +37,7 @@ async fn main() -> Result<()> {
     tracing_subscriber::registry()
         .with(
             EnvFilter::try_from_default_env().unwrap_or_else(|_| {
-                format!("{}=debug,tower_http=debug", env!("CARGO_CRATE_NAME")).into()
+                format!("{}=info,tower_http=debug", env!("CARGO_CRATE_NAME")).into()
             }),
         )
         .with(tracing_subscriber::fmt::layer())
@@ -46,10 +46,11 @@ async fn main() -> Result<()> {
     let state = AppState::new().await?;
 
     // Load environment variables
-    dotenv::dotenv().ok();
-    let origin_address = env::var("ORIGIN_ADDRESS")
+    config::load_config()?;
+
+    let origin_address = dotenv::var("ORIGIN_ADDRESS")
         .context("Missing env variable: ORIGIN_ADDRESS")?;
-    let listen_address = env::var("LISTEN_ADDRESS")
+    let listen_address = dotenv::var("LISTEN_ADDRESS")
         .context("Missing env variable: LISTEN_ADDRESS")?;
 
     // Configure CORS

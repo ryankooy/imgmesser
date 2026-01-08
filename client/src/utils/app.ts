@@ -1,9 +1,11 @@
+import { apiPath } from "../store.ts";
+
 // Register the service worker.
 export const registerServiceWorker = async () => {
     if ("serviceWorker" in navigator) {
         try {
             const registration = await navigator.serviceWorker.register(
-                "worker.js"
+                "worker.js?api_path=" + apiPath
             );
 
             if (registration.installing) {

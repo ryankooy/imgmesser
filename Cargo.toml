@@ -11,6 +11,7 @@ repository = "https://github.com/ryankooy/imgmesser"
 [workspace.dependencies]
 # Local crates
 auth = { path = "./api/auth", version = "0.0.0" }
+config = { path = "./api/config", version = "0.0.0" }
 db = { path = "./api/db", version = "0.0.0" }
 errors = { path = "./api/errors", version = "0.0.0" }
 handlers = { path = "./api/handlers", version = "0.0.0" }

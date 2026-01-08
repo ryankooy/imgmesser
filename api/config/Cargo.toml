@@ -1,17 +1,10 @@
 [package]
-name = "db"
+name = "config"
 version = "0.0.0"
 edition.workspace = true
 authors.workspace = true
 rust-version.workspace = true
 
 [dependencies]
-# Local
-config.workspace = true
-models.workspace = true
-
-# Non-local
 anyhow.workspace = true
 dotenv.workspace = true
-sqlx.workspace = true
-uuid.workspace = true

@@ -2,8 +2,8 @@
 
 # Purpose: Deploy containers to the EC2 instance
 
-[ ! -f .env.local ] && { echo '.env.local not found' >&2; exit 1; }
-source ./.env.local
+[ ! -f .env.deploy ] && { echo '.env.deploy not found' >&2; exit 1; }
+source ./.env.deploy
 
 API_REPO="${PROJECT}-${API_SERVICE}"
 API_CONTAINER="${API_REPO}-1"

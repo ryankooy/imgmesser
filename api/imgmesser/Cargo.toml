@@ -7,6 +7,7 @@ rust-version.workspace = true
 
 [dependencies]
 # Local
+config.workspace = true
 handlers.workspace = true
 state.workspace = true
 
