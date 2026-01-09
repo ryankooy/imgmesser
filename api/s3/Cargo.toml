@@ -6,9 +6,12 @@ authors.workspace = true
 rust-version.workspace = true
 
 [dependencies]
+# Local
+config.workspace = true
+
+# Non-local
 anyhow.workspace = true
-aws-config = "1.8.8"
+aws-config.workspace = true
 aws-sdk-s3.workspace = true
 bytes.workspace = true
-dotenv.workspace = true
 tracing.workspace = true

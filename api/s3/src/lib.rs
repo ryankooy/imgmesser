@@ -7,7 +7,10 @@ use aws_sdk_s3::Client;
 pub mod error;
 pub mod objects;
 
-pub use objects::{delete_object, get_object, get_objects, upload_object};
+pub use objects::{
+    delete_object, get_env_object, get_object,
+    get_objects, upload_object,
+};
 
 /// Get AWS S3 client.
 pub async fn get_client() -> Result<Client> {

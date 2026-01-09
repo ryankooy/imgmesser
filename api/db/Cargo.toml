@@ -12,6 +12,5 @@ models.workspace = true
 
 # Non-local
 anyhow.workspace = true
-dotenv.workspace = true
 sqlx.workspace = true
 uuid.workspace = true

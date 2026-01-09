@@ -77,7 +77,7 @@ fi
 # Copy config files to the EC2 instance
 if [ "${copy_cfgs}" = true ]; then
     echo 'Copying files to server'
-    scp compose.run.yaml custom_nginx.conf "${EC2_INSTANCE_ALIAS}":~
+    scp .env.prod compose.run.yaml custom_nginx.conf "${EC2_INSTANCE_ALIAS}":~
 fi
 
 # On the EC2 Instance, remove old containers, pull fresh
@@ -91,17 +91,23 @@ if [ "${deploy_all}" = true ]; then
         docker rm ${API_CONTAINER}; \
         docker pull ${DOCKER_USER}/${CLIENT_REPO}:latest; \
         docker pull ${DOCKER_USER}/${API_REPO}:latest; \
-        docker compose --file compose.run.yaml up --detach"
+        source .env.prod && \
+        docker compose --file compose.run.yaml up --detach; \
+        rm .env.prod"
 elif [ "${deploy_api}" = true ]; then
     ssh "${EC2_INSTANCE_ALIAS}" " \
         docker stop ${API_CONTAINER}; \
         docker rm ${API_CONTAINER}; \
         docker pull "${DOCKER_USER}"/${API_REPO}:latest && \
-        docker compose --file compose.run.yaml up --detach ${API_SERVICE}"
+        source .env.prod && \
+        docker compose --file compose.run.yaml up --detach ${API_SERVICE}; \
+        rm .env.prod"
 elif [ "${deploy_client}" = true ]; then
     ssh "${EC2_INSTANCE_ALIAS}" " \
         docker stop ${CLIENT_CONTAINER}; \
         docker rm ${CLIENT_CONTAINER}; \
         docker pull "${DOCKER_USER}"/${CLIENT_REPO}:latest && \
-        docker compose --file compose.run.yaml up --detach ${CLIENT_SERVICE}"
+        source .env.prod && \
+        docker compose --file compose.run.yaml up --detach ${CLIENT_SERVICE}; \
+        rm .env.prod"
 fi

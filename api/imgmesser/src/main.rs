@@ -8,7 +8,7 @@ use axum::{
     routing::{get, post},
     Router,
 };
-use dotenv;
+use std::env;
 use std::net::SocketAddr;
 use tokio::net::TcpListener;
 use tower::ServiceBuilder;
@@ -44,20 +44,11 @@ async fn main() -> Result<()> {
         .init();
 
     let state = AppState::new().await?;
-
-    // Load environment variables
-    config::load_config()?;
-
-    let origin_address = dotenv::var("ORIGIN_ADDRESS")
-        .context("Missing env variable: ORIGIN_ADDRESS")?;
-    let listen_address = dotenv::var("LISTEN_ADDRESS")
-        .context("Missing env variable: LISTEN_ADDRESS")?;
+    let addresses = config::get_addresses().await?;
 
     // Configure CORS
     let cors = CorsLayer::new()
-        .allow_origin(AllowOrigin::exact(
-            origin_address.parse::<HeaderValue>()?,
-        ))
+        .allow_origin(AllowOrigin::exact(addresses.origin))
         .allow_methods([Method::GET, Method::POST, Method::OPTIONS])
         .allow_headers([
             header::ACCEPT,
@@ -92,7 +83,7 @@ async fn main() -> Result<()> {
                 .make_span_with(DefaultMakeSpan::default().include_headers(true)),
         );
 
-    let listener = TcpListener::bind(&listen_address).await?;
+    let listener = TcpListener::bind(&addresses.listener).await?;
     info!("Listening on {}...", listen_address);
 
     axum::serve(

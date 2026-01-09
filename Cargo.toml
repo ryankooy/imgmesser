@@ -24,7 +24,9 @@ state = { path = "./api/state", version = "0.0.0" }
 
 # Non-local crates
 anyhow = "1.0"
+aws-config = "1.8.8"
 aws-sdk-s3 = "1.108.0"
+aws-sdk-ssm = "1.101.0"
 axum = { version = "0.8", features = ["http2", "multipart"] }
 bytes = "1.10.1"
 chrono = { version = "0.4.42", features = ["clock", "serde"] }
