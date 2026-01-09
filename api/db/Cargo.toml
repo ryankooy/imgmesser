@@ -7,10 +7,10 @@ rust-version.workspace = true
 
 [dependencies]
 # Local
+config.workspace = true
 models.workspace = true
 
 # Non-local
 anyhow.workspace = true
-dotenv.workspace = true
 sqlx.workspace = true
 uuid.workspace = true

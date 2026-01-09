@@ -2,7 +2,8 @@ import { writable } from "svelte/store";
 
 export const currentView: string | null = writable(null);
 export const currentUser: string | null = writable(null);
-export const apiUrl: string = import.meta.env.VITE_API_URL;
+
+export const apiPath: string = (import.meta.env.PROD) ? "/data" : "http://127.0.0.1:3000";
 
 // Metadata from the server
 export interface ImageMeta {

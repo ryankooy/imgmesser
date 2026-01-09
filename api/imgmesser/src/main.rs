@@ -1,14 +1,11 @@
 //! ImgMesser Server
 
-use anyhow::{Context, Result};
+use anyhow::Result;
 use axum::{
-    http::{
-        header, method::Method, HeaderValue,
-    },
+    http::{header, method::Method},
     routing::{get, post},
     Router,
 };
-use dotenv;
 use std::env;
 use std::net::SocketAddr;
 use tokio::net::TcpListener;
@@ -24,6 +21,7 @@ use tracing_subscriber::{
     EnvFilter,
 };
 
+use config;
 use handlers::{
     current_user, login, logout, register, refresh,
     delete_image, get_all_images_metadata, get_image,
@@ -37,32 +35,23 @@ async fn main() -> Result<()> {
     tracing_subscriber::registry()
         .with(
             EnvFilter::try_from_default_env().unwrap_or_else(|_| {
-                format!("{}=debug,tower_http=debug", env!("CARGO_CRATE_NAME")).into()
+                format!("{}=info,tower_http=debug", env!("CARGO_CRATE_NAME")).into()
             }),
         )
         .with(tracing_subscriber::fmt::layer())
         .init();
 
     let state = AppState::new().await?;
-
-    // Load environment variables
-    dotenv::dotenv().ok();
-    let origin_address = env::var("ORIGIN_ADDRESS")
-        .context("Missing env variable: ORIGIN_ADDRESS")?;
-    let listen_address = env::var("LISTEN_ADDRESS")
-        .context("Missing env variable: LISTEN_ADDRESS")?;
+    let addresses = config::get_addresses().await?;
 
     // Configure CORS
     let cors = CorsLayer::new()
-        .allow_origin(AllowOrigin::exact(
-            origin_address.parse::<HeaderValue>()?,
-        ))
-        .allow_methods([Method::GET, Method::POST])
+        .allow_origin(AllowOrigin::exact(addresses.origin))
+        .allow_methods([Method::GET, Method::POST, Method::OPTIONS])
         .allow_headers([
             header::ACCEPT,
             header::AUTHORIZATION,
             header::CONTENT_TYPE,
-            header::COOKIE,
             header::ORIGIN,
         ])
         .allow_credentials(true);
@@ -80,6 +69,7 @@ async fn main() -> Result<()> {
         .route("/images/{id}/rename", post(rename_image))
         .route("/images/{id}/revert", post(revert_image_version))
         .route("/images/{id}/restore", post(restore_image_version))
+        // TODO: add handlers, etc. for this route:
         //.route("/images/{id}/transform", post(process_image))
         .with_state(state)
         .layer(
@@ -91,8 +81,8 @@ async fn main() -> Result<()> {
                 .make_span_with(DefaultMakeSpan::default().include_headers(true)),
         );
 
-    let listener = TcpListener::bind(&listen_address).await?;
-    info!("Listening on {}...", listen_address);
+    let listener = TcpListener::bind(&addresses.listener).await?;
+    info!("Listening on {}...", &listener.local_addr()?);
 
     axum::serve(
         listener,

@@ -1,6 +1,5 @@
 [workspace]
 members = ["api/*"]
-exclude = ["api/db/migrations"]
 resolver = "3"
 
 [workspace.package]
@@ -10,8 +9,9 @@ authors = ["Ryan Kooy"]
 repository = "https://github.com/ryankooy/imgmesser"
 
 [workspace.dependencies]
-# Local
+# Local crates
 auth = { path = "./api/auth", version = "0.0.0" }
+config = { path = "./api/config", version = "0.0.0" }
 db = { path = "./api/db", version = "0.0.0" }
 errors = { path = "./api/errors", version = "0.0.0" }
 handlers = { path = "./api/handlers", version = "0.0.0" }
@@ -22,9 +22,11 @@ s3 = { path = "./api/s3", version = "0.0.0" }
 schemas = { path = "./api/schemas", version = "0.0.0" }
 state = { path = "./api/state", version = "0.0.0" }
 
-# Non-local
+# Non-local crates
 anyhow = "1.0"
+aws-config = "1.8.8"
 aws-sdk-s3 = "1.108.0"
+aws-sdk-ssm = "1.101.0"
 axum = { version = "0.8", features = ["http2", "multipart"] }
 bytes = "1.10.1"
 chrono = { version = "0.4.42", features = ["clock", "serde"] }

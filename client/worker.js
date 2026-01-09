@@ -1,6 +1,5 @@
 const urlParams = new URLSearchParams(self.location.search);
-const apiUrl = urlParams.get("api_url");
-const authUrls = ["/login"];
+const apiPath = urlParams.get("api_path");
 const protectedUrls = ["/images", "/logout", "/user"];
 
 // Prevent the worker from waiting until next
@@ -64,6 +63,14 @@ const storage = (() => {
     };
 })();
 
+function getRoutePath(path) {
+    const parentPath = "/data";
+    if (path.startsWith(parentPath)) {
+        return path.substring(parentPath.length);
+    }
+    return path;
+}
+
 // Store tokens
 async function setTokens(data) {
     await storage.set("tokens", {
@@ -75,7 +82,7 @@ async function setTokens(data) {
 // Request tokens from server
 async function refreshTokens(tokens) {
     try {
-        const response = await fetch(`${apiUrl}/refresh`, {
+        const response = await fetch(`${apiPath}/refresh`, {
             method: "POST",
             body: JSON.stringify({
                 refresh_token: tokens.refreshToken,
@@ -122,7 +129,7 @@ async function buildNewRequest(request, headers, body = null) {
 }
 
 // Update request with an Authorization header
-async function updateRequest(request, urlPath, tokens) {
+async function updateRequest(request, route, tokens) {
     const r = request.clone();
     const headers = new Headers(Array.from(r.headers.entries()));
 
@@ -132,10 +139,11 @@ async function updateRequest(request, urlPath, tokens) {
     try {
         let body = null;
 
-        if (urlPath === "/logout") {
+        if (route === "/logout") {
             body = JSON.stringify({
                 refresh_token: tokens.refreshToken,
             });
+            headers.append("Content-Type", "application/json");
 
             // User is logging out, so delete tokens
             await storage.delete("tokens");
@@ -153,37 +161,33 @@ async function updateRequest(request, urlPath, tokens) {
 
 async function interceptRequest(request) {
     const url = new URL(request.url);
-    const urlPath = url.pathname;
-    const isApiOrigin = apiUrl === url.origin;
-    const isUploadRequest = urlPath === "/images" && request.method === "POST";
+    const route = getRoutePath(url.pathname);
+    const isUploadRequest = route === "/images" && request.method === "POST";
 
     let tokens = await storage.get("tokens");
 
     const isProtectedUrl =
-        isApiOrigin &&
-        protectedUrls.some((path) => urlPath.startsWith(path)) &&
         !!tokens &&
+        protectedUrls.some((path) => route.startsWith(path)) &&
         // We handle user authentication differently for image upload
         // requests, so we won't consider `/images` a protected URL
         // if the request message is POST
         !isUploadRequest;
-
-    const isAuthUrl = isApiOrigin && authUrls.includes(urlPath);
 
     if (isProtectedUrl) {
         let newRequest;
 
         try {
             // Update request with an Authorization header
-            newRequest = await updateRequest(request, urlPath, tokens);
+            newRequest = await updateRequest(request, route, tokens);
             const response = await fetch(newRequest);
 
-            if (response.status === 401 && urlPath !== "/user") {
+            if (response.status === 401 && route !== "/user") {
                 await refreshTokens(tokens);
                 tokens = await storage.get("tokens");
 
                 if (!!tokens) {
-                    newRequest = await updateRequest(request, urlPath, tokens);
+                    newRequest = await updateRequest(request, route, tokens);
                     return fetch(newRequest);
                 }
             }
@@ -193,13 +197,13 @@ async function interceptRequest(request) {
             console.error("Error fetching:", error);
 
             try {
-                newRequest = await updateRequest(request, urlPath, tokens);
+                newRequest = await updateRequest(request, route, tokens);
                 return fetch(newRequest);
             } catch (error) {
                 console.error("Error fetching:", error);
             }
         }
-    } else if (isAuthUrl) {
+    } else if (route === "/login") {
         try {
             const response = await fetch(request);
             const data = await response.json();

@@ -7,14 +7,8 @@ rust-version.workspace = true
 
 [dependencies]
 # Local
-auth.workspace = true
-db.workspace = true
-errors.workspace = true
+config.workspace = true
 handlers.workspace = true
-models.workspace = true
-repos.workspace = true
-s3.workspace = true
-schemas.workspace = true
 state.workspace = true
 
 # Non-local

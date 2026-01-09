@@ -9,9 +9,9 @@ use aws_sdk_s3::{
     Client,
 };
 use bytes::Bytes;
-use dotenv;
 use tracing::error;
 
+use config;
 use super::error::S3Error;
 
 type Result<T> = anyhow::Result<T, S3Error>;
@@ -22,9 +22,10 @@ pub async fn upload_object(
     data: Bytes,
     object_key: &str,
 ) -> Result<PutObjectOutput> {
+    let bucket_name = get_bucket_name().await;
     let result = client
         .put_object()
-        .bucket(bucket_name())
+        .bucket(bucket_name)
         .key(object_key.to_string())
         .body(ByteStream::from(data))
         .send()
@@ -40,9 +41,10 @@ pub async fn get_object(
     object_key: &str,
     version_id: &str,
 ) -> Result<GetObjectOutput> {
+    let bucket_name = get_bucket_name().await;
     let object = client
         .get_object()
-        .bucket(bucket_name())
+        .bucket(bucket_name)
         .key(object_key.to_string())
         .version_id(version_id.to_string())
         .send()
@@ -56,9 +58,10 @@ pub async fn get_objects(
     client: &Client,
     prefix: &str,
 ) -> Result<ListObjectsV2Output> {
+    let bucket_name = get_bucket_name().await;
     let objects = client
         .list_objects_v2()
-        .bucket(bucket_name())
+        .bucket(bucket_name)
         .prefix(prefix)
         .send()
         .await?;
@@ -71,9 +74,10 @@ pub async fn delete_object(
     client: &Client,
     object_key: &str,
 ) -> Result<DeleteObjectOutput> {
+    let bucket_name = get_bucket_name().await;
     let object = client
         .delete_object()
-        .bucket(bucket_name())
+        .bucket(bucket_name)
         .key(object_key.to_string())
         .send()
         .await?;
@@ -81,12 +85,12 @@ pub async fn delete_object(
     Ok(object)
 }
 
-fn bucket_name() -> String {
-    match dotenv::var("S3_BUCKET_NAME") {
+async fn get_bucket_name() -> String {
+    match config::get_s3_bucket_name().await {
         Ok(name) => name,
-        Err(_) => {
-            error!("No env variable set for S3 bucket name");
-            "imgmesser-storage".to_string()
+        Err(e) => {
+            error!("No env variable set for S3 bucket name: {}", e);
+            "unknown".to_string()
         }
     }
 }

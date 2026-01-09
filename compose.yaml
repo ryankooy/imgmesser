@@ -3,46 +3,8 @@ services:
     build:
       context: .
       dockerfile: ./Dockerfile.app
-    environment:
-      VITE_API_URL: "${VITE_API_URL}"
-    networks:
-      - imgmesser-network
 
   api:
     build:
       context: .
       dockerfile: ./Dockerfile.api
-    environment:
-      ORIGIN_ADDRESS: "${ORIGIN_ADDRESS}"
-      LISTEN_ADDRESS: "${LISTEN_ADDRESS}"
-      AWS_PROFILE: "${AWS_PROFILE}"
-      S3_BUCKET_NAME: "${S3_BUCKET_NAME}"
-      DATABASE_URL: "${DATABASE_URL}"
-      MAX_CONNS: "${MAX_CONNS}"
-    volumes:
-      - ~/.aws:/root/.aws
-    depends_on:
-      - db
-    networks:
-      - imgmesser-network
-
-  db:
-    image: postgres:16-alpine
-    restart: always
-    environment:
-      POSTGRES_USER: "${POSTGRES_USER}"
-      POSTGRES_PASSWORD: "${POSTGRES_PASSWORD}"
-      POSTGRES_DB: "${POSTGRES_DB}"
-    volumes:
-      # Persist database data to a volume on the host machine
-      - postgres_data:/var/lib/postgresql/data
-    networks:
-      - imgmesser-network
-
-networks:
-  imgmesser-network:
-    external: true
-    name: imgmesser-network
-
-volumes:
-  postgres_data:

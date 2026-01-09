@@ -1,4 +1,3 @@
-mod config;
 mod conn;
 pub mod images;
 
