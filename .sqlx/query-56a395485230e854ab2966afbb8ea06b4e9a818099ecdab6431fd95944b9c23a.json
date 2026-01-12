@@ -1,0 +1,15 @@
+{
+  "db_name": "PostgreSQL",
+  "query": "\n            UPDATE image_version SET current = FALSE\n            WHERE image_id = $1 AND version <> $2\n            ",
+  "describe": {
+    "columns": [],
+    "parameters": {
+      "Left": [
+        "Uuid",
+        "Text"
+      ]
+    },
+    "nullable": []
+  },
+  "hash": "56a395485230e854ab2966afbb8ea06b4e9a818099ecdab6431fd95944b9c23a"
+}

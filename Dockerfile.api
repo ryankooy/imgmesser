@@ -16,12 +16,9 @@ RUN rustup target add x86_64-unknown-linux-musl
 # Copy source code and configs
 COPY Cargo.toml Cargo.lock ./
 COPY ./api ./api
-COPY .env.prod /tmp/.env
 
 # Install sqlx-cli
-RUN source /tmp/.env && \
-    cargo install sqlx-cli --no-default-features --features postgres && \
-    rm /tmp/.env
+RUN cargo install sqlx-cli --no-default-features --features postgres
 
 # Enable offline mode for sqlx
 ENV SQLX_OFFLINE=true
@@ -30,7 +27,7 @@ ENV SQLX_OFFLINE=true
 COPY ./.sqlx ./.sqlx
 
 # Build release using musl target
-RUN ENV=prod cargo build --release --target x86_64-unknown-linux-musl
+RUN cargo build --release --target x86_64-unknown-linux-musl
 
 # --------------
 # 2. FINAL IMAGE
@@ -46,4 +43,5 @@ RUN apt-get update && apt-get install -y \
 
 COPY --from=build /app/target/x86_64-unknown-linux-musl/release/imgmesser /app/imgmesser
 
+ENV ENV=prod
 ENTRYPOINT ["./imgmesser"]
