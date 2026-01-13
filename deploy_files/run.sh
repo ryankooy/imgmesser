@@ -11,8 +11,11 @@ if [ "${DEPLOY}" = 'app' ] || [ "${DEPLOY}" = 'all' ]; then
     docker pull "${DOCKER_USER}"/${CLIENT_REPO}:latest
 
     echo 'Running the certbot service and creating dummy certificates...'
-    docker compose run --rm --entrypoint \
-        "openssl req -x509 -nodes -newkey rsa:4096 -days 1 -keyout /etc/letsencrypt/live/${DOMAIN}/privkey.pem -out /etc/letsencrypt/live/${DOMAIN}/fullchain.pem -subj '/CN=localhost'" \
+    docker compose run --rm --entrypoint " \
+        mkdir -p /etc/letsencrypt/live/${DOMAIN}; \
+        openssl req -x509 -nodes -newkey rsa:4096 -days 1 \
+            -keyout /etc/letsencrypt/live/${DOMAIN}/privkey.pem \
+            -out /etc/letsencrypt/live/${DOMAIN}/fullchain.pem -subj '/CN=localhost'" \
         certbot
 
     echo 'Running the client service (and nginx) in a container...'
@@ -20,7 +23,7 @@ if [ "${DEPLOY}" = 'app' ] || [ "${DEPLOY}" = 'all' ]; then
 
     echo 'Running certbot again separately to create real certificates...'
     docker compose run --rm --entrypoint \
-        "certbot certonly --webroot -w /var/www/certbot -d ${DOMAIN} -d www.${DOMAIN} --email ${EMAIL} --agree-tos --no-eff-email --force-renewal" \
+        "certbot certonly --webroot -w /var/www/certbot -d ${DOMAIN} --email ${EMAIL} --agree-tos --no-eff-email --force-renewal" \
         certbot
 
     echo 'Reloading nginx in the running client container...'
