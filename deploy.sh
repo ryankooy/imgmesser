@@ -5,11 +5,6 @@
 [ ! -f .env.deploy ] && { echo '.env.deploy not found' >&2; exit 1; }
 source ./.env.deploy
 
-API_REPO="${PROJECT}-${API_SERVICE}"
-API_CONTAINER="${API_REPO}-1"
-CLIENT_REPO="${PROJECT}-${CLIENT_SERVICE}"
-CLIENT_CONTAINER="${CLIENT_REPO}-1"
-
 function usage() {
     cat <<'MSG'
 Usage: deploy.sh [-h] [-c] [-s api|app]
@@ -25,10 +20,15 @@ function die() {
     [ "$1" -ne 0 ] && { printf "ERROR: %s\n" "$2" >&2; exit 1; }
 }
 
+api_repo="${PROJECT}-api"
+api_container="${api_repo}-1"
+client_repo="${PROJECT}-app"
+client_container="${client_repo}-1"
 copy_cfgs=false
 deploy_api=false
 deploy_client=false
 deploy_all=false
+svc=all
 
 while getopts "s:ch" opt; do
     case "${opt}" in
@@ -40,15 +40,12 @@ while getopts "s:ch" opt; do
     [[ "${OPTARG}" = -* ]] && usage 1
 done
 
-if [ -z "${svc}" ]; then
-    deploy_all=true
-elif [ "${svc}" = "${CLIENT_SERVICE}" ]; then
-    deploy_client=true
-elif [ "${svc}" = "${API_SERVICE}" ]; then
-    deploy_api=true
-else
-    die 1 'Unknown service specified'
-fi
+case "${svc}" in
+    all) deploy_all=true;;
+    app) deploy_client=true;;
+    api) deploy_api=true;;
+    *) die 1 'Unknown service specified';;
+esac
 
 # Build image(s) using `compose.yaml`
 if [ "${deploy_all}" = true ]; then
@@ -63,51 +60,31 @@ die "$?" 'Failed to build image(s)'
 # Tag and push the API image
 if [ "${deploy_api}" = true ] || [ "${deploy_all}" = true ]; then
     echo 'Tagging and pushing API image'
-    docker tag "${API_REPO}":latest "${DOCKER_USER}"/"${API_REPO}":latest
-    docker push "${DOCKER_USER}"/"${API_REPO}":latest
+    docker tag "${api_repo}":latest "${DOCKER_USER}"/"${api_repo}":latest
+    docker push "${DOCKER_USER}"/"${api_repo}":latest
 fi
 
 # Tag and push the client app image
 if [ "${deploy_client}" = true ] || [ "${deploy_all}" = true ]; then
     echo 'Tagging and pushing client app image'
-    docker tag "${CLIENT_REPO}":latest "${DOCKER_USER}"/"${CLIENT_REPO}":latest
-    docker push "${DOCKER_USER}"/"${CLIENT_REPO}":latest
+    docker tag "${client_repo}":latest "${DOCKER_USER}"/"${client_repo}":latest
+    docker push "${DOCKER_USER}"/"${client_repo}":latest
 fi
 
 # Copy config files to the EC2 instance
 if [ "${copy_cfgs}" = true ]; then
     echo 'Copying files to server'
-    scp .env.prod compose.run.yaml custom_nginx.conf "${EC2_INSTANCE_ALIAS}":~
+    scp -r deploy_files/* "${EC2_INSTANCE_ALIAS}":~
+    ssh "${EC2_INSTANCE_ALIAS}" chmod 700 run.sh
 fi
 
 # On the EC2 Instance, remove old containers, pull fresh
 # images, and run new containers
 echo 'Deploying to server'
-if [ "${deploy_all}" = true ]; then
-    ssh "${EC2_INSTANCE_ALIAS}" " \
-        docker stop ${CLIENT_CONTAINER}; \
-        docker stop ${API_CONTAINER}; \
-        docker rm ${CLIENT_CONTAINER}; \
-        docker rm ${API_CONTAINER}; \
-        docker pull ${DOCKER_USER}/${CLIENT_REPO}:latest; \
-        docker pull ${DOCKER_USER}/${API_REPO}:latest; \
-        source .env.prod && \
-        docker compose --file compose.run.yaml up --detach; \
-        rm .env.prod"
-elif [ "${deploy_api}" = true ]; then
-    ssh "${EC2_INSTANCE_ALIAS}" " \
-        docker stop ${API_CONTAINER}; \
-        docker rm ${API_CONTAINER}; \
-        docker pull "${DOCKER_USER}"/${API_REPO}:latest && \
-        source .env.prod && \
-        docker compose --file compose.run.yaml up --detach ${API_SERVICE}; \
-        rm .env.prod"
-elif [ "${deploy_client}" = true ]; then
-    ssh "${EC2_INSTANCE_ALIAS}" " \
-        docker stop ${CLIENT_CONTAINER}; \
-        docker rm ${CLIENT_CONTAINER}; \
-        docker pull "${DOCKER_USER}"/${CLIENT_REPO}:latest && \
-        source .env.prod && \
-        docker compose --file compose.run.yaml up --detach ${CLIENT_SERVICE}; \
-        rm .env.prod"
-fi
+ssh "${EC2_INSTANCE_ALIAS}" " \
+    API_CONTAINER=${api_container} API_REPO=${api_repo} \
+        CLIENT_CONTAINER=${client_container} CLIENT_REPO=${client_repo} \
+        DOCKER_USER=${DOCKER_USER} DOMAIN=${DOMAIN} EMAIL=${EMAIL} \
+        POSTGRES_USER=${POSTGRES_USER} POSTGRES_PASSWORD=${POSTGRES_PASSWORD} \
+        POSTGRES_DB=${POSTGRES_DB} DEPLOY=${svc} \
+        ./run.sh > last_run.log"
