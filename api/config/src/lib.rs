@@ -54,6 +54,8 @@ impl DbConfig {
         })
     }
 }
+
+/// Make a new AWS SSM client.
 pub async fn get_ssm_client() -> Result<Client> {
     let region_provider = RegionProviderChain::default_provider()
         .or_else("us-east-1");
@@ -66,6 +68,7 @@ pub async fn get_ssm_client() -> Result<Client> {
     Ok(Client::new(&config))
 }
 
+/// Get the value of a specific SSM parameter.
 pub async fn get_ssm_param(client: &Client, name: &str, decrypt: bool) -> Result<Option<String>> {
     let param_name = format!("/imgmesser/{}", name);
     let response = client
@@ -82,6 +85,7 @@ pub async fn get_ssm_param(client: &Client, name: &str, decrypt: bool) -> Result
     Ok(None)
 }
 
+/// Get the server's listening IP address and accepted origin IP address.
 pub async fn get_addresses() -> Result<Addresses> {
     match get_env().as_str() {
         "prod" => {
@@ -113,6 +117,7 @@ pub async fn get_addresses() -> Result<Addresses> {
     }
 }
 
+/// Get the configured PostgreSQL database URL and maximum connections value.
 pub async fn get_db_config() -> Result<DbConfig> {
     match get_env().as_str() {
         "prod" => {
@@ -144,6 +149,7 @@ pub async fn get_db_config() -> Result<DbConfig> {
     }
 }
 
+/// Get the configured AWS S3 bucket name.
 pub async fn get_s3_bucket_name() -> Result<String> {
     match get_env().as_str() {
         "prod" => {
@@ -162,7 +168,7 @@ pub async fn get_s3_bucket_name() -> Result<String> {
     }
 }
 
-/// Loads environment variables.
+/// Load environment variables.
 fn load_env() -> Result<()> {
     // Locate workspace root
     let output = Command::new(env!("CARGO"))

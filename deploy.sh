@@ -1,6 +1,6 @@
 #!/bin/bash
 
-# Purpose: Deploy containers to the EC2 instance
+# Purpose: Builds and deploys images to the EC2 instance
 
 [ ! -f .env.deploy ] && { echo '.env.deploy not found' >&2; exit 1; }
 source ./.env.deploy
@@ -82,9 +82,9 @@ fi
 # images, and run new containers
 echo 'Deploying to server'
 ssh "${EC2_INSTANCE_ALIAS}" " \
-    API_CONTAINER=${api_container} API_REPO=${api_repo} \
+    API_CONTAINER=${api_container} API_DOCKER_IP=${API_DOCKER_IP} API_REPO=${api_repo} \
         CLIENT_CONTAINER=${client_container} CLIENT_REPO=${client_repo} \
         DOCKER_USER=${DOCKER_USER} DOMAIN=${DOMAIN} EMAIL=${EMAIL} \
         POSTGRES_USER=${POSTGRES_USER} POSTGRES_PASSWORD=${POSTGRES_PASSWORD} \
-        POSTGRES_DB=${POSTGRES_DB} DEPLOY=${svc} \
-        ./run.sh > last_run.log"
+        POSTGRES_DB=${POSTGRES_DB} PROJECT=${PROJECT} \
+        ./run.sh ${svc} > last_run.log"

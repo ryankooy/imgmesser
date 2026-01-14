@@ -1,8 +1,8 @@
-name: imgmesser
+name: ${PROJECT}
 
 services:
   app:
-    image: rkooy/imgmesser-app:latest
+    image: ${DOCKER_USER}/${PROJECT}-app:latest
     ports:
       - "80:80"
       - "443:443"
@@ -15,7 +15,7 @@ services:
     depends_on:
       - certbot
     networks:
-      - imgmesser-nw
+      - ${PROJECT}-nw
 
   certbot:
     image: certbot/certbot
@@ -24,17 +24,17 @@ services:
       - ./etc/letsencrypt:/etc/letsencrypt:rw
     entrypoint: "/bin/sh -c 'trap exit TERM; while :; do certbot renew; sleep 12h & wait $${!}; done;'"
     networks:
-      - imgmesser-nw
+      - ${PROJECT}-nw
 
   api:
-    image: rkooy/imgmesser-api:latest
+    image: ${DOCKER_USER}/${PROJECT}-api:latest
     ports:
       - "8080:8080"
     depends_on:
       - db
     networks:
-      imgmesser-nw:
-        ipv4_address: 172.20.0.10
+      ${PROJECT}-nw:
+        ipv4_address: ${API_DOCKER_IP}
 
   db:
     image: postgres:16-alpine
@@ -47,12 +47,12 @@ services:
       # Persist database data to a volume on the host machine
       - postgres_data:/var/lib/postgresql/data
     networks:
-      - imgmesser-nw
+      - ${PROJECT}-nw
 
 networks:
-  imgmesser-nw:
+  ${PROJECT}-nw:
     external: true
-    name: imgmesser-nw
+    name: ${PROJECT}-nw
 
 volumes:
   postgres_data:
