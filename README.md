@@ -88,4 +88,5 @@ Completed Tasks
 - [x] Use PostgreSQL and Rust crate `sqlx` for storing user, image, and refresh token data
 - [x] Image deletion
 - [x] Image reversion
+- [x] Web deployment using Docker
 
