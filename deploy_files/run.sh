@@ -13,13 +13,24 @@ fi
 [ -z "${PROJECT}" ] && { echo 'DOCKER_USER variable not set' >&2; exit 1; }
 export DOCKER_USER="${DOCKER_USER}" PROJECT="${PROJECT}"
 
+if docker network inspect "${PROJECT}"-nw >/dev/null 2>&1; then
+    echo 'Network exists'
+else
+    echo 'Creating network...'
+    docker network create --driver bridge \
+        --subnet 172.20.0.0/16 --gateway 172.20.0.1 \
+        "${PROJECT}"-nw
+fi
+
 if [ "${deploy}" = 'app' ] || [ "${deploy}" = 'all' ]; then
     [ -z "${CLIENT_CONTAINER}" ] && { echo 'CLIENT_CONTAINER variable not set' >&2; exit 1; }
     [ -z "${CLIENT_REPO}" ] && { echo 'CLIENT_REPO variable not set' >&2; exit 1; }
     [ -z "${DOMAIN}" ] && { echo 'DOMAIN variable not set' >&2; exit 1; }
     [ -z "${EMAIL}" ] && { echo 'EMAIL variable not set' >&2; exit 1; }
 
-    if [ "$(docker container inspect -f '{{.State.Running}}' ${CLIENT_CONTAINER})" = 'true' ]; then
+    if docker container inspect "${CLIENT_CONTAINER}" >/dev/null 2>&1 && \
+       [ "$(docker container inspect -f '{{.State.Running}}' ${CLIENT_CONTAINER})" = 'true' ]
+    then
         echo 'Stopping and removing the existing client container...'
         docker stop "${CLIENT_CONTAINER}"
         docker rm "${CLIENT_CONTAINER}"
@@ -57,7 +68,9 @@ if [ "${deploy}" = 'api' ] || [ "${deploy}" = 'all' ]; then
     [ -z "${POSTGRES_PASSWORD}" ] && { echo 'POSTGRES_PASSWORD variable not set' >&2; exit 1; }
     [ -z "${POSTGRES_DB}" ] && { echo 'POSTGRES_DB variable not set' >&2; exit 1; }
 
-    if [ "$(docker container inspect -f '{{.State.Running}}' ${API_CONTAINER})" = 'true' ]; then
+    if docker container inspect "${API_CONTAINER}" >/dev/null 2>&1 && \
+       [ "$(docker container inspect -f '{{.State.Running}}' ${API_CONTAINER})" = 'true' ]
+    then
         echo 'Stopping and removing the existing API container...'
         docker stop "${API_CONTAINER}"
         docker rm "${API_CONTAINER}"
