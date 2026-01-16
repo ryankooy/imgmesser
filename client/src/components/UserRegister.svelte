@@ -22,6 +22,11 @@
     messages = [];
     registering = true;
 
+    // Trim input values
+    if (username) username = username.trim();
+    if (password) password = password.trim();
+    if (confirmPassword) confirmPassword = confirmPassword.trim();
+
     // Validate entered password
     if (!validatePassword()) {
       registering = false;

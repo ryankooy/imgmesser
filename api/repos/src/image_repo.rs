@@ -232,8 +232,11 @@ impl ImageRepoOps for ImageRepo {
         .await
         .map_err(|e| ImageError::S3OperationFailure(e.to_string()))?;
 
-        let objects = output.contents().to_vec();
+        let mut objects = output.contents().to_vec();
         let total = objects.len();
+
+        // Sort the objects in descending order by time modified
+        objects.sort_by(|a, b| b.last_modified.cmp(&a.last_modified));
 
         // Get image metadata from db
         let db_images = db::find_all_images(&self.db, &user.username)

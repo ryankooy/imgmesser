@@ -7,10 +7,11 @@ source ./.env.deploy
 
 function usage() {
     cat <<'MSG'
-Usage: deploy.sh [-h] [-c] [-s api|app]
-    -s <service>    Docker service name; optional, and if not
-                    included, all services are deployed
-    -c              Copy config files to EC2 instance (optional)
+Usage: deploy.sh [-h] [-c] [-d] [-s api|app]
+    -s <service>    Docker service name; if not included,
+                    all services are deployed
+    -c              Copy config files to EC2 instance
+    -d              Deploy services without building or pushing images
     -h              Show options and exit
 MSG
     [ "$1" = 1 ] && exit 1 || exit 0
@@ -28,47 +29,51 @@ copy_cfgs=false
 deploy_api=false
 deploy_client=false
 deploy_all=false
+no_build=false
 svc=all
 
-while getopts "s:ch" opt; do
+while getopts "s:cdh" opt; do
     case "${opt}" in
         s) svc="${OPTARG}";;
         c) copy_cfgs=true;;
+        d) no_build=true;;
         h) usage;;
         \?) usage 1;;
     esac
     [[ "${OPTARG}" = -* ]] && usage 1
 done
 
-case "${svc}" in
-    all) deploy_all=true;;
-    app) deploy_client=true;;
-    api) deploy_api=true;;
-    *) die 1 'Unknown service specified';;
-esac
+if [ "${no_build}" = false ]; then
+    case "${svc}" in
+        all) deploy_all=true;;
+        app) deploy_client=true;;
+        api) deploy_api=true;;
+        *) die 1 'Unknown service specified';;
+    esac
 
-# Build image(s) using `compose.yaml`
-if [ "${deploy_all}" = true ]; then
-    echo 'Building images'
-    docker compose build
-else
-    echo 'Building image'
-    docker compose build "${svc}"
-fi
-die "$?" 'Failed to build image(s)'
+    # Build image(s) using `compose.yaml`
+    if [ "${deploy_all}" = true ]; then
+        echo 'Building images'
+        docker compose build
+    else
+        echo 'Building image'
+        docker compose build "${svc}"
+    fi
+    die "$?" 'Failed to build image(s)'
 
-# Tag and push the API image
-if [ "${deploy_api}" = true ] || [ "${deploy_all}" = true ]; then
-    echo 'Tagging and pushing API image'
-    docker tag "${api_repo}":latest "${DOCKER_USER}"/"${api_repo}":latest
-    docker push "${DOCKER_USER}"/"${api_repo}":latest
-fi
+    # Tag and push the API image
+    if [ "${deploy_api}" = true ] || [ "${deploy_all}" = true ]; then
+        echo 'Tagging and pushing API image'
+        docker tag "${api_repo}":latest "${DOCKER_USER}"/"${api_repo}":latest
+        docker push "${DOCKER_USER}"/"${api_repo}":latest
+    fi
 
-# Tag and push the client app image
-if [ "${deploy_client}" = true ] || [ "${deploy_all}" = true ]; then
-    echo 'Tagging and pushing client app image'
-    docker tag "${client_repo}":latest "${DOCKER_USER}"/"${client_repo}":latest
-    docker push "${DOCKER_USER}"/"${client_repo}":latest
+    # Tag and push the client app image
+    if [ "${deploy_client}" = true ] || [ "${deploy_all}" = true ]; then
+        echo 'Tagging and pushing client app image'
+        docker tag "${client_repo}":latest "${DOCKER_USER}"/"${client_repo}":latest
+        docker push "${DOCKER_USER}"/"${client_repo}":latest
+    fi
 fi
 
 # Copy config files to the EC2 instance

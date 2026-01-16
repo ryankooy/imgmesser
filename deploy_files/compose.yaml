@@ -15,7 +15,7 @@ services:
     depends_on:
       - certbot
     networks:
-      - ${PROJECT}-nw
+      - nw
 
   certbot:
     image: certbot/certbot
@@ -24,7 +24,7 @@ services:
       - ./etc/letsencrypt:/etc/letsencrypt:rw
     entrypoint: "/bin/sh -c 'trap exit TERM; while :; do certbot renew; sleep 12h & wait $${!}; done;'"
     networks:
-      - ${PROJECT}-nw
+      - nw
 
   api:
     image: ${DOCKER_USER}/${PROJECT}-api:latest
@@ -33,7 +33,7 @@ services:
     depends_on:
       - db
     networks:
-      ${PROJECT}-nw:
+      nw:
         ipv4_address: ${API_DOCKER_IP}
 
   db:
@@ -47,10 +47,10 @@ services:
       # Persist database data to a volume on the host machine
       - postgres_data:/var/lib/postgresql/data
     networks:
-      - ${PROJECT}-nw
+      - nw
 
 networks:
-  ${PROJECT}-nw:
+  nw:
     external: true
     name: ${PROJECT}-nw
 

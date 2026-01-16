@@ -60,12 +60,14 @@ export function formatImageType(contentType: string): string {
     return contentType.split("/").pop().toUpperCase();
 }
 
+// Format an image's file size value as human-readable.
 export function formatFileSize(bytes: number): string {
     if (bytes < 1024) return bytes + " B";
     if (bytes < 1024 * 1024) return (bytes / 1024).toFixed(1) + " KB";
     return (bytes / (1024 * 1024)).toFixed(1) + " MB";
 }
 
+// Prettify a date value.
 export function formatDate(dateStr: string): string {
     try {
         return new Date(dateStr).toLocaleString();

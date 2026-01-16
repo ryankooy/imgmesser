@@ -183,7 +183,7 @@
     if (editableFileStem.indexOf(".") !== -1) {
       editableFileStem = getFileStem(editableFileStem);
     }
-    return editableFileStem + "." + getFileExtension(imageName);
+    return editableFileStem.trim() + "." + getFileExtension(imageName);
   }
 
   async function downloadImage() {
@@ -268,7 +268,9 @@
           <p>Loading image...</p>
         </div>
       {:else if imageDataUrl}
-        <img src={imageDataUrl} alt={imageName} />
+        <a href={imageDataUrl} target="_blank" rel="noopener noreferrer">
+          <img src={imageDataUrl} alt={imageName} />
+        </a>
       {:else}
         <div class="error">Failed to load image</div>
       {/if}

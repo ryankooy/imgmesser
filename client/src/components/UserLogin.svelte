@@ -18,6 +18,10 @@
     messageType = "";
     loggingIn = true;
 
+    // Trim input values
+    if (username) username = username.trim();
+    if (password) password = password.trim();
+
     try {
       // Send user login request
       const response = await fetch(userLoginUrl(), {
