@@ -6,11 +6,13 @@
   import { truncateFileName } from "../utils/app.ts";
 
   let {
+    nextPageTrigger = 0,
+    prevPageTrigger = 0,
     refreshAll = 0,
     refreshOne = 0,
+    selectedId = null,
     selectingNext = false,
-    selectingPrev = false,
-    selectedId = null
+    selectingPrev = false
   } = $props();
 
   const dispatch = createEventDispatcher();
@@ -24,6 +26,7 @@
   let limit: number = $state(12);
   let total: number = $state(0);
   let hasMore: boolean = $state(false);
+  let pageChanged: boolean = $state(false);
 
   let totalPages: number = $derived(Math.ceil(total / limit));
 
@@ -38,7 +41,19 @@
       imageVersions.clear();
       loadImages();
       refreshAll = 0;
-    } else if (refreshOne > 0) {
+    }
+
+    if (nextPageTrigger > 0) {
+      nextPage();
+      nextPageTrigger = 0;
+      pageChanged = true;
+    } else if (prevPageTrigger > 0) {
+      prevPage();
+      prevPageTrigger = 0;
+      pageChanged = true;
+    }
+
+    if (refreshOne > 0) {
       (async () => {
         await handleUpdatedImage();
       })();
@@ -59,10 +74,15 @@
         total = data.total;
         hasMore = data.has_more;
 
-        dispatch("imagesLoaded", images);
-
         // Fetch actual image data for each image
         await loadImageData();
+
+        dispatch("imagesLoaded", images);
+        dispatch("totalPageCount", {
+          current: currentPage,
+          total: totalPages,
+          more: hasMore,
+        });
       } else {
         error = "Failed to load images";
       }
@@ -106,9 +126,17 @@
       let index: number = images.findIndex((img) => img.id === selectedId);
 
       if (selectingNext) {
-        selectImage(images[++index]);
+        if (pageChanged) {
+          selectImage(images[0]);
+        } else {
+          selectImage(images[++index]);
+        }
       } else if (selectingPrev) {
-        selectImage(images[--index]);
+        if (pageChanged) {
+          selectImage(images[images.length - 1]);
+        } else {
+          selectImage(images[--index]);
+        }
       } else {
         // Fetch a new data URL for the image
         const dataUrl = await getImageDataUrl(selectedId);
@@ -136,6 +164,8 @@
         }
       }
     }
+
+    pageChanged = false;
   }
 
   function handleUploadClick() {

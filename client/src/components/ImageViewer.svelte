@@ -12,7 +12,7 @@
 
   const dispatch = createEventDispatcher();
 
-  let { image = null, imageIds = [] } = $props();
+  let { gallery = null, image = null, imageIds = [] } = $props();
 
   const meta: ImageMeta | null = $derived(image.meta ?? null);
   let imageDataUrl: string = $derived(image.url ?? "");
@@ -23,6 +23,8 @@
   let editing: boolean = $state(false);
   let showConfirmDeleteModal: boolean = $state(false);
   let showAlertModal: boolean = $state(false);
+  let nextPageExists: boolean = $state(false);
+  let prevPageExists: boolean = $state(false);
 
   let alertText: string | null = $state(null);
 
@@ -36,6 +38,13 @@
 
   onMount(() => {
     loadImageData();
+  });
+
+  $effect(() => {
+    if (gallery) {
+      nextPageExists = gallery.more;
+      prevPageExists = gallery.current > 1;
+    }
   });
 
   async function loadImageData() {
@@ -247,7 +256,7 @@
   <IconButton
     class="material-icons icon-btn"
     onclick={handlePrevImage}
-    disabled={imageIds.indexOf(image.id) === 0}
+    disabled={imageIds.indexOf(image.id) === 0 && !prevPageExists}
     >
     chevron_left
   </IconButton>
@@ -378,7 +387,7 @@
   <IconButton
     class="material-icons icon-btn"
     onclick={handleNextImage}
-    disabled={imageIds.indexOf(image.id) === imageIds.length - 1}
+    disabled={imageIds.indexOf(image.id) === imageIds.length - 1 && !nextPageExists}
     >
     chevron_right
   </IconButton>

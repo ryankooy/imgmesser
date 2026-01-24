@@ -1,7 +1,7 @@
 <script lang="ts">
   import { onMount } from "svelte";
   import { currentView, currentUser } from "./store.ts";
-  import type { ImageData, ImageMeta } from "./store.ts";
+  import type { GalleryPagination, ImageData, ImageMeta } from "./store.ts";
   import { getCurrentUser } from "./utils/api.ts";
   import { handlePageRefresh, registerServiceWorker } from "./utils/app.ts";
   import "./styles/app.css";
@@ -30,10 +30,13 @@
   let selectingNext: boolean = $state(false);
   let selectingPrev: boolean = $state(false);
   let imageIds: string[] = $state([]);
+  let gallery: GalleryPagination | null = $state(null);
 
   // Triggers for reloading gallery
-  let refreshAllTrigger = $state(0);
-  let refreshOneTrigger = $state(0);
+  let nextPageTrigger: number = $state(0);
+  let prevPageTrigger: number = $state(0);
+  let refreshAllTrigger: number = $state(0);
+  let refreshOneTrigger: number = $state(0);
 
   function handleImageSelect(event: CustomEvent<ImageData>) {
     selectingNext = selectingPrev = false;
@@ -46,7 +49,11 @@
     imageIds = images.map((img) => img.id);
 
     if (selectedImage) {
-      selectedImage.meta = images.find((img) => img.id === selectedImageId);
+      if (selectingNext || selectingPrev) {
+        refreshOneTrigger++;
+      } else {
+        selectedImage.meta = images.find((img) => img.id === selectedImageId);
+      }
     }
   }
 
@@ -71,6 +78,9 @@
       if (index !== -1 && index !== imageIds.length - 1) {
         selectingNext = true;
         refreshOneTrigger++;
+      } else if (gallery && gallery.more) {
+        selectingNext = true;
+        nextPageTrigger++;
       }
     }
   }
@@ -81,12 +91,19 @@
       if (index > 0) {
         selectingPrev = true;
         refreshOneTrigger++;
+      } else if (gallery && gallery.current > 1) {
+        selectingPrev = true;
+        prevPageTrigger++;
       }
     }
   }
 
   function handleSelectDataUrl(event: Event) {
     if (selectedImage) selectedImage.url = event.detail;
+  }
+
+  function handleGalleryPageCount(event: CustomEvent<GalleryPagination>) {
+    gallery = event.detail;
   }
 
   function handleUploadModalOpen() {
@@ -123,30 +140,34 @@
     <div class="container">
       {#if $currentView === "gallery"}
         <ImageGallery
-          on:imageSelect={handleImageSelect}
-          on:imagesLoaded={handleImagesLoaded}
-          on:upload={handleUploadModalOpen}
+          nextPageTrigger={nextPageTrigger}
+          prevPageTrigger={prevPageTrigger}
+          refreshAll={refreshAllTrigger}
+          refreshOne={refreshOneTrigger}
           selectedId={selectedImageId}
           selectingNext={selectingNext}
           selectingPrev={selectingPrev}
-          refreshAll={refreshAllTrigger}
-          refreshOne={refreshOneTrigger}
+          on:imageSelect={handleImageSelect}
+          on:imagesLoaded={handleImagesLoaded}
+          on:totalPageCount={handleGalleryPageCount}
+          on:upload={handleUploadModalOpen}
         />
 
         {#if selectedImage}
           <ImageViewer
+            gallery={gallery}
             image={selectedImage}
             imageIds={imageIds}
             on:close={handleImageClose}
             on:imageUpdate={handleImageUpdate}
+            on:selectDataUrl={handleSelectDataUrl}
             on:selectNextImage={handleSelectNextImage}
             on:selectPrevImage={handleSelectPrevImage}
-            on:selectDataUrl={handleSelectDataUrl}
           />
         {:else if showUploadModal}
           <UploadForm
-            on:uploadSuccess={handleUploadSuccess}
             on:close={handleUploadModalClose}
+            on:uploadSuccess={handleUploadSuccess}
           />
         {/if}
       {:else if $currentView === "register"}

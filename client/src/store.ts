@@ -5,6 +5,12 @@ export const currentUser: string | null = writable(null);
 
 export const apiPath: string = (import.meta.env.PROD) ? "/data" : "http://127.0.0.1:3000";
 
+export interface GalleryPagination {
+    current: number;
+    total: number;
+    more: boolean;
+}
+
 // Metadata from the server
 export interface ImageMeta {
     id: string;
@@ -22,6 +28,7 @@ export interface ImageMeta {
     initial_version: boolean;
 }
 
+// Image id, data URL, and database metadata
 export interface ImageData {
     // Image ID
     id: string;
