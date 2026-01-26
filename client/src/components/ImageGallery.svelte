@@ -204,12 +204,27 @@
       loadImages();
     }
   }
+
+  function lastPage() {
+    if (hasMore) {
+      currentPage = totalPages;
+      loadImages();
+    }
+  }
+
+  function firstPage() {
+    if (currentPage > 1) {
+      currentPage = 1;
+      loadImages();
+    }
+  }
 </script>
 
 <div class="gallery" id="gallery">
   <div class="inner">
     <div class="gallery-header">
       <h2>Gallery</h2>
+      <span class="total-count">{total} images</span>
 
       <div class="upload">
         <IconButton
@@ -267,6 +282,14 @@
         <div class="pagination">
           <IconButton
             class="material-icons icon-btn"
+            onclick={firstPage}
+            disabled={currentPage === 1}
+            >
+            first_page
+          </IconButton>
+
+          <IconButton
+            class="material-icons icon-btn"
             onclick={prevPage}
             disabled={currentPage === 1}
             >
@@ -275,9 +298,8 @@
 
           <div class="page-info">
             <span class="page-numbers">
-              Page {currentPage} of {totalPages}
+              {currentPage} / {totalPages}
             </span>
-            <span class="total-count">({total} total images)</span>
           </div>
 
           <IconButton
@@ -286,6 +308,14 @@
             disabled={!hasMore}
             >
             chevron_right
+          </IconButton>
+
+          <IconButton
+            class="material-icons icon-btn"
+            onclick={lastPage}
+            disabled={!hasMore}
+            >
+            last_page
           </IconButton>
         </div>
       {/if}
@@ -318,8 +348,8 @@
   .mini-spinner {
     width: 30px;
     height: 30px;
-    border: 3px solid #e2e8f0;
-    border-top-color: #667eea;
+    border: 3px solid black;
+    border-top-color: var(--im-text);
     border-radius: 50%;
     animation: spin 0.8s linear infinite;
   }
@@ -419,17 +449,18 @@
   .image-name {
     font-weight: 600;
     color: white;
-    font-size: 14px;
+    font-size: 12px;
     width: 85%;
   }
 
   .pagination {
     display: flex;
-    justify-content: space-between;
+    flex-direction: row;
+    justify-content: center;
     align-items: center;
-    gap: 16px;
+    gap: 14px;
     padding: 24px;
-    background: var(--img-background-purple);
+    background: var(--im-background);
     border: var(--im-border);
   }
 
@@ -443,6 +474,7 @@
   .page-numbers {
     font-weight: 600;
     color: #333;
+    margin: 5px;
   }
 
   .total-count {
@@ -457,6 +489,8 @@
 
   .gallery-header {
     display: flex;
+    align-items: baseline;
+    gap: 16px;
   }
 
   @media (max-width: 640px) {
@@ -466,8 +500,7 @@
     }
 
     .pagination {
-      flex-direction: column;
-      gap: 12px;
+      gap: 8px;
     }
   }
 </style>
