@@ -89,8 +89,8 @@ pub async fn get_image_metadata(
     Ok(Json(image))
 }
 
-/// Route for uploading an image.
-pub async fn upload_image(
+/// Route for uploading images.
+pub async fn upload_images(
     State(state): State<AppState>,
     ConnectInfo(addr): ConnectInfo<SocketAddr>,
     mut multipart: Multipart,
@@ -98,7 +98,7 @@ pub async fn upload_image(
     info!("Client {addr} added image");
 
     let mut username = String::new();
-    let mut image: Option<UploadImage> = None;
+    let mut images: Vec<UploadImage> = Vec::new();
 
     while let Some(field) = multipart
         .next_field()
@@ -112,7 +112,7 @@ pub async fn upload_image(
                     .await
                     .map_err(|_| ImageError::MissingMultipartField)?;
             }
-            "file_path" => {
+            "files[]" => {
                 let content_type = ContentType::from_str(
                     field.content_type().unwrap_or("unknown"),
                 );
@@ -120,17 +120,17 @@ pub async fn upload_image(
                     return Err(ImageError::InvalidFileType);
                 }
 
-                let upload_image = parse_image_data(field, content_type)
+                let image = parse_image_data(field, content_type)
                     .await
                     .map_err(|_| ImageError::ReadFailure)?;
 
-                image = Some(upload_image);
+                images.push(image);
             }
             _ => {},
         }
     }
 
-    if !username.is_empty() && let Some(upload_image) = image {
+    if !username.is_empty() {
         // Find the user record
         let user: UserInfo = state
             .user_repo
@@ -142,7 +142,7 @@ pub async fn upload_image(
         // Upload the image to S3
         state
             .image_repo
-            .upload(upload_image, user)
+            .upload(images, user)
             .await?;
 
         return Ok(Response::default());

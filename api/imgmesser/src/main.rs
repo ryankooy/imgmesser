@@ -26,7 +26,7 @@ use handlers::{
     current_user, login, logout, register, refresh,
     delete_image, get_all_images_metadata, get_image,
     get_image_metadata, rename_image, restore_image_version,
-    revert_image_version, upload_image,
+    revert_image_version, upload_images,
 };
 use state::AppState;
 
@@ -62,7 +62,7 @@ async fn main() -> Result<()> {
         .route("/logout", post(logout))
         .route("/refresh", post(refresh))
         .route("/user", get(current_user))
-        .route("/images", get(get_all_images_metadata).post(upload_image))
+        .route("/images", get(get_all_images_metadata).post(upload_images))
         .route("/images/{id}", get(get_image))
         .route("/images/{id}/meta", get(get_image_metadata))
         .route("/images/{id}/delete", post(delete_image))
@@ -78,7 +78,7 @@ async fn main() -> Result<()> {
         )
         .layer(
             TraceLayer::new_for_http()
-                .make_span_with(DefaultMakeSpan::default().include_headers(true)),
+                .make_span_with(DefaultMakeSpan::default().include_headers(false)),
         );
 
     let listener = TcpListener::bind(&addresses.listener).await?;

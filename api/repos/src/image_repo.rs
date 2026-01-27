@@ -30,7 +30,7 @@ impl ImageRepo {
 
 #[async_trait]
 pub trait ImageRepoOps: Send + Sync {
-    async fn upload(&self, image: UploadImage, user: UserInfo) -> Result<()>;
+    async fn upload(&self, images: Vec<UploadImage>, user: UserInfo) -> Result<()>;
 
     async fn get_one(
         &self,
@@ -79,70 +79,15 @@ pub trait ImageRepoOps: Send + Sync {
 
 #[async_trait]
 impl ImageRepoOps for ImageRepo {
-    /// Upload an image to S3 and save the image's
-    /// metadata to the database.
+    /// Upload image(s) to S3 and store metadata in the database.
     async fn upload(
         &self,
-        image: UploadImage,
+        images: Vec<UploadImage>,
         user: UserInfo,
     ) -> Result<()> {
-        let mut is_new: bool = true;
-
-        // If an image by the given name exists for this user,
-        // get the image id; otherwise, make a new one
-        let image_id: Uuid = if let Ok(Some(image_id)) = db::find_image_id_by_name(
-            &self.db,
-            &image.name,
-            &user.username,
-        )
-        .await {
-            is_new = false;
-            image_id
-        } else {
-            Uuid::now_v7()
-        };
-
-        let image_path = get_object_path(
-            &user.object_base_path,
-            &image_id,
-            &image.name,
-        );
-        let image_size = image.data.len();
-
-        // Upload the image to the S3 bucket and get
-        // the image's version id
-        let output = s3::upload_object(
-            &self.img_store_client,
-            image.data,
-            &image_path,
-        )
-        .await
-        .map_err(|e| ImageError::S3OperationFailure(e.to_string()))?;
-
-        // If it's a new image, create a db record for it
-        if is_new && let Err(e) = db::insert_image(
-            &self.db,
-            &image_id,
-            &image.name,
-            image.content_type,
-            &user.username,
-        )
-        .await {
-            error!("Image insert failed: {}", e);
-        }
-
-        if let Some(version) = output.version_id() {
-            // Add the image object version in the db
-            if let Err(e) = db::insert_image_version(
-                &self.db,
-                &image_id,
-                version,
-                image.dimensions,
-                image_size,
-            )
-            .await {
-                error!("Image version insert failed: {}", e);
-            }
+        for image in images {
+            upload_image(&self.db, &self.img_store_client, image, &user)
+                .await?;
         }
 
         Ok(())
@@ -395,4 +340,73 @@ fn get_object_path(
         .unwrap_or("jpg");
 
     format!("{}/{}.{}", base_path, image_id, extension)
+}
+
+/// Upload an image to S3 and store metadata in the database.
+async fn upload_image(
+    db: &PgPool,
+    s3_client: &S3Client,
+    image: UploadImage,
+    user: &UserInfo,
+) -> Result<()> {
+    let mut is_new: bool = true;
+
+    // If an image by the given name exists for this user,
+    // get the image id; otherwise, make a new one
+    let image_id: Uuid = if let Ok(Some(image_id)) = db::find_image_id_by_name(
+        db,
+        &image.name,
+        &user.username,
+    )
+    .await {
+        is_new = false;
+        image_id
+    } else {
+        Uuid::now_v7()
+    };
+
+    let image_path = get_object_path(
+        &user.object_base_path,
+        &image_id,
+        &image.name,
+    );
+    let image_size = image.data.len();
+
+    // Upload the image to the S3 bucket and get
+    // the image's version id
+    let output = s3::upload_object(
+        s3_client,
+        image.data,
+        &image_path,
+    )
+    .await
+    .map_err(|e| ImageError::S3OperationFailure(e.to_string()))?;
+
+    // If it's a new image, create a db record for it
+    if is_new && let Err(e) = db::insert_image(
+        db,
+        &image_id,
+        &image.name,
+        image.content_type,
+        &user.username,
+    )
+    .await {
+        error!("Image insert failed: {}", e);
+    }
+
+    if let Some(version) = output.version_id() {
+        // Add the image object version in the db
+        if let Err(e) = db::insert_image_version(
+            db,
+            &image_id,
+            version,
+            image.dimensions,
+            image_size,
+        )
+        .await {
+            error!("Image version insert failed: {}", e);
+        }
+    }
+
+    Ok(())
 }

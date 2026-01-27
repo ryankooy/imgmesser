@@ -6,8 +6,8 @@
 
   const dispatch = createEventDispatcher();
 
-  let selectedFile: File | null = $state(null);
-  let previewUrl: string | null = $state(null);
+  let selectedFiles: File[] = $state([]);
+  let previewUrls: string[] = $state([]);
   let uploading: boolean = $state(false);
   let message: string = $state("");
   let messageType: "success" | "error" | "" = $state("");
@@ -20,17 +20,40 @@
     return false;
   }
 
-  function handleFileSelect(event: Event) {
-    const input = event.target as HTMLInputElement;
-    if (input.files && input.files[0]) {
-      selectedFile = input.files[0];
-
-      // Create preview
+  function readFile(file: File): Promise {
+    return new Promise((resolve, reject) => {
       const reader = new FileReader();
+
       reader.onload = (e) => {
-        previewUrl = e.target?.result as string;
+        resolve(e.target?.result as string);
       };
-      reader.readAsDataURL(selectedFile);
+
+      reader.onerror = () => {
+        reject(reader.error);
+      };
+
+      reader.readAsDataURL(file);
+    });
+  }
+
+  async function handleFileSelect(event: Event) {
+    const input = event.target as HTMLInputElement;
+    if (input.files && input.files.length) {
+      selectedFiles = input.files;
+
+      const filePromises = [];
+      for (const file of input.files) {
+        filePromises.push(readFile(file));
+      }
+
+      try {
+        // Create preview image(s)
+        const results = await Promise.all(filePromises);
+        previewUrls = results;
+      } catch (error) {
+        showMessage(`Failed to create preview image(s): ${error}`, "error");
+        console.error("Preview image error:", error);
+      }
 
       // Clear previous messages
       message = "";
@@ -39,8 +62,8 @@
   }
 
   async function uploadImage() {
-    if (!selectedFile) {
-      showMessage("Please select an image first", "error");
+    if (!selectedFiles.length) {
+      showMessage("Please select one or more image(s) first", "error");
       return;
     }
 
@@ -55,8 +78,11 @@
 
       // Create FormData and append the image
       const formData = new FormData();
-      formData.append("file_path", selectedFile);
       formData.append("user", $currentUser);
+
+      Array.from(selectedFiles).forEach((file) => {
+        formData.append("files[]", file, file.name);
+      });
 
       // Send multipart form data request
       const response = await fetch(imageUploadUrl(), {
@@ -65,7 +91,7 @@
       });
 
       if (response.ok) {
-        showMessage("Image uploaded successfully", "success");
+        showMessage("Image(s) uploaded successfully", "success");
         dispatch("uploadSuccess");
 
         // Reset form after successful upload
@@ -90,8 +116,8 @@
   }
 
   function resetForm() {
-    selectedFile = null;
-    previewUrl = null;
+    selectedFiles = [];
+    previewUrls = [];
     message = "";
     messageType = "";
 
@@ -132,32 +158,36 @@
       </IconButton>
 
       <div class="upload-section">
-        <h2>Upload New Image</h2>
+        <h2>Upload Image(s)</h2>
         <label
           for="file-upload"
           class="file-upload-label"
           disabled={uploading}
           >
-          Browse Computer
+          Browse Device
         </label>
         <input
           id="file-upload"
           type="file"
-          accept="image/jpeg,image/png,image/gif,image/webp"
+          name="files[]"
+          accept="image/jpeg,image/png,image/gif,image/webp,image/bmp"
           onchange={handleFileSelect}
           disabled={uploading}
+          multiple
         />
 
-        {#if previewUrl}
+        {#if previewUrls.length}
           <div class="preview">
-            <img src={previewUrl} alt="Preview" />
+            {#each previewUrls as imageUrl}
+              <img src={imageUrl} alt="Preview" />
+            {/each}
           </div>
         {/if}
 
         <button
           class="btn"
           onclick={uploadImage}
-          disabled={!selectedFile || uploading}
+          disabled={!selectedFiles.length || uploading}
           >
           {uploading ? "Uploading..." : "Upload"}
         </button>
