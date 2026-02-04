@@ -43,7 +43,7 @@ export const logOut = async (): boolean => {
 
         return response.ok;
     } catch (error) {
-        console.error("Error fetching:", error);
+        console.error("Failed to fetch logout response:", error);
     }
 
     return false;
@@ -57,8 +57,8 @@ export const getImageDataUrl = async (imageId: string): object | null => {
         const dataUrl = URL.createObjectURL(blob);
         return dataUrl;
       }
-    } catch (err) {
-      console.error(`Failed to fetch image data:`, err);
+    } catch (error) {
+      console.error("Failed to fetch image data:", error);
     }
 
     return null;
@@ -71,8 +71,8 @@ export const getImageMetadata = async (imageId: string): ImageMeta | null => {
         const data = await response.json();
         return data;
       }
-    } catch (err) {
-      console.error(`Failed to fetch image metadata:`, err);
+    } catch (error) {
+      console.error("Failed to fetch image metadata:", error);
     }
 
     return null;

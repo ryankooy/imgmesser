@@ -1,6 +1,6 @@
 <script lang="ts">
   import { onMount } from "svelte";
-  import { currentView, currentUser } from "./store.ts";
+  import { currentView, currentUser, galleryPageCache } from "./store.ts";
   import type { GalleryPagination, ImageData, ImageMeta } from "./store.ts";
   import { getCurrentUser } from "./utils/api.ts";
   import { handlePageRefresh, registerServiceWorker } from "./utils/app.ts";
@@ -27,19 +27,18 @@
   let selectedImage: ImageData | null = $state(null);
   let selectedImageId: string | null = $state(null);
   let showUploadModal: boolean = $state(false);
-  let selectingNext: boolean = $state(false);
-  let selectingPrev: boolean = $state(false);
   let imageIds: string[] = $state([]);
-  let gallery: GalleryPagination | null = $state(null);
+  let pagination: GalleryPagination | null = $state(null);
 
   // Triggers for reloading gallery
+  let nextImageTrigger: number = $state(0);
+  let prevImageTrigger: number = $state(0);
   let nextPageTrigger: number = $state(0);
   let prevPageTrigger: number = $state(0);
   let refreshAllTrigger: number = $state(0);
   let refreshOneTrigger: number = $state(0);
 
   function handleImageSelect(event: CustomEvent<ImageData>) {
-    selectingNext = selectingPrev = false;
     selectedImage = event.detail;
     selectedImageId = selectedImage.id;
   }
@@ -49,25 +48,23 @@
     imageIds = images.map((img) => img.id);
 
     if (selectedImage) {
-      if (selectingNext || selectingPrev) {
-        refreshOneTrigger++;
-      } else {
-        selectedImage.meta = images.find((img) => img.id === selectedImageId);
-      }
+      selectedImage.meta = images.find((img) => img.id === selectedImageId);
     }
   }
 
   function handleImageUpdate(event: Event) {
-    const updateOne = event.detail;
-    if (updateOne) {
-      refreshOneTrigger++;
-    } else {
-      handleImageClose();
+    const imageDeleted = event.detail;
+
+    if (imageDeleted) {
+      closeSelectedImage();
+      $galleryPageCache.clear();
       refreshAllTrigger++;
+    } else {
+      refreshOneTrigger++;
     }
   }
 
-  function handleImageClose() {
+  function closeSelectedImage() {
     selectedImage = null;
     selectedImageId = null;
   }
@@ -75,11 +72,11 @@
   function handleSelectNextImage() {
     if (selectedImageId) {
       const index: number = imageIds.indexOf(selectedImageId);
+
       if (index !== -1 && index !== imageIds.length - 1) {
-        selectingNext = true;
-        refreshOneTrigger++;
-      } else if (gallery && gallery.more) {
-        selectingNext = true;
+        nextImageTrigger++;
+      } else if (pagination && pagination.has_more) {
+        closeSelectedImage();
         nextPageTrigger++;
       }
     }
@@ -88,11 +85,11 @@
   function handleSelectPrevImage() {
     if (selectedImageId) {
       const index: number = imageIds.indexOf(selectedImageId);
+
       if (index > 0) {
-        selectingPrev = true;
-        refreshOneTrigger++;
-      } else if (gallery && gallery.current > 1) {
-        selectingPrev = true;
+        prevImageTrigger++;
+      } else if (pagination && pagination.current_page > 1) {
+        closeSelectedImage();
         prevPageTrigger++;
       }
     }
@@ -102,8 +99,8 @@
     if (selectedImage) selectedImage.url = event.detail;
   }
 
-  function handleGalleryPageCount(event: CustomEvent<GalleryPagination>) {
-    gallery = event.detail;
+  function handlePaginationUpdated(event: CustomEvent<GalleryPagination>) {
+    pagination = event.detail;
   }
 
   function handleUploadModalOpen() {
@@ -115,7 +112,8 @@
   }
 
   function handleUploadSuccess() {
-    handleImageClose();
+    closeSelectedImage();
+    $galleryPageCache.clear();
     refreshAllTrigger++;
   }
 
@@ -140,25 +138,25 @@
     <div class="container">
       {#if $currentView === "gallery"}
         <ImageGallery
+          nextImageTrigger={nextImageTrigger}
           nextPageTrigger={nextPageTrigger}
+          prevImageTrigger={prevImageTrigger}
           prevPageTrigger={prevPageTrigger}
           refreshAll={refreshAllTrigger}
           refreshOne={refreshOneTrigger}
           selectedId={selectedImageId}
-          selectingNext={selectingNext}
-          selectingPrev={selectingPrev}
           on:imageSelect={handleImageSelect}
           on:imagesLoaded={handleImagesLoaded}
-          on:totalPageCount={handleGalleryPageCount}
+          on:paginationUpdated={handlePaginationUpdated}
           on:upload={handleUploadModalOpen}
         />
 
         {#if selectedImage}
           <ImageViewer
-            gallery={gallery}
             image={selectedImage}
             imageIds={imageIds}
-            on:close={handleImageClose}
+            pagination={pagination}
+            on:close={closeSelectedImage}
             on:imageUpdate={handleImageUpdate}
             on:selectDataUrl={handleSelectDataUrl}
             on:selectNextImage={handleSelectNextImage}

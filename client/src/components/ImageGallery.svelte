@@ -1,18 +1,19 @@
 <script lang="ts">
   import { createEventDispatcher, onMount } from "svelte";
   import IconButton from "@smui/icon-button";
-  import type { ImageData, ImageMeta } from "../store.ts";
+  import { galleryPageCache, imageDataUrlCache } from "../store.ts";
+  import type { GalleryPageInfo, ImageData, ImageMeta } from "../store.ts";
   import { getImageDataUrl, getImageMetadata, imageGalleryUrl } from "../utils/api.ts";
   import { truncateFileName } from "../utils/app.ts";
 
   let {
+    nextImageTrigger = 0,
     nextPageTrigger = 0,
+    prevImageTrigger = 0,
     prevPageTrigger = 0,
     refreshAll = 0,
     refreshOne = 0,
     selectedId = null,
-    selectingNext = false,
-    selectingPrev = false
   } = $props();
 
   const dispatch = createEventDispatcher();
@@ -26,7 +27,8 @@
   let limit: number = $state(12);
   let total: number = $state(0);
   let hasMore: boolean = $state(false);
-  let pageChanged: boolean = $state(false);
+  let selectingNext: boolean = $state(false);
+  let selectingPrev: boolean = $state(false);
 
   let totalPages: number = $derived(Math.ceil(total / limit));
 
@@ -36,40 +38,73 @@
 
   $effect(() => {
     if (refreshAll > 0) {
+      refreshAll = 0;
       currentPage = 1;
       imageDataUrls.clear();
       imageVersions.clear();
       loadImages();
-      refreshAll = 0;
-    }
+    } else if (nextPageTrigger > 0) {
+      (async () => {
+        await nextPage();
+        selectFirstImage();
+      })();
 
-    if (nextPageTrigger > 0) {
-      nextPage();
       nextPageTrigger = 0;
-      pageChanged = true;
     } else if (prevPageTrigger > 0) {
-      prevPage();
       prevPageTrigger = 0;
-      pageChanged = true;
-    }
 
-    if (refreshOne > 0) {
+      (async () => {
+        await prevPage();
+        selectLastImage();
+      })();
+    } else if (nextImageTrigger > 0) {
+      nextImageTrigger = 0;
+      selectNextImage();
+    } else if (prevImageTrigger > 0) {
+      prevImageTrigger = 0;
+      selectPrevImage();
+    } else if (refreshOne > 0) {
+      refreshOne = 0;
+
       (async () => {
         await handleUpdatedImage();
       })();
-      refreshOne = 0;
     }
   });
+
+  function updateGalleryCache() {
+    const pageInfo: GalleryPageInfo = {
+      images,
+      total,
+      has_more: hasMore,
+    };
+
+    $galleryPageCache.set(currentPage, pageInfo);
+  }
 
   async function loadImages() {
     loading = true;
     error = "";
 
     try {
-      const response = await fetch(imageGalleryUrl(currentPage, limit));
-      const data = await response.json();
+      let data: object | null = null;
+      let pageCached: boolean = $galleryPageCache.has(currentPage);
 
-      if (response.ok) {
+      if (pageCached) {
+        // Load images from cache
+        data = $galleryPageCache.get(currentPage);
+      } else {
+        // Fetch images from server
+        const response = await fetch(imageGalleryUrl(currentPage, limit));
+
+        if (response.ok) {
+          data = await response.json();
+        } else {
+          error = "Failed to load images";
+        }
+      }
+
+      if (data) {
         images = data.images;
         total = data.total;
         hasMore = data.has_more;
@@ -77,18 +112,19 @@
         // Fetch actual image data for each image
         await loadImageData();
 
+        // Cache images and page info
+        if (!pageCached) updateGalleryCache();
+
         dispatch("imagesLoaded", images);
-        dispatch("totalPageCount", {
-          current: currentPage,
-          total: totalPages,
-          more: hasMore,
+
+        dispatch("paginationUpdated", {
+          current_page: currentPage,
+          has_more: hasMore,
         });
-      } else {
-        error = "Failed to load images";
       }
-    } catch (err) {
-      error = `Error: ${err}`;
-      console.error("Load error:", err);
+    } catch (error) {
+      error = `Error: ${error}`;
+      console.error("Load error:", error);
     } finally {
       loading = false;
     }
@@ -105,7 +141,14 @@
       }
 
       if (!imageDataUrls.has(image.id) || versionChanged) {
-        const dataUrl = await getImageDataUrl(image.id);
+        let dataUrl: string | null;
+
+        if ($imageDataUrlCache.has(image.id) && !versionChanged) {
+          dataUrl = $imageDataUrlCache.get(image.id);
+        } else {
+          dataUrl = await getImageDataUrl(image.id);
+          if (dataUrl) $imageDataUrlCache.set(image.id, dataUrl);
+        }
 
         if (dataUrl) {
           imageDataUrls.set(image.id, dataUrl);
@@ -123,49 +166,32 @@
 
   async function handleUpdatedImage() {
     if (selectedId) {
-      let index: number = images.findIndex((img) => img.id === selectedId);
+      // Fetch a new data URL for the image
+      const dataUrl = await getImageDataUrl(selectedId);
+      if (dataUrl) {
+        // Update data URLs
+        imageDataUrls.set(selectedId, dataUrl);
+        $imageDataUrlCache.set(selectedId, dataUrl);
+        imageDataUrls = imageDataUrls;
+      }
 
-      if (selectingNext) {
-        if (pageChanged) {
-          selectImage(images[0]);
-        } else {
-          selectImage(images[++index]);
-        }
-      } else if (selectingPrev) {
-        if (pageChanged) {
-          selectImage(images[images.length - 1]);
-        } else {
-          selectImage(images[--index]);
-        }
-      } else {
-        // Fetch a new data URL for the image
-        const dataUrl = await getImageDataUrl(selectedId);
-        if (dataUrl) {
-          // Update data URLs
-          imageDataUrls.set(selectedId, dataUrl);
-          imageDataUrls = imageDataUrls;
-        }
+      // Fetch new metadata for the image
+      const image = await getImageMetadata(selectedId);
+      if (image) {
+        // Update image versions
+        imageVersions.set(selectedId, image.version);
+        imageVersions = imageVersions;
 
-        // Fetch new metadata for the image
-        const image = await getImageMetadata(selectedId);
-        if (image) {
-          // Update image versions
-          imageVersions.set(selectedId, image.version);
-          imageVersions = imageVersions;
+        const index: number = images.findIndex((img) => img.id === selectedId);
+        if (index !== -1) {
+          // Update the array of images
+          images[index] = image;
 
-          index = images.findIndex((img) => img.id === selectedId);
-          if (index !== -1) {
-            // Update the array of images
-            images[index] = image;
-
-            // Reselect the current image
-            selectImage(image);
-          }
+          // Reselect the current image
+          selectImage(image);
         }
       }
     }
-
-    pageChanged = false;
   }
 
   function handleUploadClick() {
@@ -191,17 +217,17 @@
     loadImages();
   }
 
-  function nextPage() {
+  async function nextPage() {
     if (hasMore) {
       currentPage++;
-      loadImages();
+      await loadImages();
     }
   }
 
-  function prevPage() {
+  async function prevPage() {
     if (currentPage > 1) {
       currentPage--;
-      loadImages();
+      await loadImages();
     }
   }
 
@@ -216,6 +242,28 @@
     if (currentPage > 1) {
       currentPage = 1;
       loadImages();
+    }
+  }
+
+  function selectFirstImage() {
+    selectImage(images[0]);
+  }
+
+  function selectLastImage() {
+    selectImage(images[images.length - 1]);
+  }
+
+  function selectNextImage() {
+    if (selectedId) {
+      let index: number = images.findIndex((img) => img.id === selectedId);
+      selectImage(images[++index]);
+    }
+  }
+
+  function selectPrevImage() {
+    if (selectedId) {
+      let index: number = images.findIndex((img) => img.id === selectedId);
+      selectImage(images[--index]);
     }
   }
 </script>

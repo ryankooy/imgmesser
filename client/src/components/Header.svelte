@@ -1,5 +1,7 @@
 <script lang="ts">
-  import { currentUser, currentView } from "../store.ts";
+  import {
+    currentUser, currentView, galleryPageCache, imageDataUrlCache,
+  } from "../store.ts";
   import { logOut } from "../utils/api.ts";
 
   let user: string | null = $state(null);
@@ -7,6 +9,8 @@
   async function logOutUser() {
     const userLoggedOut = await logOut();
     if (userLoggedOut) {
+      $galleryPageCache.clear();
+      $imageDataUrlCache.clear();
       $currentUser = null;
       $currentView = "login";
     }

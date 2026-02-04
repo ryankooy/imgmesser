@@ -2,13 +2,20 @@ import { writable } from "svelte/store";
 
 export const currentView: string | null = writable(null);
 export const currentUser: string | null = writable(null);
+export const galleryPageCache: Map<number, GalleryPageInfo> = writable(new Map());
+export const imageDataUrlCache: Map<string, string> = writable(new Map());
 
 export const apiPath: string = (import.meta.env.PROD) ? "/data" : "http://127.0.0.1:3000";
 
+export interface GalleryPageInfo {
+    images: ImageMeta[],
+    total: number,
+    has_more: boolean,
+}
+
 export interface GalleryPagination {
-    current: number;
-    total: number;
-    more: boolean;
+    current_page: number;
+    has_more: boolean;
 }
 
 // Metadata from the server

@@ -3,6 +3,7 @@
   import IconButton from "@smui/icon-button";
   import AlertModal from "./AlertModal.svelte";
   import ConfirmModal from "./ConfirmModal.svelte";
+  import { imageDataUrlCache } from "../store.ts";
   import type { ImageMeta } from "../store.ts";
   import { getImageDataUrl, imageUrl } from "../utils/api.ts";
   import {
@@ -12,7 +13,7 @@
 
   const dispatch = createEventDispatcher();
 
-  let { gallery = null, image = null, imageIds = [] } = $props();
+  let { image = null, imageIds = [], pagination = null } = $props();
 
   const meta: ImageMeta | null = $derived(image.meta ?? null);
   let imageDataUrl: string = $derived(image.url ?? "");
@@ -41,19 +42,24 @@
   });
 
   $effect(() => {
-    if (gallery) {
-      nextPageExists = gallery.more;
-      prevPageExists = gallery.current > 1;
+    if (pagination) {
+      nextPageExists = pagination.has_more;
+      prevPageExists = pagination.current_page > 1;
     }
   });
 
   async function loadImageData() {
     loading = true;
-    const dataUrl = await getImageDataUrl(image.id);
 
-    if (dataUrl) {
-      dispatch("selectDataUrl", dataUrl);
-      imageDataUrl = dataUrl;
+    if ($imageDataUrlCache.has(image.id)) {
+      imageDataUrl = $imageDataUrlCache.get(image.id);
+    } else {
+      const dataUrl = await getImageDataUrl(image.id);
+
+      if (dataUrl) {
+        dispatch("selectDataUrl", dataUrl);
+        imageDataUrl = dataUrl;
+      }
     }
 
     loading = false;
@@ -66,12 +72,12 @@
       });
 
       if (response.ok) {
-        dispatch("imageUpdate");
+        dispatch("imageUpdate", true);
       } else {
         setAlertMessage("Failed to delete image");
       }
-    } catch (err) {
-      console.error("Error fetching:", err);
+    } catch (error) {
+      console.error("Error fetching:", error);
     }
   }
 
@@ -101,8 +107,8 @@
           setAlertMessage("Failed to rename image");
         }
       }
-    } catch (err) {
-      console.error("Error fetching:", err);
+    } catch (error) {
+      console.error("Error fetching:", error);
     }
   }
 
@@ -115,13 +121,14 @@
       if (response.ok) {
         const data = await response.json();
         if (data.updated) {
+          $imageDataUrlCache.delete(image.id);
           await handleUpdatedImage();
         }
       } else {
         setAlertMessage("Failed to revert image");
       }
-    } catch (err) {
-      console.error("Error fetching:", err);
+    } catch (error) {
+      console.error("Error fetching:", error);
     }
   }
 
@@ -134,18 +141,19 @@
       if (response.ok) {
         const data = await response.json();
         if (data.updated) {
+          $imageDataUrlCache.delete(image.id);
           await handleUpdatedImage();
         }
       } else {
         setAlertMessage("Failed to restore image");
       }
-    } catch (err) {
-      console.error("Error fetching:", err);
+    } catch (error) {
+      console.error("Error fetching:", error);
     }
   }
 
   async function handleUpdatedImage() {
-    dispatch("imageUpdate", true);
+    dispatch("imageUpdate");
     await loadImageData();
   }
 
