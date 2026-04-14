@@ -1,5 +1,6 @@
 <script lang="ts">
   import { createEventDispatcher, onMount, setContext } from "svelte";
+  import { hammerSwipe } from "../utils/action.ts";
   import IconButton from "@smui/icon-button";
   import AlertModal from "./AlertModal.svelte";
   import ConfirmModal from "./ConfirmModal.svelte";
@@ -196,6 +197,15 @@
     }
   }
 
+  function handleSwipe(event: CustomEvent<{ direction: string; timeframe: number; minSwipeDistance: number }>) {
+    console.log(event.detail); //todo:remove
+    if (event.detail.direction === "swiperight") {
+      handlePrevImage();
+    } else if (event.detail.direction === "swipeleft") {
+      handleNextImage();
+    }
+  }
+
   function getNewImageFileName(): string {
     if (editableFileStem.indexOf(".") !== -1) {
       editableFileStem = getFileStem(editableFileStem);
@@ -260,6 +270,8 @@
   class="modal-backdrop"
   id="image-backdrop"
   onclick={handleBackdropClick}
+  use:hammerSwipe
+  onswipe={handleSwipe}
   >
   <IconButton
     class="material-icons icon-btn"
