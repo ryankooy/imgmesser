@@ -197,8 +197,7 @@
     }
   }
 
-  function handleSwipe(event: CustomEvent<{ direction: string; timeframe: number; minSwipeDistance: number }>) {
-    console.log(event.detail); //todo:remove
+  function handleSwipe(event: CustomEvent<{ direction: string }>) {
     if (event.detail.direction === "swiperight") {
       handlePrevImage();
     } else if (event.detail.direction === "swipeleft") {
@@ -281,15 +280,7 @@
     chevron_left
   </IconButton>
 
-  <div class="modal-content">
-    <IconButton
-      class="material-icons icon-btn close-btn low-opac"
-      onclick={close}
-      aria-label="Close"
-      >
-      close
-    </IconButton>
-
+  <div class="modal-content image-modal">
     <div class="image-container">
       {#if loading}
         <div class="loading-spinner">
@@ -306,100 +297,106 @@
     </div>
 
     <div class="image-info">
-      <div class="inner">
-        <div class="image-header">
-          <div class="image-name">
-            {#if editing}
-              <div class="name-edit">
-                <input
-                  type="text"
-                  bind:value={editableFileStem}
-                  onblur={disableEditing}
-                  onkeydown={handleKeydownOnEdit}
-                  autofocus
-                />
-
-                <IconButton
-                  class="material-icons icon-btn"
-                  id="accept-btn"
-                  onclick={renameImage}
-                  aria-label="Accept Edit"
-                  >
-                  check
-                </IconButton>
-              </div>
-            {:else}
-              <h3 onclick={enableEditing}>{imageName}</h3>
-            {/if}
-          </div>
-
-          <div class="actions">
-            {#if multiVersion}
-              <IconButton
-                class="material-icons icon-btn"
-                onclick={revertImage}
-                disabled={!imageDataUrl || meta.initial_version}
-                >
-                undo
-              </IconButton>
+      <div class="image-header">
+        <div class="image-name">
+          {#if editing}
+            <div class="name-edit">
+              <input
+                type="text"
+                bind:value={editableFileStem}
+                onblur={disableEditing}
+                onkeydown={handleKeydownOnEdit}
+                autofocus
+              />
 
               <IconButton
                 class="material-icons icon-btn"
-                onclick={restoreImage}
-                disabled={!imageDataUrl || meta.latest_version}
+                id="accept-btn"
+                onclick={renameImage}
+                aria-label="Accept Edit"
                 >
-                redo
+                check
               </IconButton>
-            {/if}
-
-            <IconButton
-              class="material-icons icon-btn"
-              onclick={downloadImage}
-              disabled={!imageDataUrl}
-              >
-              download
-            </IconButton>
-
-            <IconButton
-              class="material-icons icon-btn delete-btn"
-              onclick={handleDeleteImage}
-              disabled={!imageDataUrl}
-              >
-              delete
-            </IconButton>
-          </div>
+            </div>
+          {:else}
+            <h3 onclick={enableEditing}>{editableFileStem}</h3>
+          {/if}
         </div>
+      </div>
 
-        <div class="image-details">
-          <div class="details-grid">
-            <div class="detail-item">
-              <span class="label">File Size</span>
-              <span class="value">{formatFileSize(meta.size)}</span>
-            </div>
-            <div class="detail-item">
-              <span class="label">Image Size</span>
-              <span class="value">{meta.width} x {meta.height}</span>
-            </div>
-            <div class="detail-item">
-              <span class="label">Type</span>
-              <span class="value">{formatImageType(meta.content_type)}</span>
-            </div>
-            <div class="detail-item">
-              <span class="label">Uploaded</span>
-              <span class="value">{formatDate(meta.created_at)}</span>
-            </div>
-            {#if multiVersion}
-              <div class="detail-item">
-                <span class="label">Modified</span>
-                <span class="value">{formatDate(meta.last_modified)}</span>
-              </div>
-              <div class="detail-item">
-                <span class="label">Version</span>
-                <span class="value">{meta.version_index}</span>
-              </div>
-            {/if}
+      <div class="image-details">
+        <div class="details-grid">
+          <div class="detail-item">
+            <span class="label">Type</span>
+            <span class="value">{formatImageType(meta.content_type)}</span>
           </div>
+          <div class="detail-item">
+            <span class="label">File Size</span>
+            <span class="value">{formatFileSize(meta.size)}</span>
+          </div>
+          <div class="detail-item">
+            <span class="label">Image Size</span>
+            <span class="value">{meta.width} x {meta.height}</span>
+          </div>
+          <div class="detail-item">
+            <span class="label">Uploaded</span>
+            <span class="value">{formatDate(meta.created_at)}</span>
+          </div>
+          {#if multiVersion}
+            <div class="detail-item">
+              <span class="label">Modified</span>
+              <span class="value">{formatDate(meta.last_modified)}</span>
+            </div>
+            <div class="detail-item">
+              <span class="label">Version</span>
+              <span class="value">{meta.version_index}</span>
+            </div>
+          {/if}
         </div>
+      </div>
+
+      <div class="actions">
+        {#if multiVersion}
+          <IconButton
+            class="material-icons icon-btn"
+            onclick={revertImage}
+            disabled={!imageDataUrl || meta.initial_version}
+            >
+            undo
+          </IconButton>
+
+          <IconButton
+            class="material-icons icon-btn"
+            onclick={restoreImage}
+            disabled={!imageDataUrl || meta.latest_version}
+            >
+            redo
+          </IconButton>
+        {/if}
+
+        <IconButton
+          class="material-icons icon-btn"
+          onclick={downloadImage}
+          disabled={!imageDataUrl}
+          >
+          download
+        </IconButton>
+
+        <IconButton
+          class="material-icons icon-btn delete-btn"
+          onclick={handleDeleteImage}
+          disabled={!imageDataUrl}
+          >
+          delete
+        </IconButton>
+
+        <IconButton
+          class="material-icons icon-btn"
+          onclick={close}
+          aria-label="Close"
+          >
+          close
+        </IconButton>
       </div>
     </div>
   </div>
@@ -426,22 +423,29 @@
 </div>
 
 <style>
+  .image-modal {
+    max-width: 90vw;
+    height: 100vh;
+    max-height: fit-content;
+    display: flex;
+  }
+
   .image-container {
     width: 100%;
-    max-height: 500px;
     overflow: hidden;
     background: black;
     display: flex;
     align-items: center;
     justify-content: center;
-    min-height: 300px;
   }
 
   .image-container img {
-    width: 100%;
+    width: auto;
     height: auto;
-    max-height: 500px;
+    max-width: 100%;
+    max-height: 100vh;
     object-fit: contain;
+    cursor: default;
   }
 
   .loading-spinner {
@@ -453,8 +457,9 @@
   }
 
   .image-info {
-    background: black;
-    padding: 20px;
+    display: flex;
+    flex-direction: column;
+    justify-content: center;
   }
 
   .error {
@@ -488,7 +493,7 @@
 
   .image-header h3 {
     color: var(--im-text);
-    font-size: 20px;
+    font-size: 16px;
     word-break: break-all;
   }
 
@@ -497,7 +502,6 @@
   }
 
   .actions {
-    margin-left: auto;
     align-self: center;
     display: flex;
     gap: 12px;
@@ -505,17 +509,14 @@
   }
 
   .image-details {
-    display: flex;
     padding: 0 24px;
+    font-size: 14px;
   }
 
   .details-grid {
     display: flex;
     flex-direction: column;
-    align-content: flex-start;
-    row-gap: 10px;
     margin-bottom: 24px;
-    width: 100%;
   }
 
   .detail-item {
@@ -545,13 +546,12 @@
   }
 
   @media (max-width: 640px) {
-    .modal-content {
-      max-height: 95vh;
+    .image-modal {
+      display: block;
     }
 
     .image-container {
-      max-height: 300px;
-      min-height: 200px;
+      max-height: 100vh;
     }
   }
 </style>
