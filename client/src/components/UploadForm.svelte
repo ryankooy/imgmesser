@@ -184,13 +184,13 @@
           </div>
         {/if}
 
-        <button
-          class="btn"
+        <IconButton
+          class="material-icons icon-btn"
           onclick={uploadImage}
           disabled={!selectedFiles.length || uploading}
           >
-          {uploading ? "Uploading..." : "Upload"}
-        </button>
+          cloud_upload
+        </IconButton>
 
         {#if message}
           <div class="message {messageType}">
