@@ -1,0 +1,22 @@
+[package]
+name = "transform"
+version = "0.0.0"
+edition.workspace = true
+authors.workspace = true
+rust-version.workspace = true
+
+[dependencies]
+# Local
+errors.workspace = true
+models.workspace = true
+
+# Non-local
+anyhow.workspace = true
+async-trait = "0.1.89"
+aws-sdk-s3.workspace = true
+chrono.workspace = true
+image.workspace = true
+imageproc = "0.26.0"
+sqlx.workspace = true
+tracing.workspace = true
+uuid.workspace = true
