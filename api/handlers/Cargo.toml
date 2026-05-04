@@ -16,5 +16,5 @@ state.workspace = true
 # Non-local
 anyhow.workspace = true
 axum.workspace = true
-image = "0.25"
+image.workspace = true
 tracing.workspace = true

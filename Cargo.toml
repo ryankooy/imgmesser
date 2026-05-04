@@ -21,16 +21,18 @@ repos = { path = "./api/repos", version = "0.0.0" }
 s3 = { path = "./api/s3", version = "0.0.0" }
 schemas = { path = "./api/schemas", version = "0.0.0" }
 state = { path = "./api/state", version = "0.0.0" }
+transform = { path = "./api/transform", version = "0.0.0" }
 
 # Non-local crates
 anyhow = "1.0"
 aws-config = "1.8.8"
 aws-sdk-s3 = "1.108.0"
 aws-sdk-ssm = "1.101.0"
-axum = { version = "0.8", features = ["http2", "multipart"] }
+axum = { version = "0.8", features = ["http2", "json", "multipart"] }
 bytes = "1.10.1"
 chrono = { version = "0.4.42", features = ["clock", "serde"] }
 dotenv = "0.15"
+image = "0.25"
 serde = { version = "1.0", features = ["derive"] }
 sqlx = { version = "0.8.6", features = ["runtime-tokio", "postgres", "macros", "uuid", "chrono"] }
 tracing = "0.1"

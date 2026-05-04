@@ -4,7 +4,8 @@ mod user;
 
 pub use image::{
     ContentType, Image, ImageData, ImageInfo,
-    ImageList, ImageVersion, UploadImage,
+    ImageList, ImageVersion, Transformations,
+    UploadImage,
 };
 pub use refresh_token::RefreshToken;
 pub use user::{User, UserInfo};

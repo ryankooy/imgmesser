@@ -1,5 +1,6 @@
 use async_trait::async_trait;
 use aws_sdk_s3::Client as S3Client;
+use bytes::Bytes;
 use sqlx::PgPool;
 use std::collections::HashMap;
 use std::path::Path;
@@ -10,9 +11,10 @@ use db;
 use errors::ImageError;
 use models::{
     ContentType, Image, ImageData, ImageInfo, ImageList,
-    UploadImage, UserInfo,
+    Transformations, UploadImage, UserInfo,
 };
 use s3;
+use transform::transform_image;
 
 type Result<T> = anyhow::Result<T, ImageError>;
 
@@ -75,6 +77,13 @@ pub trait ImageRepoOps: Send + Sync {
         new_name: &str,
         user: UserInfo,
     ) -> Result<Option<String>>;
+
+    async fn transform(
+        &self,
+        image_id: &str,
+        specs: &Transformations,
+        user: UserInfo,
+    ) -> Result<Option<ImageData>>;
 }
 
 #[async_trait]
@@ -311,6 +320,53 @@ impl ImageRepoOps for ImageRepo {
             .map_err(|e| ImageError::QueryFailure(e.to_string()))?;
 
         Ok(image_name)
+    }
+
+    async fn transform(
+        &self,
+        image_id: &str,
+        specs: &Transformations,
+        user: UserInfo,
+    ) -> Result<Option<ImageData>> {
+        let image = get_image_info(&self.db, image_id, &user.username)
+            .await
+            .map_err(|e| ImageError::QueryFailure(e.to_string()))?;
+
+        // S3 object path of the image
+        let image_path = get_object_path(
+            &user.object_base_path,
+            &image.id,
+            &image.name,
+        );
+
+        let data: Bytes = s3::get_object(
+            &self.img_store_client, &image_path, &image.version,
+        )
+        .await
+        .map_err(|e| ImageError::S3OperationFailure(e.to_string()))?
+        .body
+        .collect()
+        .await
+        .map_err(|_| ImageError::ReadFailure)?
+        .into_bytes();
+
+        let byte_slice: &[u8] = data.as_ref();
+        let content_type = ContentType::from_int(image.content_type);
+
+        let trans_image = transform_image(byte_slice, &content_type, specs)
+            .map_err(|e| ImageError::TransformFailure(e.to_string()))?;
+
+        match trans_image {
+            Some(image_data) => {
+                let bytes = Bytes::from(image_data);
+
+                Ok(Some(ImageData {
+                    content_type: content_type.to_string(),
+                    data: bytes,
+                }))
+            }
+            None => Ok(None),
+        }
     }
 }
 

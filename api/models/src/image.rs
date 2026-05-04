@@ -152,6 +152,36 @@ impl fmt::Display for ContentType {
     }
 }
 
+#[derive(Clone, Debug, Deserialize, Serialize)]
+pub struct Resize {
+    pub width: i32,
+    pub height: i32,
+}
+
+#[derive(Clone, Debug, Deserialize, Serialize)]
+pub struct Crop {
+    pub width: i32,
+    pub height: i32,
+    pub x: i32,
+    pub y: i32,
+}
+
+#[derive(Clone, Debug, Deserialize, Serialize)]
+pub struct Filters {
+    pub grayscale: bool,
+    pub sepia: bool,
+}
+
+#[derive(Clone, Debug, Deserialize, Serialize)]
+/// Image transformation specifications
+pub struct Transformations {
+    pub resize: Option<Resize>,
+    pub crop: Option<Crop>,
+    pub rotate: Option<i32>,
+    pub format: Option<String>,
+    pub filters: Option<Filters>,
+}
+
 #[cfg(test)]
 mod tests {
     use super::*;

@@ -17,7 +17,7 @@ use auth::middleware::RequireAuth;
 use errors::ImageError;
 use models::{
     ContentType, Image, ImageData, ImageList,
-    UploadImage, UserInfo,
+    Transformations, UploadImage, UserInfo,
 };
 use schemas::{
     ImageRenameRequest,
@@ -209,6 +209,33 @@ pub async fn restore_image_version(
         .is_some();
 
     Ok(Json(ImageUpdateResponse { updated }))
+}
+
+/// Route for transforming an image.
+pub async fn transform_image(
+    State(state): State<AppState>,
+    RequireAuth(user): RequireAuth,
+    Path(image_id): Path<String>,
+    Json(payload): Json<Transformations>,
+) -> Result<Response> {
+    let image: ImageData = state
+        .image_repo
+        .transform(&image_id, &payload, user)
+        .await?
+        .ok_or(ImageError::NotFound)?;
+
+    let response = Response::builder()
+        .header(header::CONTENT_TYPE, image.content_type)
+        .header(
+            header::CACHE_CONTROL,
+            "no-store, no-cache, must-revalidate, proxy-revalidate",
+        )
+        .header(header::PRAGMA, "no-cache")
+        .header(header::EXPIRES, "0")
+        .body(Body::from(image.data))
+        .unwrap();
+
+    Ok(response)
 }
 
 /// Parse multipart image data.

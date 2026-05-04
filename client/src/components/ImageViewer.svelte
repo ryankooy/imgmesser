@@ -4,7 +4,7 @@
   import AlertModal from "./AlertModal.svelte";
   import ConfirmModal from "./ConfirmModal.svelte";
   import { imageDataUrlCache } from "../store.ts";
-  import type { ImageMeta } from "../store.ts";
+  import type { ImageMeta, Transformations } from "../store.ts";
   import { getImageDataUrl, imageUrl } from "../utils/api.ts";
   import {
     formatDate, formatFileSize, formatImageType,
@@ -20,6 +20,7 @@
 
   const multiVersion: boolean = $derived(meta.version_count > 1);
 
+  let transformations: object | null = $state(null);
   let loading: boolean = $state(false);
   let editing: boolean = $state(false);
   let showConfirmDeleteModal: boolean = $state(false);
@@ -150,6 +151,30 @@
     } catch (error) {
       console.error("Error fetching:", error);
     }
+  }
+
+  async function transformImage() {
+    try {
+      const response = await fetch(`${imageUrl(image.id)}/transform`, {
+        method: "POST",
+        headers: {"Content-Type": "application/json"},
+        body: JSON.stringify(transformations),
+      });
+
+      if (response.ok) {
+        const blob = await response.blob();
+        imageDataUrl = URL.createObjectURL(blob);
+      } else {
+        setAlertMessage("Failed to transform image");
+      }
+    } catch (error) {
+      console.error("Error fetching:", error);
+    }
+  }
+
+  async function rotateImage() {
+    transformations = { rotate: 90 };
+    await transformImage();
   }
 
   async function handleUpdatedImage() {
@@ -358,6 +383,16 @@
           </div>
         </div>
 
+        <div class="edit-actions">
+          <IconButton
+              class="material-icons icon-btn"
+              onclick={rotateImage}
+            disabled={!imageDataUrl}
+            >
+            rotate_90_degrees_cw
+          </IconButton>
+        </div>
+
         <div class="image-details">
           <div class="details-grid">
             <div class="detail-item">
@@ -476,7 +511,6 @@
 
   .image-header h3 {
     color: var(--im-text);
-    font-size: 20px;
     word-break: break-all;
   }
 
@@ -492,6 +526,13 @@
     flex-grow: 0;
   }
 
+  .edit-actions {
+    padding: 0 24px;
+    align-items: flex-end;
+    justify-items: flex-end;
+    margin-bottom: 10px;
+  }
+
   .image-details {
     display: flex;
     padding: 0 24px;
@@ -499,16 +540,14 @@
 
   .details-grid {
     display: flex;
+    flex-wrap: wrap;
     flex-direction: column;
-    align-content: flex-start;
-    row-gap: 10px;
-    margin-bottom: 24px;
+    row-gap: 3px;
     width: 100%;
   }
 
   .detail-item {
     display: flex;
-    justify-content: flex-end;
     gap: 10px;
   }
 
@@ -540,6 +579,10 @@
     .image-container {
       max-height: 300px;
       min-height: 200px;
+    }
+
+    .image-details {
+      font-size: 12px;
     }
   }
 </style>

@@ -46,3 +46,29 @@ export interface ImageData {
     // Image metadata
     meta: ImageMeta;
 }
+
+export interface Resize {
+    width: number;
+    height: number;
+}
+
+export interface Crop {
+    width: number;
+    height: number;
+    x: number;
+    y: number;
+}
+
+export interface Filters {
+    grayscale: boolean;
+    sepia: boolean;
+}
+
+// Image transformation specifications
+export interface Transformations {
+    resize: Resize | null;
+    crop: Crop | null;
+    rotate: number | null;
+    format: string | null;
+    filters: Filters | null;
+}
