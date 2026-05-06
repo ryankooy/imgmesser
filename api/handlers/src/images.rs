@@ -16,12 +16,14 @@ use tracing::info;
 use auth::middleware::RequireAuth;
 use errors::ImageError;
 use models::{
-    ContentType, Image, ImageData, ImageList,
+    ContentType, Image, ImageData, ImageList, ImageVersionOnly,
     Transformations, UploadImage, UserInfo,
 };
 use schemas::{
     ImageRenameRequest,
     ImageUpdateResponse,
+    ImageVersionRequest,
+    ImageVersionResponse,
     PaginationParams,
 };
 use state::AppState;
@@ -217,25 +219,32 @@ pub async fn transform_image(
     RequireAuth(user): RequireAuth,
     Path(image_id): Path<String>,
     Json(payload): Json<Transformations>,
-) -> Result<Response> {
-    let image: ImageData = state
+) -> Result<Json<ImageVersionResponse>> {
+    let image: ImageVersionOnly = state
         .image_repo
         .transform(&image_id, &payload, user)
         .await?
         .ok_or(ImageError::NotFound)?;
 
-    let response = Response::builder()
-        .header(header::CONTENT_TYPE, image.content_type)
-        .header(
-            header::CACHE_CONTROL,
-            "no-store, no-cache, must-revalidate, proxy-revalidate",
-        )
-        .header(header::PRAGMA, "no-cache")
-        .header(header::EXPIRES, "0")
-        .body(Body::from(image.data))
-        .unwrap();
+    Ok(Json(ImageVersionResponse {
+        version: image.version,
+    }))
+}
 
-    Ok(response)
+/// Route for updating an image's version.
+pub async fn update_image(
+    State(state): State<AppState>,
+    RequireAuth(user): RequireAuth,
+    Path(image_id): Path<String>,
+    Json(payload): Json<ImageVersionRequest>,
+) -> Result<Json<ImageUpdateResponse>> {
+    let updated: bool = state
+        .image_repo
+        .update(&image_id, &payload.version, user)
+        .await?
+        .is_some();
+
+    Ok(Json(ImageUpdateResponse { updated }))
 }
 
 /// Parse multipart image data.

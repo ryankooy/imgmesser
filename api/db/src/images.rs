@@ -284,6 +284,41 @@ pub async fn restore_image_version(
     Ok(None)
 }
 
+/// Set a specific version as the image's current version.
+pub async fn set_image_version(
+    db: &PgPool,
+    image_id: &Uuid,
+    version: &str,
+    username: &str,
+) -> Result<Option<String>> {
+    // Set the `current` flag for the specified
+    // version and return the version id
+    let version_option: Option<String> = sqlx::query_scalar!(
+        r#"
+        UPDATE image_version SET current = TRUE
+        FROM image
+        WHERE image_version.image_id = image.id
+            AND image.id = $1
+            AND image_version.version = $2
+            AND image.username = $3
+        RETURNING version
+        "#,
+        image_id,
+        version,
+        username,
+    )
+    .fetch_optional(db)
+    .await?;
+
+    delete_non_current_versions(
+        db,
+        image_id,
+        &version_option,
+    ).await?;
+
+    Ok(version_option)
+}
+
 /// Update the name of an image.
 pub async fn rename_image(
     db: &PgPool,
@@ -315,6 +350,28 @@ async fn unset_current_version_flags(
         sqlx::query!(
             r#"
             UPDATE image_version SET current = FALSE
+            WHERE image_id = $1 AND version <> $2
+            "#,
+            image_id,
+            &version_id,
+        )
+        .execute(db)
+        .await?;
+    }
+
+    Ok(())
+}
+
+/// Delete all of an image's versions except for the current one.
+pub async fn delete_non_current_versions(
+    db: &PgPool,
+    image_id: &Uuid,
+    version: &Option<String>,
+) -> Result<()> {
+    if let Some(version_id) = version {
+        sqlx::query!(
+            r#"
+            DELETE FROM image_version
             WHERE image_id = $1 AND version <> $2
             "#,
             image_id,

@@ -16,7 +16,14 @@
 
   const dispatch = createEventDispatcher();
 
-  let { image = null, imageIds = [], pagination = null } = $props();
+  let {
+    currentVersion = null,
+    editing = false,
+    image = null,
+    imageIds = [],
+    originalVersion = null,
+    pagination = null,
+  } = $props();
 
   const meta: ImageMeta | null = $derived(image.meta ?? null);
   let imageDataUrl: string = $derived(image.url ?? "");
@@ -25,7 +32,7 @@
 
   let transformations: Transformations | null = $state(null);
   let loading: boolean = $state(false);
-  let editing: boolean = $state(false);
+  let editingName: boolean = $state(false);
   let showConfirmDeleteModal: boolean = $state(false);
   let showAlertModal: boolean = $state(false);
   let nextPageExists: boolean = $state(false);
@@ -57,6 +64,8 @@
       nextPageExists = pagination.has_more;
       prevPageExists = pagination.current_page > 1;
     }
+    if (!editing)
+      dispatch("setVersion", meta.version);
   });
 
   async function loadImageData() {
@@ -83,7 +92,7 @@
       });
 
       if (response.ok) {
-        dispatch("imageUpdate", true);
+        dispatch("imageUpdate", "deleting");
       } else {
         setAlertMessage("Failed to delete image");
       }
@@ -93,7 +102,7 @@
   }
 
   async function renameImage() {
-    editing = false;
+    editingName = false;
 
     const newImageName = getNewImageFileName();
     if (newImageName === imageName) return;
@@ -123,7 +132,7 @@
     }
   }
 
-  async function revertImage() {
+  async function undoEdit() {
     try {
       const response = await fetch(`${imageUrl(image.id)}/revert`, {
         method: "POST",
@@ -143,7 +152,7 @@
     }
   }
 
-  async function restoreImage() {
+  async function redoEdit() {
     try {
       const response = await fetch(`${imageUrl(image.id)}/restore`, {
         method: "POST",
@@ -163,6 +172,26 @@
     }
   }
 
+  async function updateImage(state: string) {
+    let version: string | null = (state === "saving") ? currentVersion : originalVersion;
+    if (!version) return;
+    try {
+      const response = await fetch(`${imageUrl(image.id)}/update`, {
+        method: "POST",
+        headers: {"Content-Type": "application/json"},
+        body: JSON.stringify({ version })
+      });
+
+      if (response.ok) {
+        await handleUpdatedImage(state);
+      } else {
+        setAlertMessage("Failed to save image");
+      }
+    } catch (error) {
+      console.error("Error fetching:", error);
+    }
+  }
+
   async function getBytesFromDataUrl(dataUrl: string): Promise<Uint8Array> {
     const response = await fetch(dataUrl);
     const buffer = await response.arrayBuffer();
@@ -170,6 +199,8 @@
   }
 
   async function transformImage() {
+    if (transformations == null) return;
+    loading = true;
     try {
       const response = await fetch(`${imageUrl(image.id)}/transform`, {
         method: "POST",
@@ -178,8 +209,12 @@
       });
 
       if (response.ok) {
-        const blob = await response.blob();
-        imageDataUrl = URL.createObjectURL(blob);
+        //const blob = await response.blob();
+        //imageDataUrl = URL.createObjectURL(blob);
+        const data = await response.json();
+        await handleUpdatedImage("editing");
+        dispatch("setVersion", data.version);
+        resetImage();
       } else {
         setAlertMessage("Failed to transform image");
       }
@@ -188,29 +223,43 @@
     }
   }
 
-  function rotateImage() {
+  async function rotateImage() {
     if (rotation === 270)
       rotation = 0;
     else
       rotation += 90;
 
     rotation_counter += 90;
-    animatedRotation.set(rotation_counter);
+    //animatedRotation.set(rotation_counter);
 
     if (transformations == null)
       transformations = {};
 
     transformations.rotate = rotation;
-    //await transformImage();
+    await transformImage();
+    console.log(rotation); //TODO:REMOVE
   }
 
-  async function saveImage() {
+  async function saveImageEdits() {
     console.log("Savin' that image. Yeah."); //TODO:REMOVE
+    await updateImage("saving");
   }
 
-  async function handleUpdatedImage() {
-    dispatch("imageUpdate");
-    await loadImageData();
+  async function cancelEdits() {
+    await updateImage("canceling");
+  }
+
+  function resetImage() {
+    loading = false;
+    transformations = null;
+    rotation = rotation_counter = 0;
+    //animatedRotation.set(rotation_counter);
+  }
+
+  async function handleUpdatedImage(state?: string) {
+    dispatch("imageUpdate", state);
+    if (state !== "closing")
+      await loadImageData();
   }
 
   function handleNextImage() {
@@ -221,7 +270,8 @@
     dispatch("selectPrevImage");
   }
 
-  function close() {
+  async function close() {
+    await updateImage("closing");
     const modal = document.getElementById("image-backdrop");
     modal.classList.add("closing");
 
@@ -295,15 +345,15 @@
   }
 
   function resetImageName() {
-    editing = false;
+    editingName = false;
     editableFileStem = getFileStem(imageName);
   }
 
-  function enableEditing() {
-    editing = true;
+  function enableNameEditing() {
+    editingName = true;
   }
 
-  function disableEditing(event: Event) {
+  function disableNameEditing(event: Event) {
     if (
       event.relatedTarget &&
       (
@@ -358,16 +408,15 @@
     <div class="image-info">
       <div class="image-header">
         <div class="image-name">
-          {#if editing}
+          {#if editingName}
             <div class="name-edit">
               <input
                 type="text"
                 bind:value={editableFileStem}
-                onblur={disableEditing}
+                onblur={disableNameEditing}
                 onkeydown={handleKeydownOnEdit}
                 autofocus
               />
-
               <IconButton
                 class="material-icons icon-btn"
                 id="accept-btn"
@@ -378,7 +427,7 @@
               </IconButton>
             </div>
           {:else}
-            <h3 onclick={enableEditing}>{editableFileStem}</h3>
+            <h3 onclick={enableNameEditing}>{editableFileStem}</h3>
           {/if}
         </div>
       </div>
@@ -415,41 +464,24 @@
       </div>
 
       <div class="actions">
-        {#if multiVersion}
-          <IconButton
-            class="material-icons icon-btn"
-            onclick={revertImage}
-            disabled={!imageDataUrl || meta.initial_version}
-            >
-            undo
-          </IconButton>
-
-          <IconButton
-            class="material-icons icon-btn"
-            onclick={restoreImage}
-            disabled={!imageDataUrl || meta.latest_version}
-            >
-            redo
-          </IconButton>
-        {/if}
-
         <IconButton
+          title="Download image"
           class="material-icons icon-btn"
           onclick={downloadImage}
           disabled={!imageDataUrl}
           >
           download
         </IconButton>
-
         <IconButton
+          title="Delete image"
           class="material-icons icon-btn delete-btn"
           onclick={handleDeleteImage}
           disabled={!imageDataUrl}
           >
           delete
         </IconButton>
-
         <IconButton
+          title="Close image"
           class="material-icons icon-btn"
           onclick={close}
           aria-label="Close"
@@ -460,13 +492,42 @@
 
       <div class="actions">
         <IconButton
+          title="Undo change"
           class="material-icons icon-btn"
-          onclick={saveImage}
-          disabled={!imageDataUrl}
+          onclick={undoEdit}
+          disabled={!imageDataUrl || !editing || !multiVersion || meta.initial_version}
+          >
+          undo
+        </IconButton>
+        <IconButton
+          title="Redo change"
+          class="material-icons icon-btn"
+          onclick={redoEdit}
+          disabled={!imageDataUrl || !editing || !multiVersion || meta.latest_version}
+          >
+          redo
+        </IconButton>
+        <IconButton
+          title="Cancel editing"
+          class="material-icons icon-btn"
+          onclick={cancelEdits}
+          disabled={!imageDataUrl || !editing}
+          >
+          cancel
+        </IconButton>
+        <IconButton
+          title="Save edit"
+          class="material-icons icon-btn"
+          onclick={saveImageEdits}
+          disabled={!imageDataUrl || !editing}
           >
           save
         </IconButton>
+      </div>
+
+      <div class="actions">
         <IconButton
+          title="Rotate image"
           class="material-icons icon-btn"
           onclick={rotateImage}
           disabled={!imageDataUrl}
@@ -584,15 +645,8 @@
     flex-grow: 0;
   }
 
-  .edit-actions {
-    padding: 0 24px;
-    align-items: flex-end;
-    justify-items: flex-end;
-    margin-bottom: 10px;
-  }
-
   .image-details {
-    padding: 0 24px;
+    padding: 0 24px 12px 24px;
     font-size: 14px;
   }
 
@@ -600,8 +654,6 @@
     display: flex;
     flex-wrap: wrap;
     flex-direction: column;
-    //row-gap: 3px;
-    //width: 100%;
   }
 
   .detail-item {

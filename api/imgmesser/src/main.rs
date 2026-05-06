@@ -26,7 +26,7 @@ use handlers::{
     current_user, login, logout, register, refresh,
     delete_image, get_all_images_metadata, get_image,
     get_image_metadata, rename_image, restore_image_version,
-    revert_image_version, transform_image, upload_images,
+    revert_image_version, transform_image, update_image, upload_images,
 };
 use state::AppState;
 
@@ -70,6 +70,7 @@ async fn main() -> Result<()> {
         .route("/images/{id}/revert", post(revert_image_version))
         .route("/images/{id}/restore", post(restore_image_version))
         .route("/images/{id}/transform", post(transform_image))
+        .route("/images/{id}/update", post(update_image))
         .with_state(state)
         .layer(
             ServiceBuilder::new()

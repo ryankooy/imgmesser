@@ -71,6 +71,10 @@ pub struct ImageVersion {
     pub ts: DateTime<Utc>,
 }
 
+pub struct ImageVersionOnly {
+    pub version: String,
+}
+
 /// Data for image yet to be uploaded
 pub struct UploadImage {
     pub name: String,

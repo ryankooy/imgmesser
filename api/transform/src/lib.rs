@@ -6,7 +6,7 @@ use image::{
 use imageproc::geometric_transformations::rotate90;
 use std::io::Cursor;
 
-use models::{ContentType, Transformations, UploadImage};
+use models::{ContentType, Transformations};
 
 pub fn transform_image(
     data: &[u8],
