@@ -418,13 +418,18 @@ impl ImageRepoOps for ImageRepo {
         }
 
         // Delete previous object versions
-        s3::delete_previous_versions(
+        if let Some(output) = s3::delete_previous_versions(
             &self.img_store_client,
             &image_path,
             version,
         )
         .await
-        .map_err(|e| ImageError::S3OperationFailure(e.to_string()))?;
+        .map_err(|e| ImageError::S3OperationFailure(e.to_string()))?
+        {
+            for i in output.errors() {
+                eprintln!("error: {:?}", i);
+            }
+        }
 
         Ok(new_current_version)
     }

@@ -93,8 +93,6 @@ pub async fn delete_previous_versions(
     object_key: &str,
     current_version_id: &str,
 ) -> Result<Option<DeleteObjectsOutput>> {
-    //let bucket_name = get_bucket_name().await;
-
     // Fetch object's versions and delete markers
     let output = client
         .list_object_versions()
