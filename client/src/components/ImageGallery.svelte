@@ -7,6 +7,8 @@
   import { truncateFileName } from "../utils/app.ts";
 
   let {
+    imageDataUrls,
+    imageVersions,
     nextImageTrigger = 0,
     nextPageTrigger = 0,
     prevImageTrigger = 0,
@@ -19,8 +21,6 @@
   const dispatch = createEventDispatcher();
 
   let images: ImageMeta[] = $state([]);
-  let imageDataUrls: Map<string, string> = $state(new Map());
-  let imageVersions: Map<string, string> = $state(new Map());
   let loading: boolean = $state(false);
   let error: string = $state("");
   let currentPage: number = $state(1);

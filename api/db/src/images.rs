@@ -114,17 +114,25 @@ pub async fn find_image_with_version_info(
         version_count AS (
             SELECT COUNT(1) AS version_count
             FROM versions
+        ),
+        original_version AS (
+            SELECT version AS original_version
+            FROM versions
+            WHERE idx = 1
         )
         SELECT i.id, i.name, i.content_type, i.created_at,
             v.ts AS last_modified, v.version,
             v.width, v.height, v.size, vc.version_count,
             v.idx AS version_index,
             v.idx = vc.version_count AS latest_version,
-            v.idx = 1 AS initial_version
+            v.idx = 1 AS initial_version,
+            ov.original_version
         FROM image_info AS i
         LEFT JOIN current_version AS v
             ON TRUE
         LEFT JOIN version_count AS vc
+            ON TRUE
+        LEFT JOIN original_version AS ov
             ON TRUE
         "#,
     )
@@ -180,18 +188,26 @@ pub async fn find_all_images(
             SELECT image_id, COUNT(1) AS version_count
             FROM versions
             GROUP BY image_id
+        ),
+        original_version AS (
+            SELECT image_id, version AS original_version
+            FROM versions
+            WHERE idx = 1
         )
         SELECT i.id, i.name, i.content_type, i.created_at,
             v.ts AS last_modified, v.version,
             v.width, v.height, v.size, vc.version_count,
             v.idx AS version_index,
             v.idx = vc.version_count AS latest_version,
-            v.idx = 1 AS initial_version
+            v.idx = 1 AS initial_version,
+            ov.original_version
         FROM images AS i
         LEFT JOIN current_version AS v
             ON v.image_id = i.id
         LEFT JOIN version_count AS vc
             ON vc.image_id = i.id
+        LEFT JOIN original_version AS ov
+            ON ov.image_id = i.id
         "#,
     )
     .bind(username)

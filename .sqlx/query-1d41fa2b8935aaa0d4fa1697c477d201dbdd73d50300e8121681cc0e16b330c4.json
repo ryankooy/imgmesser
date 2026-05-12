@@ -1,0 +1,15 @@
+{
+  "db_name": "PostgreSQL",
+  "query": "\n            UPDATE refresh_tokens\n            SET is_used = TRUE, used_at = $1\n            WHERE token = $2\n            ",
+  "describe": {
+    "columns": [],
+    "parameters": {
+      "Left": [
+        "Timestamptz",
+        "Text"
+      ]
+    },
+    "nullable": []
+  },
+  "hash": "1d41fa2b8935aaa0d4fa1697c477d201dbdd73d50300e8121681cc0e16b330c4"
+}

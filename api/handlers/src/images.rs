@@ -8,8 +8,6 @@ use axum::{
     http::header,
     response::{Json, Response},
 };
-use image::ImageReader;
-use std::io::Cursor;
 use std::net::SocketAddr;
 use tracing::info;
 
@@ -254,10 +252,7 @@ async fn parse_image_data(
 ) -> anyhow::Result<UploadImage> {
     let name = field.file_name().unwrap_or("").to_string();
     let data = field.bytes().await?;
-
-    let dimensions = ImageReader::new(Cursor::new(&data))
-        .with_guessed_format()?
-        .into_dimensions()?;
+    let dimensions: (u32, u32) = transform::get_dimensions(&data)?;
 
     Ok(UploadImage { name, content_type, data, dimensions })
 }

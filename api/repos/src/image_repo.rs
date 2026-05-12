@@ -14,7 +14,6 @@ use models::{
     Transformations, UploadImage, UserInfo,
 };
 use s3;
-use transform::transform_image;
 
 type Result<T> = anyhow::Result<T, ImageError>;
 
@@ -360,10 +359,14 @@ impl ImageRepoOps for ImageRepo {
         let byte_slice: &[u8] = data.as_ref();
         let content_type = ContentType::from_int(image.content_type);
 
-        let trans_image = transform_image(byte_slice, &content_type, specs)
-            .map_err(|e| ImageError::TransformFailure(e.to_string()))?;
+        let transformed_image = transform::transform_image(
+            byte_slice,
+            &content_type,
+            specs
+        )
+        .map_err(|e| ImageError::TransformFailure(e.to_string()))?;
 
-        match trans_image {
+        match transformed_image {
             Some(image_data) => {
                 let data = Bytes::from(image_data);
 
@@ -556,6 +559,8 @@ async fn update_object_version(
     };
 
     let image_size = data.len();
+    let dimensions: (u32, u32) = transform::get_dimensions(&data)
+        .map_err(|e| ImageError::TransformFailure(e.to_string()))?;
 
     let output = s3::upload_object(
         s3_client,
@@ -572,7 +577,7 @@ async fn update_object_version(
                 db,
                 &image_details.id,
                 version,
-                (image_details.width as u32, image_details.height as u32),
+                dimensions,
                 image_size,
             )
             .await {

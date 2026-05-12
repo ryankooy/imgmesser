@@ -17,11 +17,8 @@
   const dispatch = createEventDispatcher();
 
   let {
-    currentVersion = null,
-    editing = false,
     image = null,
     imageIds = [],
-    originalVersion = null,
     pagination = null,
   } = $props();
 
@@ -30,7 +27,7 @@
 
   const multiVersion: boolean = $derived(meta.version_count > 1);
 
-  let transformations: Transformations | null = $state(null);
+  let transformations: Transformations = $state({});
   let loading: boolean = $state(false);
   let editingName: boolean = $state(false);
   let showConfirmDeleteModal: boolean = $state(false);
@@ -39,11 +36,6 @@
   let prevPageExists: boolean = $state(false);
   let rotation: number = $state(0);
   let rotation_counter: number = $state(0);
-
-  const animatedRotation = tweened(0, {
-    duration: 300,
-    easing: cubicOut
-  });
 
   let alertText: string | null = $state(null);
 
@@ -64,8 +56,6 @@
       nextPageExists = pagination.has_more;
       prevPageExists = pagination.current_page > 1;
     }
-    if (!editing)
-      dispatch("setVersion", meta.version);
   });
 
   async function loadImageData() {
@@ -173,7 +163,8 @@
   }
 
   async function updateImage(state: string) {
-    let version: string | null = (state === "saving") ? currentVersion : originalVersion;
+    if (state === "closing") return;
+    let version: string | null = (state === "saving") ? meta.version : meta.original_version;
     if (!version) return;
     try {
       const response = await fetch(`${imageUrl(image.id)}/update`, {
@@ -198,8 +189,12 @@
     return new Uint8Array(buffer);
   }
 
+  function transformInProgress(): boolean {
+    return Object.keys(transformations).length !== 0;
+  }
+
   async function transformImage() {
-    if (transformations == null) return;
+    if (!transformInProgress()) return;
     loading = true;
     try {
       const response = await fetch(`${imageUrl(image.id)}/transform`, {
@@ -209,12 +204,7 @@
       });
 
       if (response.ok) {
-        //const blob = await response.blob();
-        //imageDataUrl = URL.createObjectURL(blob);
-        const data = await response.json();
         await handleUpdatedImage("editing");
-        dispatch("setVersion", data.version);
-        resetImage();
       } else {
         setAlertMessage("Failed to transform image");
       }
@@ -223,37 +213,22 @@
     }
   }
 
-  async function rotateImage() {
-    if (rotation === 270)
-      rotation = 0;
-    else
-      rotation += 90;
-
-    rotation_counter += 90;
-    //animatedRotation.set(rotation_counter);
-
-    if (transformations == null)
-      transformations = {};
-
-    transformations.rotate = rotation;
+  async function rotateImageRight() {
+    transformations.rotate = 90;
     await transformImage();
-    console.log(rotation); //TODO:REMOVE
+  }
+
+  async function rotateImageLeft() {
+    transformations.rotate = 270;
+    await transformImage();
   }
 
   async function saveImageEdits() {
-    console.log("Savin' that image. Yeah."); //TODO:REMOVE
     await updateImage("saving");
   }
 
   async function cancelEdits() {
     await updateImage("canceling");
-  }
-
-  function resetImage() {
-    loading = false;
-    transformations = null;
-    rotation = rotation_counter = 0;
-    //animatedRotation.set(rotation_counter);
   }
 
   async function handleUpdatedImage(state?: string) {
@@ -394,11 +369,7 @@
         </div>
       {:else if imageDataUrl}
         <a href={imageDataUrl} target="_blank" rel="noopener noreferrer">
-          <img
-            src={imageDataUrl}
-            style="transform: rotate({$animatedRotation}deg);"
-            alt={imageName}
-          />
+          <img src={imageDataUrl} alt={imageName} />
         </a>
       {:else}
         <div class="error">Failed to load image</div>
@@ -450,16 +421,6 @@
             <span class="label">Uploaded</span>
             <span class="value">{formatDate(meta.created_at)}</span>
           </div>
-          {#if multiVersion}
-            <div class="detail-item">
-              <span class="label">Modified</span>
-              <span class="value">{formatDate(meta.last_modified)}</span>
-            </div>
-            <div class="detail-item">
-              <span class="label">Version</span>
-              <span class="value">{meta.version_index}</span>
-            </div>
-          {/if}
         </div>
       </div>
 
@@ -495,7 +456,7 @@
           title="Undo change"
           class="material-icons icon-btn"
           onclick={undoEdit}
-          disabled={!imageDataUrl || !editing || !multiVersion || meta.initial_version}
+          disabled={!imageDataUrl || !multiVersion || meta.initial_version}
           >
           undo
         </IconButton>
@@ -503,7 +464,7 @@
           title="Redo change"
           class="material-icons icon-btn"
           onclick={redoEdit}
-          disabled={!imageDataUrl || !editing || !multiVersion || meta.latest_version}
+          disabled={!imageDataUrl || !multiVersion || meta.latest_version}
           >
           redo
         </IconButton>
@@ -511,7 +472,7 @@
           title="Cancel editing"
           class="material-icons icon-btn"
           onclick={cancelEdits}
-          disabled={!imageDataUrl || !editing}
+          disabled={!imageDataUrl || !multiVersion}
           >
           cancel
         </IconButton>
@@ -519,7 +480,7 @@
           title="Save edit"
           class="material-icons icon-btn"
           onclick={saveImageEdits}
-          disabled={!imageDataUrl || !editing}
+          disabled={!imageDataUrl || !multiVersion}
           >
           save
         </IconButton>
@@ -527,9 +488,17 @@
 
       <div class="actions">
         <IconButton
-          title="Rotate image"
+          title="Rotate counterclockwise"
           class="material-icons icon-btn"
-          onclick={rotateImage}
+          onclick={rotateImageLeft}
+          disabled={!imageDataUrl}
+          >
+          rotate_90_degrees_ccw
+        </IconButton>
+        <IconButton
+          title="Rotate clockwise"
+          class="material-icons icon-btn"
+          onclick={rotateImageRight}
           disabled={!imageDataUrl}
           >
           rotate_90_degrees_cw

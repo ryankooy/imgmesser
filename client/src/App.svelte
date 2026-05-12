@@ -29,6 +29,8 @@
   let showUploadModal: boolean = $state(false);
   let imageIds: string[] = $state([]);
   let pagination: GalleryPagination | null = $state(null);
+  let imageDataUrls: Map<string, string> = $state(new Map());
+  let imageVersions: Map<string, string> = $state(new Map());
 
   // Triggers for reloading gallery
   let nextImageTrigger: number = $state(0);
@@ -37,9 +39,6 @@
   let prevPageTrigger: number = $state(0);
   let refreshAllTrigger: number = $state(0);
   let refreshOneTrigger: number = $state(0);
-  let editingImage: boolean = $state(false);
-  let originalImageVersion: string | null = $state(null);
-  let currentImageVersion: string | null = $state(null);
 
   function handleImageSelect(event: CustomEvent<ImageData>) {
     selectedImage = event.detail;
@@ -62,17 +61,6 @@
       closeSelectedImage();
       $galleryPageCache.clear();
       refreshAllTrigger++;
-    } else if (state === "editing") {
-      editingImage = true;
-      refreshOneTrigger++;
-    } else if (state === "canceling") {
-      editingImage = false;
-      if (originalImageVersion)
-        currentImageVersion = originalImageVersion;
-      refreshOneTrigger++;
-    } else if (state === "saving" || state === "closing") {
-      editingImage = false;
-      refreshOneTrigger++;
     } else {
       refreshOneTrigger++;
     }
@@ -107,14 +95,6 @@
         prevPageTrigger++;
       }
     }
-  }
-
-  function handleSetImageVersion(event: Event) {
-    console.log(event.detail);
-    if (!editingImage)
-      originalImageVersion = event.detail;
-    else
-      currentImageVersion = event.detail;
   }
 
   function handleSelectDataUrl(event: Event) {
@@ -160,6 +140,8 @@
     <div class="container">
       {#if $currentView === "gallery"}
         <ImageGallery
+          imageDataUrls={imageDataUrls}
+          imageVersions={imageVersions}
           nextImageTrigger={nextImageTrigger}
           nextPageTrigger={nextPageTrigger}
           prevImageTrigger={prevImageTrigger}
@@ -175,18 +157,14 @@
 
         {#if selectedImage}
           <ImageViewer
-            currentVersion={currentImageVersion}
-            editing={editingImage}
             image={selectedImage}
             imageIds={imageIds}
-            originalVersion={originalImageVersion}
             pagination={pagination}
             on:close={closeSelectedImage}
             on:imageUpdate={handleImageUpdate}
             on:selectDataUrl={handleSelectDataUrl}
             on:selectNextImage={handleSelectNextImage}
             on:selectPrevImage={handleSelectPrevImage}
-            on:setVersion={handleSetImageVersion}
           />
         {:else if showUploadModal}
           <UploadForm

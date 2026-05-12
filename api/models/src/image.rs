@@ -27,6 +27,7 @@ pub struct Image {
     pub version_index: i64,
     pub latest_version: bool,
     pub initial_version: bool,
+    pub original_version: String,
 }
 
 impl<'a> FromRow<'a, PgRow> for Image {
@@ -50,6 +51,7 @@ impl<'a> FromRow<'a, PgRow> for Image {
             version_index: row.try_get("version_index")?,
             latest_version: row.try_get("latest_version")?,
             initial_version: row.try_get("initial_version")?,
+            original_version: row.try_get("original_version")?,
         };
 
         Ok(image)

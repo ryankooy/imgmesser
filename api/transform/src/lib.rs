@@ -1,9 +1,10 @@
 use anyhow::Result;
+use bytes::Bytes;
 use image::{
     load_from_memory, DynamicImage, ImageFormat,
-    ImageReader, ImageResult, RgbaImage,
+    ImageReader, RgbaImage,
 };
-use imageproc::geometric_transformations::rotate90;
+use imageproc::geometric_transformations::{rotate90, rotate270};
 use std::io::Cursor;
 
 use models::{ContentType, Transformations};
@@ -18,7 +19,13 @@ pub fn transform_image(
     if let Some(rotate) = specs.rotate {
         match rotate {
             90 => {
-                let rotated_image: Vec<u8> = rotate_image_90(&image, content_type)?;
+                let buffer: RgbaImage = rotate90(&image);
+                let rotated_image: Vec<u8> = convert_to_bytes(buffer, content_type)?;
+                return Ok(Some(rotated_image))
+            }
+            270 => {
+                let buffer: RgbaImage = rotate270(&image);
+                let rotated_image: Vec<u8> = convert_to_bytes(buffer, content_type)?;
                 return Ok(Some(rotated_image))
             }
             _ => {}
@@ -39,23 +46,30 @@ fn format_from_image_type(content_type: &ContentType) -> ImageFormat {
     }
 }
 
-/// Parse image data.
+/// Parse image bytes as RgbaImage.
 pub fn parse_image_data(bytes: &[u8]) -> anyhow::Result<RgbaImage> {
-    //let dimensions = ImageReader::new(Cursor::new(bytes))
-    //    .with_guessed_format()?
-    //    .decode()?;
     let image = load_from_memory(bytes)?;
     Ok(image.to_rgba8())
 }
 
-pub fn rotate_image_90(image: &RgbaImage, content_type: &ContentType) -> Result<Vec<u8>> {
-    let buffer = rotate90(image);
-    let dyn_image = DynamicImage::ImageRgba8(buffer);
-
+/// Convert RgbaImage to bytes.
+fn convert_to_bytes(buffer: RgbaImage, content_type: &ContentType) -> Result<Vec<u8>> {
     let mut bytes = Vec::new();
     let format: ImageFormat = format_from_image_type(content_type);
 
+    let dyn_image = DynamicImage::ImageRgba8(buffer);
     dyn_image.write_to(&mut Cursor::new(&mut bytes), format)?;
 
     Ok(bytes)
+}
+
+/// Parse image dimensions from bytes.
+pub fn get_dimensions(
+    data: &Bytes,
+) -> Result<(u32, u32)> {
+    let dimensions = ImageReader::new(Cursor::new(data))
+        .with_guessed_format()?
+        .into_dimensions()?;
+
+    Ok(dimensions)
 }

@@ -14,6 +14,7 @@ models.workspace = true
 anyhow.workspace = true
 async-trait = "0.1.89"
 aws-sdk-s3.workspace = true
+bytes.workspace = true
 chrono.workspace = true
 image.workspace = true
 imageproc = "0.26.0"

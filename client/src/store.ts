@@ -33,6 +33,7 @@ export interface ImageMeta {
     version_index: number;
     latest_version: boolean;
     initial_version: boolean;
+    original_version: string;
 }
 
 // Image id, data URL, and database metadata
