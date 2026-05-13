@@ -158,21 +158,21 @@ impl fmt::Display for ContentType {
     }
 }
 
-#[derive(Clone, Debug, Deserialize, Serialize)]
+#[derive(Clone, Copy, Debug, Deserialize, Serialize)]
 pub struct Resize {
     pub width: i32,
     pub height: i32,
 }
 
-#[derive(Clone, Debug, Deserialize, Serialize)]
+#[derive(Clone, Copy, Debug, Deserialize, Serialize)]
 pub struct Crop {
-    pub width: i32,
-    pub height: i32,
-    pub x: i32,
-    pub y: i32,
+    pub width: u32,
+    pub height: u32,
+    pub x: u32,
+    pub y: u32,
 }
 
-#[derive(Clone, Debug, Deserialize, Serialize)]
+#[derive(Clone, Copy, Debug, Deserialize, Serialize)]
 pub struct Filters {
     pub grayscale: bool,
     pub sepia: bool,

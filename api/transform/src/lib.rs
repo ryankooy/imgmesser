@@ -1,10 +1,13 @@
 use anyhow::Result;
 use bytes::Bytes;
 use image::{
-    load_from_memory, DynamicImage, ImageFormat,
-    ImageReader, RgbaImage,
+    math::Rect,
+    DynamicImage, ImageFormat, ImageReader, RgbaImage,
 };
-use imageproc::geometric_transformations::{rotate90, rotate270};
+use imageproc::{
+    compose::crop,
+    geometric_transformations::{rotate90, rotate180, rotate270},
+};
 use std::io::Cursor;
 
 use models::{ContentType, Transformations};
@@ -14,22 +17,40 @@ pub fn transform_image(
     content_type: &ContentType,
     specs: &Transformations,
 ) -> Result<Option<Vec<u8>>> {
-    let image: RgbaImage = parse_image_data(data)?;
+    let mut image: RgbaImage = parse_image_data(data)?;
+    let mut transformed: bool = false;
 
-    if let Some(rotate) = specs.rotate {
-        match rotate {
+    if let Some(degrees) = specs.rotate {
+        transformed = true;
+        match degrees {
             90 => {
-                let buffer: RgbaImage = rotate90(&image);
-                let rotated_image: Vec<u8> = convert_to_bytes(buffer, content_type)?;
-                return Ok(Some(rotated_image))
+                image = rotate90(&image);
+            }
+            180 => {
+                image = rotate180(&image);
             }
             270 => {
-                let buffer: RgbaImage = rotate270(&image);
-                let rotated_image: Vec<u8> = convert_to_bytes(buffer, content_type)?;
-                return Ok(Some(rotated_image))
+                image = rotate270(&image);
             }
-            _ => {}
+            _ => {
+                transformed = false;
+            },
         }
+    }
+
+    if let Some(pixels) = specs.crop {
+        transformed = true;
+        image = crop(&image, Rect {
+            x: pixels.x as u32,
+            y: pixels.y as u32,
+            width: pixels.width as u32,
+            height: pixels.height as u32,
+        });
+    }
+
+    if transformed {
+        let new_image: Vec<u8> = convert_to_bytes(image, content_type)?;
+        return Ok(Some(new_image));
     }
 
     Ok(None)
@@ -48,7 +69,7 @@ fn format_from_image_type(content_type: &ContentType) -> ImageFormat {
 
 /// Parse image bytes as RgbaImage.
 pub fn parse_image_data(bytes: &[u8]) -> anyhow::Result<RgbaImage> {
-    let image = load_from_memory(bytes)?;
+    let image = image::load_from_memory(bytes)?;
     Ok(image.to_rgba8())
 }
 
