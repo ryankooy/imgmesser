@@ -49,6 +49,7 @@
   let height: number = $derived(meta.height);
 
   let transformations: Transformations = $state({});
+  let transforming: boolean = $state(false);
   let cropping: boolean = $state(false);
   let rotating: boolean = $state(false);
   let rotation: number = $state(0);
@@ -227,6 +228,16 @@
     }
   }
 
+  function toggleTransform(node: PointerEvent) {
+    transforming = !transforming;
+    const el = node.target as HTMLElement;
+    el.style.color = transformButtonColor();
+  }
+
+  function transformButtonColor(): string {
+    return (transforming) ? "var(--im-header-gold)" : "white";
+  }
+
   async function rotateImageRight() {
     if (rotation === 270) {
       if (!!transformations.rotate) delete transformations.rotate;
@@ -266,8 +277,8 @@
     cropping = true;
   }
 
-  function setImgSrc(node) {
-    let cropperImage: HTMLImageElement = node.getElementsByClassName("svelte-easy-crop-image")[0];
+  function setImgSrc(node: PointerEvent) {
+    const cropperImage: HTMLImageElement = node.getElementsByClassName("svelte-easy-crop-image")[0];
     cropperImage.setAttribute("src", imageDataUrl);
   }
 
@@ -291,7 +302,10 @@
   }
 
   function cancelCrop() {
+    if (!!transformations.crop) delete transformations.crop;
     cropping = false;
+    zoom = aspect = 1;
+    crop = { x: 0, y: 0};
   }
 
   async function applyRotation() {
@@ -302,8 +316,10 @@
   }
 
   function cancelRotation() {
+    if (!!transformations.crop) delete transformations.crop;
     rotating = false;
-    //animatedRotation.set(0);
+    rotation = aRotation = 0;
+    animatedRotation.set(0);
   }
 
   async function saveImageEdits() {
@@ -311,23 +327,34 @@
   }
 
   async function cancelEdits() {
-    cropping = rotating = false;
+    resetImage();
     await updateImage("canceling");
+  }
+
+  function resetImage() {
+    transforming = cropping = rotating = false;
+    rotation = aRotation = 0;
+    animatedRotation.set(0);
+    transformations = {};
+    const transformButton = document.querySelector(".transform-btn") as HTMLElement;
+    transformButton.style.color = transformButtonColor();
   }
 
   async function handleUpdatedImage(state?: string) {
     dispatch("imageUpdate", state);
-    if (state !== "closing")
+    if (state !== "closing") {
+      resetImage(); //FIXME
       await loadImageData();
+    }
   }
 
   function handleNextImage() {
-    cropping = false;
+    resetImage();
     dispatch("selectNextImage");
   }
 
   function handlePrevImage() {
-    cropping = false;
+    resetImage();
     dispatch("selectPrevImage");
   }
 
@@ -531,171 +558,189 @@
       </div>
 
       <div class="actions-wrapper">
-        <div class="actions general">
-          <IconButton
-            title="Download image"
-            class="material-icons icon-btn"
-            onclick={downloadImage}
-            disabled={!imageDataUrl}
-            >
-            download
-          </IconButton>
-          <IconButton
-            title="Delete image"
-            class="material-icons icon-btn delete-btn"
-            onclick={handleDeleteImage}
-            disabled={!imageDataUrl}
-            >
-            delete
-          </IconButton>
-          <IconButton
-            title="Close image"
-            class="material-icons icon-btn"
-            onclick={close}
-            aria-label="Close"
-            >
-            close
-          </IconButton>
+        <div class="actions-section rotate">
+          <div class="actions general">
+            <IconButton
+              title="Toggle transform tools"
+              class="material-icons icon-btn transform-btn"
+              onclick={toggleTransform}
+              disabled={!imageDataUrl}
+              >
+              transform
+            </IconButton>
+            <IconButton
+              title="Download image"
+              class="material-icons icon-btn"
+              onclick={downloadImage}
+              disabled={!imageDataUrl}
+              >
+              download
+            </IconButton>
+            <IconButton
+              title="Delete image"
+              class="material-icons icon-btn delete-btn"
+              onclick={handleDeleteImage}
+              disabled={!imageDataUrl}
+              >
+              delete
+            </IconButton>
+            <IconButton
+              title="Close image"
+              class="material-icons icon-btn"
+              onclick={close}
+              aria-label="Close"
+              >
+              close
+            </IconButton>
+          </div>
         </div>
 
-        <div class="actions edits">
-          <IconButton
-            title="Undo change"
-            class="material-icons icon-btn"
-            onclick={undoEdit}
-            disabled={!imageDataUrl || !multiVersion || meta.initial_version}
-            >
-            undo
-          </IconButton>
-          <IconButton
-            title="Redo change"
-            class="material-icons icon-btn"
-            onclick={redoEdit}
-            disabled={!imageDataUrl || !multiVersion || meta.latest_version}
-            >
-            redo
-          </IconButton>
-          <IconButton
-            title="Save edit"
-            class="material-icons icon-btn"
-            onclick={saveImageEdits}
-            disabled={!imageDataUrl || !editInProgress()}
-            >
-            save
-          </IconButton>
-          <IconButton
-            title="Cancel editing"
-            class="material-icons icon-btn"
-            onclick={cancelEdits}
-            disabled={!imageDataUrl || !editInProgress()}
-            >
-            cancel_presentation
-          </IconButton>
+        <div class="actions-section rotate">
+          <div class="actions edits">
+            <IconButton
+              title="Undo change"
+              class="material-icons icon-btn"
+              onclick={undoEdit}
+              disabled={!imageDataUrl || !multiVersion || meta.initial_version}
+              >
+              undo
+            </IconButton>
+            <IconButton
+              title="Redo change"
+              class="material-icons icon-btn"
+              onclick={redoEdit}
+              disabled={!imageDataUrl || !multiVersion || meta.latest_version}
+              >
+              redo
+            </IconButton>
+            <IconButton
+              title="Save edit"
+              class="material-icons icon-btn"
+              onclick={saveImageEdits}
+              disabled={!imageDataUrl || !editInProgress()}
+              >
+              save
+            </IconButton>
+            <IconButton
+              title="Cancel editing"
+              class="material-icons icon-btn"
+              onclick={cancelEdits}
+              disabled={!imageDataUrl || !editInProgress()}
+              >
+              cancel_presentation
+            </IconButton>
+          </div>
         </div>
 
-        <div class="actions rotate">
-          {#if rotating}
-            <div class="actions">
-              <IconButton
-                title="Apply rotation"
-                class="material-icons icon-btn"
-                onclick={applyRotation}
-                disabled={!imageDataUrl}
-                >
-                check
-              </IconButton>
+        {#if transforming}
+          {#if !cropping}
+            <div class="actions-section rotate">
+              <div class="actions">
+                <IconButton
+                  title="Rotate counterclockwise"
+                  class="material-icons icon-btn"
+                  onclick={rotateImageLeft}
+                  disabled={!imageDataUrl}
+                  >
+                  rotate_90_degrees_ccw
+                </IconButton>
+                <IconButton
+                  title="Rotate clockwise"
+                  class="material-icons icon-btn"
+                  onclick={rotateImageRight}
+                  disabled={!imageDataUrl}
+                  >
+                  rotate_90_degrees_cw
+                </IconButton>
+                {#if rotating}
+                  <IconButton
+                    title="Apply rotation"
+                    class="material-icons icon-btn"
+                    onclick={applyRotation}
+                    disabled={!imageDataUrl}
+                    >
+                    check
+                  </IconButton>
+                  <IconButton
+                    title="Cancel rotation"
+                    class="material-icons icon-btn"
+                    onclick={cancelRotation}
+                    disabled={!imageDataUrl}
+                    >
+                    cancel
+                  </IconButton>
+                {:else}
+                  <IconButton
+                    title="Crop"
+                    class="material-icons icon-btn"
+                    onclick={cropImage}
+                    disabled={!imageDataUrl}
+                    >
+                    crop
+                  </IconButton>
+                {/if}
+              </div>
             </div>
-            <IconButton
-              title="Cancel rotation"
-              class="material-icons icon-btn"
-              onclick={cancelRotation}
-              disabled={!imageDataUrl}
-              >
-              cancel
-            </IconButton>
           {/if}
-          <IconButton
-            title="Rotate counterclockwise"
-            class="material-icons icon-btn"
-            onclick={rotateImageLeft}
-            disabled={!imageDataUrl}
-            >
-            rotate_90_degrees_ccw
-          </IconButton>
-          <IconButton
-            title="Rotate clockwise"
-            class="material-icons icon-btn"
-            onclick={rotateImageRight}
-            disabled={!imageDataUrl}
-            >
-            rotate_90_degrees_cw
-          </IconButton>
-        </div>
 
-        {#if cropping}
-          <div class="actions cropping cropping-options">
-            <IconButton
-              title="Crop 1:1"
-              class="material-icons icon-btn"
-              onclick={() => setAspect(1)}
-              disabled={!imageDataUrl}
-              >
-              crop_square
-            </IconButton>
-            <IconButton
-              title="Crop 16:9"
-              class="material-icons icon-btn"
-              onclick={() => setAspect(16/9)}
-              disabled={!imageDataUrl}
-              >
-              crop_16_9
-            </IconButton>
-            <IconButton
-              title="Crop 3:2"
-              class="material-icons icon-btn"
-              onclick={() => setAspect(3/2)}
-              disabled={!imageDataUrl}
-              >
-              crop_3_2
-            </IconButton>
-            <IconButton
-              title="Crop 5:4"
-              class="material-icons icon-btn"
-              onclick={() => setAspect(5/4)}
-              disabled={!imageDataUrl}
-              >
-              crop_5_4
-            </IconButton>
-          </div>
-          <div class="actions cropping cropping-save-cancel">
-            <IconButton
-              title="Apply crop"
-              class="material-icons icon-btn"
-              onclick={applyCrop}
-              disabled={!imageDataUrl}
-              >
-              check
-            </IconButton>
-            <IconButton
-              title="Cancel crop"
-              class="material-icons icon-btn"
-              onclick={cancelCrop}
-              disabled={!imageDataUrl}
-              >
-              cancel
-            </IconButton>
-          </div>
-        {:else}
-          <div class="actions cropping">
-            <IconButton
-              title="Crop"
-              class="material-icons icon-btn"
-              onclick={cropImage}
-              disabled={!imageDataUrl}
-              >
-              crop
-            </IconButton>
-          </div>
+          {#if !rotating}
+            <div class="actions-section crop">
+              {#if cropping}
+                <div class="actions cropping-options">
+                  <IconButton
+                    title="Crop 1:1"
+                    class="material-icons icon-btn"
+                    onclick={() => setAspect(1/1)}
+                    disabled={!imageDataUrl}
+                    >
+                    crop_square
+                  </IconButton>
+                  <IconButton
+                    title="Crop portrait"
+                    class="material-icons icon-btn"
+                    onclick={() => setAspect(4/5)}
+                    disabled={!imageDataUrl}
+                    >
+                    crop_portrait
+                  </IconButton>
+                  <IconButton
+                    title="Crop 5:4"
+                    class="material-icons icon-btn"
+                    onclick={() => setAspect(5/4)}
+                    disabled={!imageDataUrl}
+                    >
+                    crop_5_4
+                  </IconButton>
+                  <IconButton
+                    title="Crop 3:2"
+                    class="material-icons icon-btn"
+                    onclick={() => setAspect(3/2)}
+                    disabled={!imageDataUrl}
+                    >
+                    crop_3_2
+                  </IconButton>
+                </div>
+                <div class="actions cropping-save-cancel">
+                  <IconButton
+                    title="Apply crop"
+                    class="material-icons icon-btn"
+                    onclick={applyCrop}
+                    disabled={!imageDataUrl}
+                    >
+                    check
+                  </IconButton>
+                  <IconButton
+                    title="Cancel crop"
+                    class="material-icons icon-btn"
+                    onclick={cancelCrop}
+                    disabled={!imageDataUrl}
+                    >
+                    cancel
+                  </IconButton>
+                </div>
+              {/if}
+            </div>
+          {/if}
         {/if}
       </div>
     </div>
@@ -760,6 +805,7 @@
     display: flex;
     flex-direction: column;
     justify-content: center;
+    padding: 0 12px;
   }
 
   .error {
@@ -770,7 +816,6 @@
   .image-header {
     display: flex;
     flex-wrap: wrap;
-    padding: 0 24px;
     align-items: flex-start;
   }
 
@@ -788,7 +833,6 @@
     all: unset;
     color: ghostwhite;
     font-style: oblique;
-    font-size: 20px;
   }
 
   .image-header h3 {
@@ -802,18 +846,21 @@
   }
 
   .actions-wrapper {
-    padding: 0 24px;
+    margin-top: 10px;
+  }
+
+  .actions-section {
+    padding: 2px 3px;
+    margin: 3px;
   }
 
   .actions {
-    justify-content: flex-end;
+    justify-content: flex-start;
     display: flex;
     gap: 12px;
-    flex-grow: 0;
   }
 
   .image-details {
-    padding: 0 24px 12px 24px;
     font-size: 14px;
   }
 
@@ -861,10 +908,15 @@
 
     .image-container {
       max-height: 100vh;
+      min-height: 50vh;
     }
 
     .image-details {
       font-size: 12px;
+    }
+
+    .cropper-container {
+      min-height: 50vh;
     }
   }
 </style>
