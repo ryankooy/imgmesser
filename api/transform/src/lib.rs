@@ -1,7 +1,7 @@
 use anyhow::Result;
 use bytes::Bytes;
 use image::{
-    math::Rect,
+    imageops::FilterType, math::Rect,
     DynamicImage, ImageFormat, ImageReader, RgbaImage,
 };
 use imageproc::{
@@ -20,22 +20,27 @@ pub fn transform_image(
     let mut image: RgbaImage = parse_image_data(data)?;
     let mut transformed: bool = false;
 
+    if let Some(dimensions) = specs.resize {
+        transformed = true;
+        image = image::imageops::resize(
+            &image,
+            dimensions.width as u32,
+            dimensions.height as u32,
+            FilterType::Lanczos3,
+        );
+    }
+
     if let Some(degrees) = specs.rotate {
         transformed = true;
-        match degrees {
-            90 => {
-                image = rotate90(&image);
-            }
-            180 => {
-                image = rotate180(&image);
-            }
-            270 => {
-                image = rotate270(&image);
-            }
+        image = match degrees {
+            90 => rotate90(&image),
+            180 => rotate180(&image),
+            270 => rotate270(&image),
             _ => {
                 transformed = false;
+                image
             },
-        }
+        };
     }
 
     if let Some(pixels) = specs.crop {
@@ -47,6 +52,13 @@ pub fn transform_image(
             height: pixels.height as u32,
         });
     }
+
+    println!();
+    println!();
+    println!("specs: {:?}", &specs); //TODO:REMOVE
+    println!("transformed: {:?}", &transformed); //TODO:REMOVE
+    println!();
+    println!();
 
     if transformed {
         let new_image: Vec<u8> = convert_to_bytes(image, content_type)?;

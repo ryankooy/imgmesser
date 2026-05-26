@@ -20,6 +20,7 @@
   },
   "dependencies": {
     "hammerjs": "^2.0.8",
-    "svelte-easy-crop": "^5.0.1"
+    "svelte-easy-crop": "^5.0.1",
+    "svelte-image-viewer": "^7.1.0"
   }
 }

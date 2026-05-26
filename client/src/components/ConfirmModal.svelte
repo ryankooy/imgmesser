@@ -1,12 +1,15 @@
 <script lang="ts">
   import { createEventDispatcher, getContext } from "svelte";
 
+  let { modalAction = "delete", modalActionTitle = null } = $props();
   const dispatch = createEventDispatcher();
 
-  const imageName = getContext("imageName")();
-  const action = getContext("modalAction")();
-  const message = `Are you sure you want to ${action} "${imageName}"?`;
-  const actionTitle = action.charAt(0).toUpperCase() + action.slice(1);
+  const imageName: string = getContext("imageName")();
+  let action: string = (() => modalAction)();
+  let actionTitle: string | null = $derived(modalActionTitle);
+
+  if ((() => !actionTitle)())
+    actionTitle = action.charAt(0).toUpperCase() + action.slice(1);
 
   function closeModal(eventName: string) {
     const modal = document.getElementById("confirm-action-backdrop");
@@ -40,7 +43,7 @@
     <div class="inner">
       <!-- svelte-ignore state_referenced_locally -->
       <h2>Confirm {actionTitle}</h2>
-      <p>{message}</p>
+      <p>Are you sure you want to {action} image "{imageName}"?</p>
       <div class="modal-actions">
         <button class="confirm btn" onclick={handleConfirm}>
           Confirm

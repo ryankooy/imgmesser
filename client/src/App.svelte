@@ -10,7 +10,7 @@
   import Footer from "./components/Footer.svelte";
   import UploadForm from "./components/UploadForm.svelte";
   import ImageGallery from "./components/ImageGallery.svelte";
-  import ImageViewer from "./components/ImageViewer.svelte";
+  import ImageEditor from "./components/ImageEditor.svelte";
   import UserRegister from "./components/UserRegister.svelte";
   import UserLogin from "./components/UserLogin.svelte";
 
@@ -156,7 +156,7 @@
         />
 
         {#if selectedImage}
-          <ImageViewer
+          <ImageEditor
             image={selectedImage}
             imageIds={imageIds}
             pagination={pagination}
