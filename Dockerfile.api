@@ -18,7 +18,7 @@ COPY Cargo.toml Cargo.lock ./
 COPY ./api ./api
 
 # Install sqlx-cli
-RUN cargo install sqlx-cli --no-default-features --features postgres
+RUN cargo install sqlx-cli --no-default-features --features postgres --version 0.8.6
 
 # Enable offline mode for sqlx
 ENV SQLX_OFFLINE=true

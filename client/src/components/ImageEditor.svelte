@@ -68,6 +68,7 @@
   let resizeHeight: number = $derived(height);
 
   let panning: boolean = $state(false);
+  let grayscaling: boolean = $state(false);
 
   const animatedRotation = tweened(0, {
     duration: 300,
@@ -325,17 +326,18 @@
 
     if (resizing) resizeImage();
     await transformImage();
-
-    resetCrop();
-    resetRotation();
-    resetResize();
   }
 
   function cancelEdits() {
     transformations = {};
+    resetEdits();
+  }
+
+  function resetEdits() {
     resetCrop();
     resetRotation();
     resetResize();
+    resetGrayscale();
   }
 
   function resetCrop() {
@@ -348,12 +350,6 @@
     rotating = false;
     rotation = aRotation = 0;
     animatedRotation.set(0);
-  }
-
-  async function applyRotation() {
-    loading = true;
-    await transformImage();
-    resetRotation();
   }
 
   function beginResizeImage() {
@@ -369,6 +365,16 @@
   function resizeImage() {
     if (resizeWidth !== width || resizeHeight !== height)
       transformations.resize = { width: resizeWidth, height: resizeHeight };
+  }
+
+  async function grayscaleImage() {
+    grayscaling = loading = true;
+    transformations.filters = { grayscale: true };
+    await transformImage();
+  }
+
+  function resetGrayscale() {
+    grayscaling = false;
   }
 
   function handleWidthInput(event: Event) {
@@ -396,9 +402,7 @@
   function resetImage() {
     transforming = panning = false;
     transformations = {};
-    resetCrop();
-    resetRotation();
-    resetResize();
+    resetEdits();
 
     const transformButton = document.querySelector(".toggle-btn.transform-btn") as HTMLElement;
     transformButton.style.color = getButtonColor(false);
@@ -739,7 +743,7 @@
                 title="Rotate counterclockwise"
                 class="material-icons icon-btn"
                 onclick={rotateImageLeft}
-                disabled={!imageDataUrl || cropping || resizing}
+                disabled={!imageDataUrl || cropping || grayscaling || resizing}
                 >
                 rotate_90_degrees_ccw
               </IconButton>
@@ -748,7 +752,7 @@
                 title="Rotate clockwise"
                 class="material-icons icon-btn"
                 onclick={rotateImageRight}
-                disabled={!imageDataUrl || cropping || resizing}
+                disabled={!imageDataUrl || cropping || grayscaling || resizing}
                 >
                 rotate_90_degrees_cw
               </IconButton>
@@ -757,7 +761,7 @@
                 title="Crop"
                 class="material-icons icon-btn"
                 onclick={cropImage}
-                disabled={!imageDataUrl || rotating || resizing}
+                disabled={!imageDataUrl || grayscaling || resizing || rotating}
                 >
                 crop
               </IconButton>
@@ -766,9 +770,18 @@
                 title="Resize"
                 class="material-icons icon-btn"
                 onclick={beginResizeImage}
-                disabled={!imageDataUrl || cropping || rotating}
+                disabled={!imageDataUrl || cropping || grayscaling || rotating}
                 >
                 photo_size_select_small
+              </IconButton>
+              <!-- Grayscale button -->
+              <IconButton
+                title="Grayscale"
+                class="material-icons icon-btn"
+                onclick={grayscaleImage}
+                disabled={!imageDataUrl || cropping || resizing || rotating}
+                >
+                filter_b_and_w
               </IconButton>
             </div>
           </div>
@@ -863,7 +876,7 @@
               <div class="actions">
                 <!-- Apply edits button -->
                 <IconButton
-                  title="Apply resize"
+                  title="Apply edits"
                   class="material-icons icon-btn"
                   onclick={applyEdits}
                   disabled={!imageDataUrl}

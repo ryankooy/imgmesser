@@ -174,8 +174,8 @@ pub struct Crop {
 
 #[derive(Clone, Copy, Debug, Deserialize, Serialize)]
 pub struct Filters {
-    pub grayscale: bool,
-    pub sepia: bool,
+    pub grayscale: Option<bool>,
+    pub sepia: Option<bool>,
 }
 
 #[derive(Clone, Debug, Deserialize, Serialize)]

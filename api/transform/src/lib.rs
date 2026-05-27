@@ -1,12 +1,15 @@
 use anyhow::Result;
 use bytes::Bytes;
 use image::{
-    imageops::FilterType, math::Rect,
-    DynamicImage, ImageFormat, ImageReader, RgbaImage,
+    imageops::{self, FilterType},
+    math::Rect,
+    DynamicImage, ImageFormat, ImageReader,
+    Luma, Rgba, RgbaImage,
 };
 use imageproc::{
     compose::crop,
     geometric_transformations::{rotate90, rotate180, rotate270},
+    morphology::{self, Mask},
 };
 use std::io::Cursor;
 
@@ -22,7 +25,7 @@ pub fn transform_image(
 
     if let Some(dimensions) = specs.resize {
         transformed = true;
-        image = image::imageops::resize(
+        image = imageops::resize(
             &image,
             dimensions.width as u32,
             dimensions.height as u32,
@@ -51,6 +54,25 @@ pub fn transform_image(
             width: pixels.width as u32,
             height: pixels.height as u32,
         });
+    }
+
+    if let Some(filters) = specs.filters {
+        if let Some(grayscale) = filters.grayscale && grayscale {
+            transformed = true;
+
+            // Create grayscale image
+            let gray_image = morphology::grayscale_close(
+                &DynamicImage::ImageRgba8(image).into_luma8(),
+                &Mask::square(1),
+            );
+            let (width, height) = gray_image.dimensions();
+
+            // Use RGBA version of grayscale image
+            image = RgbaImage::from_fn(width, height, |x, y| {
+                let Luma([gray_val]) = gray_image.get_pixel(x, y);
+                Rgba([*gray_val, *gray_val, *gray_val, 255])
+            });
+        }
     }
 
     println!();
