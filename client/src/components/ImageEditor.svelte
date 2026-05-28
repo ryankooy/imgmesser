@@ -68,7 +68,14 @@
   let resizeHeight: number = $derived(height);
 
   let panning: boolean = $state(false);
+
+  let settingFilters: boolean = $state(false);
   let grayscaling: boolean = $state(false);
+  let grayscaleApplied: boolean = $state(false);
+  let sepia: boolean = $state(false);
+  let grayscaleMorph: string | null = $state(null);
+  let grayscaleMask: string = $state("square");
+  let grayscaleRadius: number = $state(1);
 
   const animatedRotation = tweened(0, {
     duration: 300,
@@ -268,6 +275,13 @@
     toggleButtonColor(node, panning);
   }
 
+  function toggleFilters(node: PointerEvent) {
+    settingFilters = !settingFilters;
+    toggleButtonColor(node, settingFilters);
+
+    if (!settingFilters) resetFilters();
+  }
+
   async function rotateImageRight() {
     if (rotation === 270) {
       if (!!transformations.rotate) delete transformations.rotate;
@@ -325,19 +339,21 @@
     loading = true;
 
     if (resizing) resizeImage();
+    if (grayscaling) grayscaleImage();
+
     await transformImage();
   }
 
   function cancelEdits() {
-    transformations = {};
     resetEdits();
   }
 
   function resetEdits() {
+    transformations = {};
     resetCrop();
     resetRotation();
     resetResize();
-    resetGrayscale();
+    resetFilters();
   }
 
   function resetCrop() {
@@ -356,25 +372,63 @@
     resizing = true;
   }
 
+  function resizeImage() {
+    if (resizeWidth !== width || resizeHeight !== height)
+      transformations.resize = { width: resizeWidth, height: resizeHeight };
+  }
+
   function resetResize() {
     resizing = false;
     resizeWidth = width;
     resizeHeight = height;
   }
 
-  function resizeImage() {
-    if (resizeWidth !== width || resizeHeight !== height)
-      transformations.resize = { width: resizeWidth, height: resizeHeight };
+  function toggleGrayscale() {
+    grayscaling = !grayscaling;
+    transformations.filters ??= {};
+    transformations.filters.grayscale = grayscaling;
+
+    if (!grayscaling) resetGrayscale();
   }
 
-  async function grayscaleImage() {
-    grayscaling = loading = true;
-    transformations.filters = { grayscale: true };
-    await transformImage();
+  function grayscaleImage() {
+    if (!grayscaleMorph) return;
+
+    let grayscaleOptions: object = {
+      morphology: grayscaleMorph,
+      mask: grayscaleMask,
+      radius: grayscaleRadius,
+    };
+
+    transformations.filters.options ??= {};
+    Object.assign(transformations.filters.options, grayscaleOptions);
   }
 
   function resetGrayscale() {
-    grayscaling = false;
+    grayscaling = grayscaleApplied = false;
+    grayscaleMorph = null;
+    grayscaleMask = "square";
+    grayscaleRadius = 1;
+  }
+
+  function setGrayscaleMorph(morphology: string) {
+    grayscaleMorph = morphology;
+    grayscaleApplied = true;
+  }
+
+  function setGrayscaleMask(mask: string) {
+    grayscaleMask = mask;
+  }
+
+  function toggleSepia() {
+    sepia = !sepia;
+    transformations.filters ??= {};
+    transformations.filters.sepia = sepia;
+  }
+
+  function resetFilters() {
+    resetGrayscale();
+    sepia = false;
   }
 
   function handleWidthInput(event: Event) {
@@ -401,7 +455,6 @@
 
   function resetImage() {
     transforming = panning = false;
-    transformations = {};
     resetEdits();
 
     const transformButton = document.querySelector(".toggle-btn.transform-btn") as HTMLElement;
@@ -743,7 +796,7 @@
                 title="Rotate counterclockwise"
                 class="material-icons icon-btn"
                 onclick={rotateImageLeft}
-                disabled={!imageDataUrl || cropping || grayscaling || resizing}
+                disabled={!imageDataUrl || cropping || resizing || settingFilters }
                 >
                 rotate_90_degrees_ccw
               </IconButton>
@@ -752,7 +805,7 @@
                 title="Rotate clockwise"
                 class="material-icons icon-btn"
                 onclick={rotateImageRight}
-                disabled={!imageDataUrl || cropping || grayscaling || resizing}
+                disabled={!imageDataUrl || cropping || resizing || settingFilters }
                 >
                 rotate_90_degrees_cw
               </IconButton>
@@ -761,7 +814,7 @@
                 title="Crop"
                 class="material-icons icon-btn"
                 onclick={cropImage}
-                disabled={!imageDataUrl || grayscaling || resizing || rotating}
+                disabled={!imageDataUrl || resizing || rotating || settingFilters }
                 >
                 crop
               </IconButton>
@@ -770,15 +823,15 @@
                 title="Resize"
                 class="material-icons icon-btn"
                 onclick={beginResizeImage}
-                disabled={!imageDataUrl || cropping || grayscaling || rotating}
+                disabled={!imageDataUrl || cropping || rotating || settingFilters }
                 >
                 photo_size_select_small
               </IconButton>
-              <!-- Grayscale button -->
+              <!-- Filters button -->
               <IconButton
-                title="Grayscale"
+                title="Filters"
                 class="material-icons icon-btn"
-                onclick={grayscaleImage}
+                onclick={toggleFilters}
                 disabled={!imageDataUrl || cropping || resizing || rotating}
                 >
                 filter_b_and_w
@@ -842,7 +895,7 @@
 
           {#if resizing}
             <div class="actions-section resize">
-              <div class="resize-input">
+              <div class="actions-form">
                 <label class="form-row">
                   <span>W</span>
                   <input
@@ -871,15 +924,117 @@
             </div>
           {/if}
 
-          {#if cropping || rotating || resizing}
-            <div class="actions-section resize">
+          {#if settingFilters}
+            <div class="titled-actions-section">
+              <div class="actions-section filter-btns">
+                <div class="actions">
+                  <button
+                    class={grayscaling ? "btn action-btn active" : "btn action-btn"}
+                    onclick={toggleGrayscale}
+                    >
+                    GRAYSCALE
+                  </button>
+                  <button
+                    class={sepia ? "btn action-btn active" : "btn action-btn"}
+                    onclick={toggleSepia}
+                    >
+                    SEPIA
+                  </button>
+                </div>
+              </div>
+            </div>
+          {/if}
+
+          {#if grayscaling}
+            <div class="titled-actions-section">
+              <div class="actions-section-header">
+                Morphology
+              </div>
+              <div class="actions-section filter-btns">
+                <div class="actions">
+                  <button
+                    class={grayscaleMorph === "dilate" ? "btn action-btn active" : "btn action-btn"}
+                    onclick={() => setGrayscaleMorph("dilate")}
+                    >
+                    DILATE
+                  </button>
+                  <button
+                    class={grayscaleMorph === "erode" ? "btn action-btn active" : "btn action-btn"}
+                    onclick={() => setGrayscaleMorph("erode")}
+                    >
+                    ERODE
+                  </button>
+                  <button
+                    class={grayscaleMorph === "open" ? "btn action-btn active" : "btn action-btn"}
+                    onclick={() => setGrayscaleMorph("open")}
+                    >
+                    OPEN
+                  </button>
+                  <button
+                    class={grayscaleMorph === "close" ? "btn action-btn active" : "btn action-btn"}
+                    onclick={() => setGrayscaleMorph("close")}
+                    >
+                    CLOSE
+                  </button>
+                </div>
+              </div>
+            </div>
+            {#if grayscaleApplied}
+              <div class="titled-actions-section">
+                <div class="actions-section-header">
+                  Mask
+                </div>
+                <div class="actions-section filter-btns">
+                  <div class="actions">
+                    <button
+                      class={grayscaleMask === "square" ? "btn action-btn active" : "btn action-btn"}
+                      onclick={() => setGrayscaleMask("square")}
+                      >
+                      SQUARE
+                    </button>
+                    <button
+                      class={grayscaleMask === "disk" ? "btn action-btn active" : "btn action-btn"}
+                      onclick={() => setGrayscaleMask("disk")}
+                      >
+                      DISK
+                    </button>
+                    <button
+                      class={grayscaleMask === "diamond" ? "btn action-btn active" : "btn action-btn"}
+                      onclick={() => setGrayscaleMask("diamond")}
+                      >
+                      DIAMOND
+                    </button>
+                  </div>
+                </div>
+              </div>
+              <div class="titled-actions-section">
+                <div class="actions-section-header">
+                  Mask Radius
+                </div>
+                <div class="actions-section filter-btns">
+                  <input
+                    type="number"
+                    name="mask-radius"
+                    inputmode="numeric"
+                    min="1"
+                    max="9"
+                    bind:value={grayscaleRadius}
+                    autofocus
+                  />
+                </div>
+              </div>
+            {/if}
+          {/if}
+
+          {#if cropping || rotating || resizing || sepia || grayscaleApplied}
+            <div class="actions-section">
               <div class="actions">
                 <!-- Apply edits button -->
                 <IconButton
                   title="Apply edits"
                   class="material-icons icon-btn"
                   onclick={applyEdits}
-                  disabled={!imageDataUrl}
+                  disabled={!imageDataUrl || (grayscaling && !grayscaleApplied)}
                   >
                   check
                 </IconButton>
@@ -1005,7 +1160,7 @@
     gap: 8px;
   }
 
-  .name-edit input {
+  input {
     all: unset;
     color: ghostwhite;
     font-style: oblique;
@@ -1030,37 +1185,68 @@
     margin: 3px;
   }
 
+  .actions-section.filter-btns {
+    display: flex;
+    justify-content: center;
+  }
+
+  .actions-section-header {
+    font-size: 12px;
+    color: var(--im-label);
+    align-self: anchor-center;
+  }
+
+  .titled-actions-section {
+    display: flex;
+    margin: 3px;
+    flex-direction: column;
+    justify-content: center;
+  }
+
   .actions {
     justify-content: flex-start;
     display: flex;
     gap: 8px;
   }
 
-  .resize-input {
-    padding-left: 15px;
+  .action-btn {
+    width: auto;
+    height: 25px;
+    padding: 0 4px 0 4px;
+    font-size: 12px;
+    font-weight: normal;
   }
 
-  .form-row {
+  .action-btn.active {
+    background: var(--im-btn-active-gold);
+    border: 1px solid var(--im-btn-active-gold);
+  }
+
+  .actions-form {
     display: flex;
-    align-items: center;
+    justify-content: center;
     gap: 8px;
   }
 
   .form-row span {
-    display: inline-block;
-    width: 25px;
+    width: auto;
     color: var(--im-label);
     font-size: 14px;
   }
 
   .form-row input {
-    flex: 1;
-    all: unset;
-    color: ghostwhite;
-    font-style: oblique;
+    border-bottom: 1px solid transparent;
     font-size: 14px;
     width: 4rem;
     cursor: text;
+  }
+
+  .form-row input:focus {
+    border-bottom: 1px solid ghostwhite;
+  }
+
+  input[name="mask-radius"] {
+    width: 30px;
   }
 
   .image-details {

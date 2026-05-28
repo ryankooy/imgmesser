@@ -172,10 +172,18 @@ pub struct Crop {
     pub y: u32,
 }
 
-#[derive(Clone, Copy, Debug, Deserialize, Serialize)]
+#[derive(Clone, Debug, Deserialize, Serialize)]
+pub struct Options {
+    pub morphology: Option<String>,
+    pub mask: Option<String>,
+    pub radius: Option<i32>,
+}
+
+#[derive(Clone, Debug, Deserialize, Serialize)]
 pub struct Filters {
     pub grayscale: Option<bool>,
     pub sepia: Option<bool>,
+    pub options: Option<Options>,
 }
 
 #[derive(Clone, Debug, Deserialize, Serialize)]

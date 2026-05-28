@@ -60,9 +60,16 @@ export interface Crop {
     y: number;
 }
 
+export interface Options {
+    morphology: string;
+    mask: string;
+    radius: number | null;
+}
+
 export interface Filters {
     grayscale: boolean;
     sepia: boolean;
+    options: Options | null;
 }
 
 // Image transformation specifications
