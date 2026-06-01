@@ -9,8 +9,8 @@
   import Header from "./components/Header.svelte";
   import Footer from "./components/Footer.svelte";
   import UploadForm from "./components/UploadForm.svelte";
-  import ImageGallery from "./components/ImageGallery.svelte";
-  import ImageEditor from "./components/ImageEditor.svelte";
+  import Gallery from "./components/Gallery.svelte";
+  import Image from "./components/Image.svelte";
   import UserRegister from "./components/UserRegister.svelte";
   import UserLogin from "./components/UserLogin.svelte";
 
@@ -139,7 +139,7 @@
   <main>
     <div class="container">
       {#if $currentView === "gallery"}
-        <ImageGallery
+        <Gallery
           imageDataUrls={imageDataUrls}
           imageVersions={imageVersions}
           nextImageTrigger={nextImageTrigger}
@@ -156,7 +156,7 @@
         />
 
         {#if selectedImage}
-          <ImageEditor
+          <Image
             image={selectedImage}
             imageIds={imageIds}
             pagination={pagination}

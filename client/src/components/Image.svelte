@@ -3,11 +3,13 @@
   import { tweened } from "svelte/motion";
   import { cubicOut } from "svelte/easing";
   import Cropper from "svelte-easy-crop";
-  import { ImageViewer, Viewer } from "svelte-image-viewer";
+  import { ImageViewer } from "svelte-image-viewer";
   import { hammerSwipe } from "../utils/action.ts";
   import IconButton from "@smui/icon-button";
   import AlertModal from "./AlertModal.svelte";
   import ConfirmModal from "./ConfirmModal.svelte";
+  import ImageCropper from "./ImageCropper.svelte";
+  import Transform from "./Transform.svelte";
   import { imageDataUrlCache } from "../store.ts";
   import type { ImageMeta, ImageData, Transformations } from "../store.ts";
   import { getImageDataUrl, imageUrl } from "../utils/api.ts";
@@ -25,6 +27,7 @@
   } = $props();
 
   const meta: ImageMeta | null = $derived(image.meta ?? null);
+  const imageId: string = $derived(image.id);
   let imageDataUrl: string = $derived(image.url ?? "");
 
   const multiVersion: boolean = $derived(meta.version_count > 1);
@@ -50,32 +53,16 @@
   let height: number = $derived(meta.height);
 
   let transformations: Transformations = $state({});
-  let transforming: boolean = $state(false);
 
+  let transforming: boolean = $state(false);
+  let panning: boolean = $state(false);
+  let rotating: boolean = $state(false);
   let showConfirmDeleteEditsModal: boolean = $state(false);
 
   let cropping: boolean = $state(false);
   let crop = $state({ x: 0, y: 0 });
   let zoom: number = $state(1);
   let aspect: number = $state(1);
-
-  let rotating: boolean = $state(false);
-  let rotation: number = $state(0);
-  let aRotation: number = $state(0);
-
-  let resizing: boolean = $state(false);
-  let resizeWidth: number = $derived(width);
-  let resizeHeight: number = $derived(height);
-
-  let panning: boolean = $state(false);
-
-  let settingFilters: boolean = $state(false);
-  let grayscaling: boolean = $state(false);
-  let grayscaleApplied: boolean = $state(false);
-  let sepia: boolean = $state(false);
-  let grayscaleMorph: string | null = $state(null);
-  let grayscaleMask: string = $state("square");
-  let grayscaleRadius: number = $state(1);
 
   const animatedRotation = tweened(0, {
     duration: 300,
@@ -93,13 +80,21 @@
     }
   });
 
-  async function loadImageData() {
+  function beginLoad() {
     loading = true;
+  }
 
-    if ($imageDataUrlCache.has(image.id)) {
-      imageDataUrl = $imageDataUrlCache.get(image.id);
+  function endLoad() {
+    loading = false;
+  }
+
+  async function loadImageData() {
+    beginLoad();
+
+    if ($imageDataUrlCache.has(imageId)) {
+      imageDataUrl = $imageDataUrlCache.get(imageId);
     } else {
-      const dataUrl = await getImageDataUrl(image.id);
+      const dataUrl = await getImageDataUrl(imageId);
 
       if (dataUrl) {
         dispatch("selectDataUrl", dataUrl);
@@ -107,12 +102,12 @@
       }
     }
 
-    loading = false;
+    endLoad();
   }
 
   async function deleteImage() {
     try {
-      const response = await fetch(`${imageUrl(image.id)}/delete`, {
+      const response = await fetch(`${imageUrl(imageId)}/delete`, {
         method: "POST",
       });
 
@@ -133,7 +128,7 @@
     if (newImageName === imageName) return;
 
     try {
-      const response = await fetch(`${imageUrl(image.id)}/rename`, {
+      const response = await fetch(`${imageUrl(imageId)}/rename`, {
         method: "POST",
         headers: {"Content-Type": "application/json"},
         body: JSON.stringify({ image_name: newImageName }),
@@ -159,14 +154,14 @@
 
   async function undoEdit() {
     try {
-      const response = await fetch(`${imageUrl(image.id)}/revert`, {
+      const response = await fetch(`${imageUrl(imageId)}/revert`, {
         method: "POST",
       });
 
       if (response.ok) {
         const data = await response.json();
         if (data.updated) {
-          $imageDataUrlCache.delete(image.id);
+          $imageDataUrlCache.delete(imageId);
           await handleUpdatedImage();
         }
       } else {
@@ -179,14 +174,14 @@
 
   async function redoEdit() {
     try {
-      const response = await fetch(`${imageUrl(image.id)}/restore`, {
+      const response = await fetch(`${imageUrl(imageId)}/restore`, {
         method: "POST",
       });
 
       if (response.ok) {
         const data = await response.json();
         if (data.updated) {
-          $imageDataUrlCache.delete(image.id);
+          $imageDataUrlCache.delete(imageId);
           await handleUpdatedImage();
         }
       } else {
@@ -202,7 +197,7 @@
     let version: string | null = (state === "saving") ? meta.version : meta.original_version;
     if (!version) return;
     try {
-      const response = await fetch(`${imageUrl(image.id)}/update`, {
+      const response = await fetch(`${imageUrl(imageId)}/update`, {
         method: "POST",
         headers: {"Content-Type": "application/json"},
         body: JSON.stringify({ version })
@@ -218,37 +213,8 @@
     }
   }
 
-  async function getBytesFromDataUrl(dataUrl: string): Promise<Uint8Array> {
-    const response = await fetch(dataUrl);
-    const buffer = await response.arrayBuffer();
-    return new Uint8Array(buffer);
-  }
-
   function typeIsGif(): boolean {
     return meta.content_type === "image/gif";
-  }
-
-  function transformInProgress(): boolean {
-    return Object.keys(transformations).length !== 0;
-  }
-
-  async function transformImage() {
-    if (!transformInProgress()) return;
-    try {
-      const response = await fetch(`${imageUrl(image.id)}/transform`, {
-        method: "POST",
-        headers: {"Content-Type": "application/json"},
-        body: JSON.stringify(transformations),
-      });
-
-      if (response.ok) {
-        await handleUpdatedImage("editing");
-      } else {
-        setAlertMessage("Failed to transform image");
-      }
-    } catch (error) {
-      console.error("Error fetching:", error);
-    }
   }
 
   function getButtonColor(toggled: boolean) {
@@ -275,172 +241,14 @@
     toggleButtonColor(node, panning);
   }
 
-  function toggleFilters(node: PointerEvent) {
-    settingFilters = !settingFilters;
-    toggleButtonColor(node, settingFilters);
-
-    if (!settingFilters) resetFilters();
-  }
-
-  async function rotateImageRight() {
-    if (rotation === 270) {
-      if (!!transformations.rotate) delete transformations.rotate;
-      rotation = 0;
-    } else {
-      rotating = true;
-      rotation += 90;
-      transformations.rotate = rotation;
-    }
-
-    aRotation += 90;
-    animatedRotation.set(aRotation);
-  }
-
-  async function rotateImageLeft() {
-    rotating = true
-    if (rotation === 0) {
-      rotation = 270;
-      transformations.rotate = rotation;
-    } else if (rotation === 90) {
-      if (!!transformations.rotate) delete transformations.rotate;
-      rotation = 0;
-    } else {
-      rotation -= 90;
-      transformations.rotate = rotation;
-    }
-
-    aRotation -= 90;
-    animatedRotation.set(aRotation);
-  }
-
-  function cropImage() {
-    cropping = true;
-  }
-
-  function setImgSrc(node: PointerEvent) {
-    const cropperImage: HTMLImageElement = node.getElementsByClassName("svelte-easy-crop-image")[0];
-    cropperImage.setAttribute("src", imageDataUrl);
-  }
-
-  function onCropComplete(details: object) {
-    const cropDetails: object = details.pixels;
-    if (cropDetails) {
-      width = cropDetails.width;
-      height = cropDetails.height;
-      transformations.crop = cropDetails;
-    }
-  }
-
-  function setAspect(newAspect) {
-    aspect = newAspect;
-  }
-
-  async function applyEdits() {
-    loading = true;
-
-    if (resizing) resizeImage();
-    if (grayscaling) grayscaleImage();
-
-    await transformImage();
-  }
-
-  function cancelEdits() {
-    resetEdits();
-  }
-
-  function resetEdits() {
-    transformations = {};
-    resetCrop();
-    resetRotation();
-    resetResize();
-    resetFilters();
-  }
-
   function resetCrop() {
     cropping = false;
     zoom = aspect = 1;
     crop = { x: 0, y: 0};
   }
 
-  function resetRotation() {
-    rotating = false;
-    rotation = aRotation = 0;
-    animatedRotation.set(0);
-  }
-
-  function beginResizeImage() {
-    resizing = true;
-  }
-
-  function resizeImage() {
-    if (resizeWidth !== width || resizeHeight !== height)
-      transformations.resize = { width: resizeWidth, height: resizeHeight };
-  }
-
-  function resetResize() {
-    resizing = false;
-    resizeWidth = width;
-    resizeHeight = height;
-  }
-
-  function toggleGrayscale() {
-    grayscaling = !grayscaling;
-    transformations.filters ??= {};
-    transformations.filters.grayscale = grayscaling;
-
-    if (!grayscaling) resetGrayscale();
-  }
-
-  function grayscaleImage() {
-    if (!grayscaleMorph) return;
-
-    let grayscaleOptions: object = {
-      morphology: grayscaleMorph,
-      mask: grayscaleMask,
-      radius: grayscaleRadius,
-    };
-
-    transformations.filters.options ??= {};
-    Object.assign(transformations.filters.options, grayscaleOptions);
-  }
-
-  function resetGrayscale() {
-    grayscaling = grayscaleApplied = false;
-    grayscaleMorph = null;
-    grayscaleMask = "square";
-    grayscaleRadius = 1;
-  }
-
-  function setGrayscaleMorph(morphology: string) {
-    grayscaleMorph = morphology;
-    grayscaleApplied = true;
-  }
-
-  function setGrayscaleMask(mask: string) {
-    grayscaleMask = mask;
-  }
-
-  function toggleSepia() {
-    sepia = !sepia;
-    transformations.filters ??= {};
-    transformations.filters.sepia = sepia;
-  }
-
-  function resetFilters() {
-    resetGrayscale();
-    sepia = false;
-  }
-
-  function handleWidthInput(event: Event) {
-    const target = event.currentTarget as HTMLInputElement;
-    resizeWidth = parseInt(target.value, 10);
-    resizeHeight = Math.round((resizeWidth * height) / width);
-  }
-
-  function handleHeightInput(event: Event) {
-    const target = event.currentTarget as HTMLInputElement;
-    resizeHeight = parseInt(target.value, 10);
-    resizeWidth = Math.round((resizeHeight * width) / height);
+  function setAspect(newAspect) {
+    aspect = newAspect;
   }
 
   async function saveImageEdits() {
@@ -455,7 +263,6 @@
 
   function resetImage() {
     transforming = panning = false;
-    resetEdits();
 
     const transformButton = document.querySelector(".toggle-btn.transform-btn") as HTMLElement;
     transformButton.style.color = getButtonColor(false);
@@ -587,9 +394,24 @@
     resetImageName();
   }
 
-  function resetDimensions() {
-    editingName = false;
-    editableFileStem = getFileStem(imageName);
+  function setAnimatedRotation(degrees: number) {
+    animatedRotation.set(degrees);
+  }
+
+  function beginRotate() {
+    rotating = true;
+  }
+
+  function endRotate() {
+    rotating = false;
+  }
+
+  function beginCrop() {
+    cropping = true;
+  }
+
+  function endCrop() {
+    cropping = false;
   }
 </script>
 
@@ -605,7 +427,7 @@
   <IconButton
     class="material-icons icon-btn"
     onclick={handlePrevImage}
-    disabled={imageIds.indexOf(image.id) === 0 && !prevPageExists}
+    disabled={imageIds.indexOf(imageId) === 0 && !prevPageExists}
     >
     chevron_left
   </IconButton>
@@ -619,15 +441,15 @@
         </div>
       {:else if imageDataUrl}
         {#if cropping}
-          <div class="cropper-container" use:setImgSrc>
-            <Cropper
-              {imageDataUrl}
-              bind:crop
-              bind:zoom
-              aspect={aspect}
-              oncropcomplete={onCropComplete}
-            />
-          </div>
+          <ImageCropper
+            aspect={aspect}
+            bind:crop={crop}
+            height={height}
+            imageDataUrl={imageDataUrl}
+            bind:transformations={transformations}
+            width={width}
+            bind:zoom={zoom}
+          />
         {:else if rotating}
           <img
             src={imageDataUrl}
@@ -696,7 +518,7 @@
 
       <div class="actions-wrapper">
         <div class="actions-section">
-          <div class="actions general">
+          <div class="actions">
             <!-- Transform button -->
             <IconButton
               title="Toggle transform tools"
@@ -747,7 +569,7 @@
 
         {#if multiVersion && !typeIsGif()}
           <div class="actions-section">
-            <div class="actions edits">
+            <div class="actions">
               <!-- Unto button -->
               <IconButton
                 title="Undo change"
@@ -789,267 +611,26 @@
         {/if}
 
         {#if transforming}
-          <div class="actions-section rotate">
-            <div class="actions">
-              <!-- Rotate left button -->
-              <IconButton
-                title="Rotate counterclockwise"
-                class="material-icons icon-btn"
-                onclick={rotateImageLeft}
-                disabled={!imageDataUrl || cropping || resizing || settingFilters }
-                >
-                rotate_90_degrees_ccw
-              </IconButton>
-              <!-- Rotate right button -->
-              <IconButton
-                title="Rotate clockwise"
-                class="material-icons icon-btn"
-                onclick={rotateImageRight}
-                disabled={!imageDataUrl || cropping || resizing || settingFilters }
-                >
-                rotate_90_degrees_cw
-              </IconButton>
-              <!-- Crop button -->
-              <IconButton
-                title="Crop"
-                class="material-icons icon-btn"
-                onclick={cropImage}
-                disabled={!imageDataUrl || resizing || rotating || settingFilters }
-                >
-                crop
-              </IconButton>
-              <!-- Resize button -->
-              <IconButton
-                title="Resize"
-                class="material-icons icon-btn"
-                onclick={beginResizeImage}
-                disabled={!imageDataUrl || cropping || rotating || settingFilters }
-                >
-                photo_size_select_small
-              </IconButton>
-              <!-- Filters button -->
-              <IconButton
-                title="Filters"
-                class="material-icons icon-btn"
-                onclick={toggleFilters}
-                disabled={!imageDataUrl || cropping || resizing || rotating}
-                >
-                filter_b_and_w
-              </IconButton>
-            </div>
-          </div>
-
-          {#if cropping}
-            <div class="actions-section crop">
-              <div class="actions">
-                <!-- Crop square button -->
-                <IconButton
-                  title="Crop square"
-                  class="material-icons icon-btn"
-                  onclick={() => setAspect(1/1)}
-                  disabled={!imageDataUrl}
-                  >
-                  crop_square
-                </IconButton>
-                <!-- Crop portrait button -->
-                <IconButton
-                  title="Crop portrait"
-                  class="material-icons icon-btn"
-                  onclick={() => setAspect(4/5)}
-                  disabled={!imageDataUrl}
-                  >
-                  crop_portrait
-                </IconButton>
-                <!-- Crop landscape button -->
-                <IconButton
-                  title="Crop landscape"
-                  class="material-icons icon-btn"
-                  onclick={() => setAspect(5/4)}
-                  disabled={!imageDataUrl}
-                  >
-                  crop_landscape
-                </IconButton>
-                <!-- Crop 3:2 button -->
-                <div
-                  title="Crop 3:2"
-                  class="icon-btn"
-                  style="font-size: 14px;"
-                  onclick={() => setAspect(3/2)}
-                  disabled={!imageDataUrl}
-                  >
-                  3:2
-                </div>
-                <!-- Crop 16:9 button -->
-                <div
-                  title="Crop 16:9"
-                  class="icon-btn"
-                  style="font-size: 14px;"
-                  onclick={() => setAspect(16/9)}
-                  disabled={!imageDataUrl}
-                  >
-                  16:9
-                </div>
-              </div>
-            </div>
-          {/if}
-
-          {#if resizing}
-            <div class="actions-section resize">
-              <div class="actions-form">
-                <label class="form-row">
-                  <span>W</span>
-                  <input
-                    type="number"
-                    name="resize-width"
-                    inputmode="numeric"
-                    min="0"
-                    bind:value={resizeWidth}
-                    oninput={handleWidthInput}
-                    autofocus
-                  />
-                </label>
-                <label class="form-row">
-                  <span>H</span>
-                  <input
-                    type="number"
-                    name="resize-height"
-                    inputmode="numeric"
-                    min="0"
-                    bind:value={resizeHeight}
-                    oninput={handleHeightInput}
-                    autofocus
-                  />
-                </label>
-              </div>
-            </div>
-          {/if}
-
-          {#if settingFilters}
-            <div class="titled-actions-section">
-              <div class="actions-section filter-btns">
-                <div class="actions">
-                  <button
-                    class={grayscaling ? "btn action-btn active" : "btn action-btn"}
-                    onclick={toggleGrayscale}
-                    >
-                    GRAYSCALE
-                  </button>
-                  <button
-                    class={sepia ? "btn action-btn active" : "btn action-btn"}
-                    onclick={toggleSepia}
-                    >
-                    SEPIA
-                  </button>
-                </div>
-              </div>
-            </div>
-          {/if}
-
-          {#if grayscaling}
-            <div class="titled-actions-section">
-              <div class="actions-section-header">
-                Morphology
-              </div>
-              <div class="actions-section filter-btns">
-                <div class="actions">
-                  <button
-                    class={grayscaleMorph === "dilate" ? "btn action-btn active" : "btn action-btn"}
-                    onclick={() => setGrayscaleMorph("dilate")}
-                    >
-                    DILATE
-                  </button>
-                  <button
-                    class={grayscaleMorph === "erode" ? "btn action-btn active" : "btn action-btn"}
-                    onclick={() => setGrayscaleMorph("erode")}
-                    >
-                    ERODE
-                  </button>
-                  <button
-                    class={grayscaleMorph === "open" ? "btn action-btn active" : "btn action-btn"}
-                    onclick={() => setGrayscaleMorph("open")}
-                    >
-                    OPEN
-                  </button>
-                  <button
-                    class={grayscaleMorph === "close" ? "btn action-btn active" : "btn action-btn"}
-                    onclick={() => setGrayscaleMorph("close")}
-                    >
-                    CLOSE
-                  </button>
-                </div>
-              </div>
-            </div>
-            {#if grayscaleApplied}
-              <div class="titled-actions-section">
-                <div class="actions-section-header">
-                  Mask
-                </div>
-                <div class="actions-section filter-btns">
-                  <div class="actions">
-                    <button
-                      class={grayscaleMask === "square" ? "btn action-btn active" : "btn action-btn"}
-                      onclick={() => setGrayscaleMask("square")}
-                      >
-                      SQUARE
-                    </button>
-                    <button
-                      class={grayscaleMask === "disk" ? "btn action-btn active" : "btn action-btn"}
-                      onclick={() => setGrayscaleMask("disk")}
-                      >
-                      DISK
-                    </button>
-                    <button
-                      class={grayscaleMask === "diamond" ? "btn action-btn active" : "btn action-btn"}
-                      onclick={() => setGrayscaleMask("diamond")}
-                      >
-                      DIAMOND
-                    </button>
-                  </div>
-                </div>
-              </div>
-              <div class="titled-actions-section">
-                <div class="actions-section-header">
-                  Mask Radius
-                </div>
-                <div class="actions-section filter-btns">
-                  <input
-                    type="number"
-                    name="mask-radius"
-                    inputmode="numeric"
-                    min="1"
-                    max="9"
-                    bind:value={grayscaleRadius}
-                    autofocus
-                  />
-                </div>
-              </div>
-            {/if}
-          {/if}
-
-          {#if cropping || rotating || resizing || sepia || grayscaleApplied}
-            <div class="actions-section">
-              <div class="actions">
-                <!-- Apply edits button -->
-                <IconButton
-                  title="Apply edits"
-                  class="material-icons icon-btn"
-                  onclick={applyEdits}
-                  disabled={!imageDataUrl || (grayscaling && !grayscaleApplied)}
-                  >
-                  check
-                </IconButton>
-                <!-- Cancel edits button -->
-                <IconButton
-                  title="Cancel edits"
-                  class="material-icons icon-btn"
-                  onclick={cancelEdits}
-                  disabled={!imageDataUrl}
-                  >
-                  cancel
-                </IconButton>
-              </div>
-            </div>
-          {/if}
+          <Transform
+            cropping={cropping}
+            height={height}
+            imageDataUrl={imageDataUrl}
+            imageId={imageId}
+            rotating={rotating}
+            bind:transformations={transformations}
+            width={width}
+            beginCrop={beginCrop}
+            beginLoad={beginLoad}
+            beginRotate={beginRotate}
+            endCrop={endCrop}
+            endRotate={endRotate}
+            handleUpdatedImage={handleUpdatedImage}
+            resetCrop={resetCrop}
+            setAlertMessage={setAlertMessage}
+            setAnimatedRotation={setAnimatedRotation}
+            setAspect={setAspect}
+            toggleButtonColor={toggleButtonColor}
+          />
         {/if}
       </div>
     </div>
@@ -1058,7 +639,7 @@
   <IconButton
     class="material-icons icon-btn"
     onclick={handleNextImage}
-    disabled={imageIds.indexOf(image.id) === imageIds.length - 1 && !nextPageExists}
+    disabled={imageIds.indexOf(imageId) === imageIds.length - 1 && !nextPageExists}
     >
     chevron_right
   </IconButton>
@@ -1185,68 +766,10 @@
     margin: 3px;
   }
 
-  .actions-section.filter-btns {
-    display: flex;
-    justify-content: center;
-  }
-
-  .actions-section-header {
-    font-size: 12px;
-    color: var(--im-label);
-    align-self: anchor-center;
-  }
-
-  .titled-actions-section {
-    display: flex;
-    margin: 3px;
-    flex-direction: column;
-    justify-content: center;
-  }
-
   .actions {
     justify-content: flex-start;
     display: flex;
     gap: 8px;
-  }
-
-  .action-btn {
-    width: auto;
-    height: 25px;
-    padding: 0 4px 0 4px;
-    font-size: 12px;
-    font-weight: normal;
-  }
-
-  .action-btn.active {
-    background: var(--im-btn-active-gold);
-    border: 1px solid var(--im-btn-active-gold);
-  }
-
-  .actions-form {
-    display: flex;
-    justify-content: center;
-    gap: 8px;
-  }
-
-  .form-row span {
-    width: auto;
-    color: var(--im-label);
-    font-size: 14px;
-  }
-
-  .form-row input {
-    border-bottom: 1px solid transparent;
-    font-size: 14px;
-    width: 4rem;
-    cursor: text;
-  }
-
-  .form-row input:focus {
-    border-bottom: 1px solid ghostwhite;
-  }
-
-  input[name="mask-radius"] {
-    width: 30px;
   }
 
   .image-details {
@@ -1276,12 +799,6 @@
     color: var(--im-text);
   }
 
-  .cropper-container {
-    position: relative;
-    width: 100%;
-    height: 75%;
-  }
-
   :global(.delete-btn:hover:not(:disabled)) {
     background: var(--im-warn);
   }
@@ -1302,10 +819,6 @@
 
     .image-details {
       font-size: 12px;
-    }
-
-    .cropper-container {
-      min-height: 50vh;
     }
   }
 </style>
