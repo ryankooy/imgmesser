@@ -1,43 +1,43 @@
 <script lang="ts">
   import IconButton from "@smui/icon-button";
   import { imageUrl } from "../utils/api.ts";
+  import { EditState, ImageState } from "../store.ts";
 
   let {
-    cropping = false,
     height = 0,
     imageDataUrl = "",
     imageId = null,
-    rotating = false,
     transformations = {},
     width = 0,
-    beginCrop,
-    beginLoad,
-    beginRotate,
-    endCrop,
-    endRotate,
+    checkEditStatus,
     handleUpdatedImage,
     resetCrop,
+    resetEditStatus,
     setAlertMessage,
     setAnimatedRotation,
     setAspect,
+    setEditStatus,
+    setStatus,
     toggleButtonColor,
+    toggleEditStatus,
   } = $props();
 
   let rotation: number = $state(0);
   let aRotation: number = $state(0);
   let rotateApplied: boolean = $state(false);
 
-  let resizing: boolean = $state(false);
   let resizeWidth: number = $derived(width);
   let resizeHeight: number = $derived(height);
 
   let settingFilters: boolean = $state(false);
   let grayscaling: boolean = $state(false);
   let grayscaleApplied: boolean = $state(false);
-  let sepia: boolean = $state(false);
+
   let grayscaleMorph: string | null = $state(null);
   let grayscaleMask: string = $state("square");
   let grayscaleRadius: number = $state(1);
+
+  let sepia: boolean = $state(false);
 
   async function transformImage() {
     if (Object.keys(transformations).length === 0) return;
@@ -60,17 +60,17 @@
   }
 
   function toggleRotate(node: PointerEvent) {
-    rotating = !rotating;
-    toggleButtonColor(node, rotating);
+    toggleEditStatus(EditState.Rotating);
+    toggleButtonColor(node, checkEditStatus(EditState.Rotating));
 
-    if (!rotating) resetRotate();
+    if (!checkEditStatus(EditState.Rotating)) resetRotate();
   }
 
   function toggleFilters(node: PointerEvent) {
-    settingFilters = !settingFilters;
-    toggleButtonColor(node, settingFilters);
+    toggleEditStatus(EditState.SettingFilters);
+    toggleButtonColor(node, checkEditStatus(EditState.SettingFilters));
 
-    if (!settingFilters) resetFilters();
+    if (!checkEditStatus(EditState.SettingFilters)) resetFilters();
   }
 
   async function rotateImageRight() {
@@ -78,39 +78,40 @@
       if (!!transformations.rotate) delete transformations.rotate;
       rotation = 0;
     } else {
-      beginRotate();
+      setEditStatus(EditState.Rotating);
       rotation += 90;
       transformations.rotate = rotation;
+      rotateApplied = true;
     }
 
     aRotation += 90;
     setAnimatedRotation(aRotation);
-    rotateApplied = true;
   }
 
   async function rotateImageLeft() {
-    beginRotate();
+    setEditStatus(EditState.Rotating);
 
     if (rotation === 0) {
       rotation = 270;
       transformations.rotate = rotation;
+      rotateApplied = true;
     } else if (rotation === 90) {
       if (!!transformations.rotate) delete transformations.rotate;
       rotation = 0;
     } else {
       rotation -= 90;
       transformations.rotate = rotation;
+      rotateApplied = true;
     }
 
     aRotation -= 90;
     setAnimatedRotation(aRotation);
-    rotateApplied = true;
   }
 
   async function applyEdits() {
-    beginLoad();
+    setStatus(ImageState.Loading);
 
-    if (resizing) resizeImage();
+    if (checkEditStatus(EditState.Resizing)) resizeImage();
     if (grayscaling) grayscaleImage();
 
     await transformImage();
@@ -131,17 +132,13 @@
     resetRotate();
     resetResize();
     resetFilters();
+    resetEditStatus();
   }
 
   function resetRotate() {
-    endRotate();
     rotateApplied = false;
     rotation = aRotation = 0;
     setAnimatedRotation(0);
-  }
-
-  function beginResizeImage() {
-    resizing = true;
   }
 
   function resizeImage() {
@@ -150,7 +147,6 @@
   }
 
   function resetResize() {
-    resizing = false;
     resizeWidth = width;
     resizeHeight = height;
   }
@@ -199,8 +195,9 @@
   }
 
   function resetFilters() {
+    resetEditStatus();
     resetGrayscale();
-    sepia = settingFilters = false;
+    sepia = false;
   }
 
   function handleWidthInput(event: Event) {
@@ -214,17 +211,21 @@
     resizeHeight = parseInt(target.value, 10);
     resizeWidth = Math.round((resizeHeight * width) / height);
   }
+
+  function otherEditInProgress(stat: EditState): boolean {
+    return !(checkEditStatus(stat) || checkEditStatus(EditState.None));
+  }
 </script>
 
 <div>
-  <div class="actions-section rotate">
+  <div class="actions-section">
     <div class="actions">
       <!-- Rotate button -->
       <IconButton
         title="Rotate"
         class="material-icons icon-btn toggle-btn rotate-btn"
         onclick={toggleRotate}
-        disabled={!imageDataUrl || cropping || resizing || settingFilters}
+        disabled={!imageDataUrl || otherEditInProgress(EditState.Rotating)}
         >
         rotate_left
       </IconButton>
@@ -232,8 +233,8 @@
       <IconButton
         title="Crop"
         class="material-icons icon-btn"
-        onclick={beginCrop}
-        disabled={!imageDataUrl || resizing || rotating || settingFilters}
+        onclick={() => setEditStatus(EditState.Cropping)}
+        disabled={!imageDataUrl || otherEditInProgress(EditState.Cropping)}
         >
         crop
       </IconButton>
@@ -241,8 +242,8 @@
       <IconButton
         title="Resize"
         class="material-icons icon-btn"
-        onclick={beginResizeImage}
-        disabled={!imageDataUrl || cropping || rotating || settingFilters}
+        onclick={() => setEditStatus(EditState.Resizing)}
+        disabled={!imageDataUrl || otherEditInProgress(EditState.Resizing)}
         >
         photo_size_select_small
       </IconButton>
@@ -251,22 +252,22 @@
         title="Filters"
         class="material-icons icon-btn toggle-btn filters-btn"
         onclick={toggleFilters}
-        disabled={!imageDataUrl || cropping || resizing || rotating}
+        disabled={!imageDataUrl || otherEditInProgress(EditState.SettingFilters)}
         >
         filter_b_and_w
       </IconButton>
     </div>
   </div>
 
-  {#if rotating}
-    <div class="actions-section rotate">
+  {#if checkEditStatus(EditState.Rotating)}
+    <div class="actions-section">
       <div class="actions">
         <!-- Rotate left button -->
         <IconButton
           title="Rotate counterclockwise"
           class="material-icons icon-btn"
           onclick={rotateImageLeft}
-          disabled={!imageDataUrl || cropping || resizing || settingFilters}
+          disabled={!imageDataUrl}
           >
           rotate_90_degrees_ccw
         </IconButton>
@@ -275,7 +276,7 @@
           title="Rotate clockwise"
           class="material-icons icon-btn"
           onclick={rotateImageRight}
-          disabled={!imageDataUrl || cropping || resizing || settingFilters}
+          disabled={!imageDataUrl}
           >
           rotate_90_degrees_cw
         </IconButton>
@@ -283,8 +284,8 @@
     </div>
   {/if}
 
-  {#if cropping}
-    <div class="actions-section crop">
+  {#if checkEditStatus(EditState.Cropping)}
+    <div class="actions-section">
       <div class="actions">
         <!-- Crop square button -->
         <IconButton
@@ -337,8 +338,8 @@
     </div>
   {/if}
 
-  {#if resizing}
-    <div class="actions-section resize">
+  {#if checkEditStatus(EditState.Resizing)}
+    <div class="actions-section">
       <div class="actions-form">
         <label class="form-row">
           <span>W</span>
@@ -368,7 +369,7 @@
     </div>
   {/if}
 
-  {#if settingFilters}
+  {#if checkEditStatus(EditState.SettingFilters)}
     <div class="titled-actions-section">
       <div class="actions-section filter-btns">
         <div class="actions">
@@ -470,7 +471,7 @@
     {/if}
   {/if}
 
-  {#if cropping || resizing || sepia || grayscaleApplied || rotateApplied}
+  {#if checkEditStatus(EditState.Cropping) || checkEditStatus(EditState.Resizing) || sepia || grayscaleApplied || rotateApplied}
     <div class="actions-section">
       <div class="actions">
         <!-- Apply edits button -->
@@ -478,7 +479,7 @@
           title="Apply edits"
           class="material-icons icon-btn"
           onclick={applyEdits}
-          disabled={!imageDataUrl || (grayscaling && !grayscaleApplied)}
+          disabled={!imageDataUrl}
           >
           check
         </IconButton>

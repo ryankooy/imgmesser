@@ -9,9 +9,10 @@
   import AlertModal from "./AlertModal.svelte";
   import ConfirmModal from "./ConfirmModal.svelte";
   import ImageCropper from "./ImageCropper.svelte";
+  import ImageActions from "./ImageActions.svelte";
   import Transform from "./Transform.svelte";
-  import { imageDataUrlCache } from "../store.ts";
-  import type { ImageMeta, ImageData, Transformations } from "../store.ts";
+  import { EditState, ImageState, imageDataUrlCache } from "../store.ts";
+  import type { ImageData, ImageMeta, Transformations } from "../store.ts";
   import { getImageDataUrl, imageUrl } from "../utils/api.ts";
   import {
     formatDate, formatFileSize, formatImageType,
@@ -30,11 +31,12 @@
   const imageId: string = $derived(image.id);
   let imageDataUrl: string = $derived(image.url ?? "");
 
-  const multiVersion: boolean = $derived(meta.version_count > 1);
+  let status: ImageState = $state(ImageState.None);
+  let editStatus: EditState = $state(EditState.None);
 
-  let loading: boolean = $state(false);
   let editingName: boolean = $state(false);
   let showConfirmDeleteModal: boolean = $state(false);
+  let showConfirmDeleteEditsModal: boolean = $state(false);
   let showAlertModal: boolean = $state(false);
   let nextPageExists: boolean = $state(false);
   let prevPageExists: boolean = $state(false);
@@ -53,13 +55,6 @@
   let height: number = $derived(meta.height);
 
   let transformations: Transformations = $state({});
-
-  let transforming: boolean = $state(false);
-  let panning: boolean = $state(false);
-  let rotating: boolean = $state(false);
-  let showConfirmDeleteEditsModal: boolean = $state(false);
-
-  let cropping: boolean = $state(false);
   let crop = $state({ x: 0, y: 0 });
   let zoom: number = $state(1);
   let aspect: number = $state(1);
@@ -80,16 +75,48 @@
     }
   });
 
-  function beginLoad() {
-    loading = true;
+  function setStatus(stat: ImageState) {
+    status = stat;
   }
 
-  function endLoad() {
-    loading = false;
+  function getStatus(): ImageState {
+    return status;
+  }
+
+  function toggleStatus(stat: ImageState) {
+    status = (status !== stat) ? stat : ImageState.None;
+  }
+
+  function checkStatus(stat: ImageState): boolean {
+    return status === stat;
+  }
+
+  function resetStatus() {
+    status = ImageState.None;
+  }
+
+  function setEditStatus(stat: EditState) {
+    editStatus = stat;
+  }
+
+  function getEditStatus(): EditState {
+    return editStatus;
+  }
+
+  function toggleEditStatus(stat: EditState) {
+    editStatus = (editStatus !== stat) ? stat : EditState.None;
+  }
+
+  function checkEditStatus(stat: EditState): boolean {
+    return editStatus === stat;
+  }
+
+  function resetEditStatus() {
+    editStatus = EditState.None;
   }
 
   async function loadImageData() {
-    beginLoad();
+    setStatus(ImageState.Loading);
 
     if ($imageDataUrlCache.has(imageId)) {
       imageDataUrl = $imageDataUrlCache.get(imageId);
@@ -102,7 +129,7 @@
       }
     }
 
-    endLoad();
+    resetStatus();
   }
 
   async function deleteImage() {
@@ -112,7 +139,8 @@
       });
 
       if (response.ok) {
-        dispatch("imageUpdate", "deleting");
+        status = ImageState.Deleting;
+        await handleUpdatedImage();
       } else {
         setAlertMessage("Failed to delete image");
       }
@@ -152,50 +180,12 @@
     }
   }
 
-  async function undoEdit() {
-    try {
-      const response = await fetch(`${imageUrl(imageId)}/revert`, {
-        method: "POST",
-      });
+  async function updateImage() {
+    if (status === ImageState.Closing) return;
 
-      if (response.ok) {
-        const data = await response.json();
-        if (data.updated) {
-          $imageDataUrlCache.delete(imageId);
-          await handleUpdatedImage();
-        }
-      } else {
-        setAlertMessage("Failed to revert image");
-      }
-    } catch (error) {
-      console.error("Error fetching:", error);
-    }
-  }
-
-  async function redoEdit() {
-    try {
-      const response = await fetch(`${imageUrl(imageId)}/restore`, {
-        method: "POST",
-      });
-
-      if (response.ok) {
-        const data = await response.json();
-        if (data.updated) {
-          $imageDataUrlCache.delete(imageId);
-          await handleUpdatedImage();
-        }
-      } else {
-        setAlertMessage("Failed to restore image");
-      }
-    } catch (error) {
-      console.error("Error fetching:", error);
-    }
-  }
-
-  async function updateImage(state: string) {
-    if (state === "closing") return;
-    let version: string | null = (state === "saving") ? meta.version : meta.original_version;
+    let version: string | null = (status === ImageState.Saving) ? meta.version : meta.original_version;
     if (!version) return;
+
     try {
       const response = await fetch(`${imageUrl(imageId)}/update`, {
         method: "POST",
@@ -204,7 +194,7 @@
       });
 
       if (response.ok) {
-        await handleUpdatedImage(state);
+        await handleUpdatedImage();
       } else {
         setAlertMessage("Failed to save image");
       }
@@ -213,36 +203,8 @@
     }
   }
 
-  function typeIsGif(): boolean {
-    return meta.content_type === "image/gif";
-  }
-
-  function getButtonColor(toggled: boolean) {
-    return toggled ? "var(--im-header-gold)" : "white";
-  }
-
-  function toggleButtonColor(node: PointerEvent, toggled: boolean) {
-    const el = node.target as HTMLElement;
-    el.style.color = getButtonColor(toggled);
-  }
-
-  function toggleTransform(node: PointerEvent) {
-    transforming = !transforming;
-    if (transforming && panning) {
-      panning = false;
-      const panButton = document.querySelector(".toggle-btn.pan-btn") as HTMLElement;
-      panButton.style.color = getButtonColor(false);
-    }
-    toggleButtonColor(node, transforming);
-  }
-
-  function togglePanTool(node: PointerEvent) {
-    panning = !panning;
-    toggleButtonColor(node, panning);
-  }
-
   function resetCrop() {
-    cropping = false;
+    resetEditStatus();
     zoom = aspect = 1;
     crop = { x: 0, y: 0};
   }
@@ -251,29 +213,21 @@
     aspect = newAspect;
   }
 
-  async function saveImageEdits() {
-    await updateImage("saving");
-  }
-
   async function discardEdits() {
     showConfirmDeleteEditsModal = false;
     resetImage();
-    await updateImage("canceling");
+    status = ImageState.Canceling;
+    await updateImage();
   }
 
-  function resetImage() {
-    transforming = panning = false;
-
-    const transformButton = document.querySelector(".toggle-btn.transform-btn") as HTMLElement;
-    transformButton.style.color = getButtonColor(false);
-
-    const panButton = document.querySelector(".toggle-btn.pan-btn") as HTMLElement;
-    panButton.style.color = getButtonColor(false);
+  async function saveImageEdits() {
+    status === ImageState.Saving;
+    await updateImage();
   }
 
-  async function handleUpdatedImage(state?: string) {
-    dispatch("imageUpdate", state);
-    if (state !== "closing") {
+  async function handleUpdatedImage() {
+    dispatch("imageUpdate", status);
+    if (!(status === ImageState.Closing || status === ImageState.Deleting)) {
       resetImage();
       await loadImageData();
     }
@@ -289,8 +243,17 @@
     dispatch("selectPrevImage");
   }
 
-  async function close() {
-    await updateImage("closing");
+  function resetImage() {
+    resetStatus();
+
+    const transformButton = document.querySelector(".toggle-btn.transform-btn") as HTMLElement;
+    transformButton.style.color = "white";
+
+    const panButton = document.querySelector(".toggle-btn.pan-btn") as HTMLElement;
+    panButton.style.color = "white";
+  }
+
+  async function closeImage() {
     const modal = document.getElementById("image-backdrop");
     modal.classList.add("closing");
 
@@ -299,15 +262,20 @@
     });
   }
 
+  function toggleButtonColor(node: PointerEvent, toggled: boolean) {
+    const el = node.target as HTMLElement;
+    el.style.color = toggled ? "var(--im-header-gold)" : "white";
+  }
+
   function handleBackdropClick(event: MouseEvent) {
     if (event.target === event.currentTarget) {
-      close();
+      closeImage();
     }
   }
 
   function handleKeydown(event: KeyboardEvent) {
     if (event.key === "Escape") {
-      close();
+      closeImage();
     } else if (event.key === "ArrowRight") {
       handleNextImage();
     } else if (event.key === "ArrowLeft") {
@@ -397,22 +365,6 @@
   function setAnimatedRotation(degrees: number) {
     animatedRotation.set(degrees);
   }
-
-  function beginRotate() {
-    rotating = true;
-  }
-
-  function endRotate() {
-    rotating = false;
-  }
-
-  function beginCrop() {
-    cropping = true;
-  }
-
-  function endCrop() {
-    cropping = false;
-  }
 </script>
 
 <svelte:window on:keydown={handleKeydown} />
@@ -434,13 +386,13 @@
 
   <div class="modal-content image-modal">
     <div class="image-container">
-      {#if loading}
+      {#if status === ImageState.Loading}
         <div class="loading-spinner">
           <div class="spinner"></div>
           <p>Loading image...</p>
         </div>
       {:else if imageDataUrl}
-        {#if cropping}
+        {#if editStatus === EditState.Cropping}
           <ImageCropper
             aspect={aspect}
             bind:crop={crop}
@@ -450,13 +402,13 @@
             width={width}
             bind:zoom={zoom}
           />
-        {:else if rotating}
+        {:else if editStatus === EditState.Rotating}
           <img
             src={imageDataUrl}
             style="transform: rotate({$animatedRotation}deg);"
             alt={imageName}
           />
-        {:else if panning}
+        {:else if status === ImageState.Panning}
           <div class="image-viewer">
             <ImageViewer src={imageDataUrl} alt={imageName} />
           </div>
@@ -517,119 +469,41 @@
       </div>
 
       <div class="actions-wrapper">
-        <div class="actions-section">
-          <div class="actions">
-            <!-- Transform button -->
-            <IconButton
-              title="Toggle transform tools"
-              class="material-icons icon-btn toggle-btn transform-btn"
-              onclick={toggleTransform}
-              disabled={!imageDataUrl || panning || typeIsGif()}
-              >
-              transform
-            </IconButton>
-            <!-- Pan tool button -->
-            <IconButton
-              title="Pan tool"
-              class="material-icons icon-btn toggle-btn pan-btn"
-              onclick={togglePanTool}
-              disabled={!imageDataUrl || transforming}
-              >
-              pan_tool
-            </IconButton>
-            <!-- Download button -->
-            <IconButton
-              title="Download image"
-              class="material-icons icon-btn"
-              onclick={downloadImage}
-              disabled={!imageDataUrl}
-              >
-              download
-            </IconButton>
-            <!-- Delete button -->
-            <IconButton
-              title="Delete image"
-              class="material-icons icon-btn delete-btn"
-              onclick={handleDeleteImage}
-              disabled={!imageDataUrl}
-              >
-              delete_forever
-            </IconButton>
-            <!-- Close button -->
-            <IconButton
-              title="Close image"
-              class="material-icons icon-btn"
-              onclick={close}
-              aria-label="Close"
-              >
-              close
-            </IconButton>
-          </div>
-        </div>
-
-        {#if multiVersion && !typeIsGif()}
-          <div class="actions-section">
-            <div class="actions">
-              <!-- Unto button -->
-              <IconButton
-                title="Undo change"
-                class="material-icons icon-btn"
-                onclick={undoEdit}
-                disabled={!imageDataUrl || !multiVersion || meta.initial_version}
-                >
-                undo
-              </IconButton>
-              <!-- Redo button -->
-              <IconButton
-                title="Redo change"
-                class="material-icons icon-btn"
-                onclick={redoEdit}
-                disabled={!imageDataUrl || !multiVersion || meta.latest_version}
-                >
-                redo
-              </IconButton>
-              <!-- Save button -->
-              <IconButton
-                title="Save current edit"
-                class="material-icons icon-btn"
-                onclick={saveImageEdits}
-                disabled={!imageDataUrl || !multiVersion}
-                >
-                save
-              </IconButton>
-              <!-- Discard edits button -->
-              <IconButton
-                title="Discard all edits"
-                class="material-icons icon-btn delete-btn"
-                onclick={handleDiscardEdits}
-                disabled={!imageDataUrl || !multiVersion}
-                >
-                delete_sweep
-              </IconButton>
-            </div>
-          </div>
-        {/if}
-
-        {#if transforming}
+        <ImageActions
+          imageDataUrl={imageDataUrl}
+          imageId={imageId}
+          meta={meta}
+          checkStatus={checkStatus}
+          closeImage={closeImage}
+          downloadImage={downloadImage}
+          handleDeleteImage={handleDeleteImage}
+          handleDiscardEdits={handleDiscardEdits}
+          handleUpdatedImage={handleUpdatedImage}
+          resetEditStatus={resetEditStatus}
+          saveImageEdits={saveImageEdits}
+          setAlertMessage={setAlertMessage}
+          toggleButtonColor={toggleButtonColor}
+          toggleStatus={toggleStatus}
+        />
+        {#if status === ImageState.Transforming}
           <Transform
-            cropping={cropping}
             height={height}
             imageDataUrl={imageDataUrl}
             imageId={imageId}
-            rotating={rotating}
             bind:transformations={transformations}
             width={width}
-            beginCrop={beginCrop}
-            beginLoad={beginLoad}
-            beginRotate={beginRotate}
-            endCrop={endCrop}
-            endRotate={endRotate}
+            checkEditStatus={checkEditStatus}
+            getEditStatus={getEditStatus}
             handleUpdatedImage={handleUpdatedImage}
             resetCrop={resetCrop}
+            resetEditStatus={resetEditStatus}
             setAlertMessage={setAlertMessage}
             setAnimatedRotation={setAnimatedRotation}
             setAspect={setAspect}
+            setEditStatus={setEditStatus}
+            setStatus={setStatus}
             toggleButtonColor={toggleButtonColor}
+            toggleEditStatus={toggleEditStatus}
           />
         {/if}
       </div>
@@ -759,17 +633,6 @@
 
   .actions-wrapper {
     margin-top: 10px;
-  }
-
-  .actions-section {
-    padding: 2px 3px;
-    margin: 3px;
-  }
-
-  .actions {
-    justify-content: flex-start;
-    display: flex;
-    gap: 8px;
   }
 
   .image-details {

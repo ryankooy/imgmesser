@@ -1,6 +1,6 @@
 <script lang="ts">
   import { onMount } from "svelte";
-  import { currentView, currentUser, galleryPageCache } from "./store.ts";
+  import { currentView, currentUser, galleryPageCache, ImageState } from "./store.ts";
   import type { GalleryPagination, ImageData, ImageMeta } from "./store.ts";
   import { getCurrentUser } from "./utils/api.ts";
   import { handlePageRefresh, registerServiceWorker } from "./utils/app.ts";
@@ -55,9 +55,9 @@
   }
 
   function handleImageUpdate(event: Event) {
-    const state = event.detail;
+    const state: ImageState = event.detail;
 
-    if (state === "deleting") {
+    if (state === ImageState.Deleting) {
       closeSelectedImage();
       $galleryPageCache.clear();
       refreshAllTrigger++;

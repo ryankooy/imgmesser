@@ -80,3 +80,22 @@ export interface Transformations {
     format: string | null;
     filters: Filters | null;
 }
+
+export const enum ImageState {
+    None,
+    Loading,
+    Transforming,
+    Panning,
+    Closing,
+    Saving,
+    Canceling,
+    Deleting,
+}
+
+export const enum EditState {
+    None,
+    Rotating,
+    Cropping,
+    Resizing,
+    SettingFilters,
+}
