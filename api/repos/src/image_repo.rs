@@ -58,6 +58,12 @@ pub trait ImageRepoOps: Send + Sync {
         user: UserInfo,
     ) -> Result<()>;
 
+    async fn delete_current_version(
+        &self,
+        image_id: &str,
+        user: UserInfo,
+    ) -> Result<()>;
+
     async fn revert(
         &self,
         image_id: &str,
@@ -260,6 +266,36 @@ impl ImageRepoOps for ImageRepo {
         s3::delete_object(&self.img_store_client, &image_path)
             .await
             .map_err(|e| ImageError::S3OperationFailure(e.to_string()))?;
+
+        Ok(())
+    }
+
+    async fn delete_current_version(
+        &self,
+        image_id: &str,
+        user: UserInfo,
+    ) -> Result<()> {
+        let image = get_image_info(&self.db, image_id, &user.username)
+            .await
+            .map_err(|e| ImageError::QueryFailure(e.to_string()))?;
+
+        // Delete the image's current version
+        if let Some(version) = db::delete_current_version(&self.db, &image.id)
+            .await
+            .map_err(|e| ImageError::QueryFailure(e.to_string()))?
+        {
+            // S3 object path of the image
+            let image_path = get_object_path(
+                &user.object_base_path,
+                &image.id,
+                &image.name,
+            );
+
+            // Delete specified version of the S3 object
+            s3::delete_object_version(&self.img_store_client, &image_path, &version)
+                .await
+                .map_err(|e| ImageError::S3OperationFailure(e.to_string()))?;
+        }
 
         Ok(())
     }

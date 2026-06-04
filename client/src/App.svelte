@@ -40,13 +40,12 @@
   let refreshAllTrigger: number = $state(0);
   let refreshOneTrigger: number = $state(0);
 
-  function handleImageSelect(event: CustomEvent<ImageData>) {
-    selectedImage = event.detail;
+  function handleImageSelect(image: ImageData) {
+    selectedImage = image;
     selectedImageId = selectedImage.id;
   }
 
-  function handleImagesLoaded(event: CustomEvent<ImageMeta[]>) {
-    const images = event.detail;
+  function handleImagesLoaded(images: ImageMeta[]) {
     imageIds = images.map((img) => img.id);
 
     if (selectedImage) {
@@ -54,10 +53,8 @@
     }
   }
 
-  function handleImageUpdate(event: Event) {
-    const state: ImageState = event.detail;
-
-    if (state === ImageState.Deleting) {
+  function handleImageUpdate(status: ImageState) {
+    if (status === ImageState.Deleting) {
       closeSelectedImage();
       $galleryPageCache.clear();
       refreshAllTrigger++;
@@ -97,12 +94,12 @@
     }
   }
 
-  function handleSelectDataUrl(event: Event) {
-    if (selectedImage) selectedImage.url = event.detail;
+  function handleSelectDataUrl(dataUrl: string) {
+    if (selectedImage) selectedImage.url = dataUrl;
   }
 
-  function handlePaginationUpdated(event: CustomEvent<GalleryPagination>) {
-    pagination = event.detail;
+  function handlePaginationUpdated(galleryPagination: GalleryPagination) {
+    pagination = galleryPagination;
   }
 
   function handleUploadModalOpen() {
@@ -119,8 +116,8 @@
     refreshAllTrigger++;
   }
 
-  function handleLoginSuccess(event: Event) {
-    $currentUser = event.detail;
+  function handleLoginSuccess(username: string) {
+    $currentUser = username;
     $currentView = "gallery";
   }
 
@@ -149,10 +146,10 @@
           refreshAll={refreshAllTrigger}
           refreshOne={refreshOneTrigger}
           selectedId={selectedImageId}
-          on:imageSelect={handleImageSelect}
-          on:imagesLoaded={handleImagesLoaded}
-          on:paginationUpdated={handlePaginationUpdated}
-          on:upload={handleUploadModalOpen}
+          handleImageSelect={handleImageSelect}
+          handleImagesLoaded={handleImagesLoaded}
+          handlePaginationUpdated={handlePaginationUpdated}
+          handleUploadModalOpen={handleUploadModalOpen}
         />
 
         {#if selectedImage}
@@ -160,26 +157,24 @@
             image={selectedImage}
             imageIds={imageIds}
             pagination={pagination}
-            on:close={closeSelectedImage}
-            on:imageUpdate={handleImageUpdate}
-            on:selectDataUrl={handleSelectDataUrl}
-            on:selectNextImage={handleSelectNextImage}
-            on:selectPrevImage={handleSelectPrevImage}
+            closeSelectedImage={closeSelectedImage}
+            handleImageUpdate={handleImageUpdate}
+            handleSelectDataUrl={handleSelectDataUrl}
+            handleSelectNextImage={handleSelectNextImage}
+            handleSelectPrevImage={handleSelectPrevImage}
           />
         {:else if showUploadModal}
           <UploadForm
-            on:close={handleUploadModalClose}
-            on:uploadSuccess={handleUploadSuccess}
+            handleUploadModalClose={handleUploadModalClose}
+            handleUploadSuccess={handleUploadSuccess}
           />
         {/if}
       {:else if $currentView === "register"}
-        <UserRegister
-          on:registrationSuccess={setLoginView}
-        />
+        <UserRegister setLoginView={setLoginView} />
       {:else if $currentView === "login"}
         <UserLogin
-          on:loginSuccess={handleLoginSuccess}
-          on:registerClicked={setRegisterView}
+          handleLoginSuccess={handleLoginSuccess}
+          setRegisterView={setRegisterView}
         />
       {/if}
     </div>

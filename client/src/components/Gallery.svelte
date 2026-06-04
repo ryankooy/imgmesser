@@ -1,5 +1,5 @@
 <script lang="ts">
-  import { createEventDispatcher, onMount } from "svelte";
+  import { onMount } from "svelte";
   import IconButton from "@smui/icon-button";
   import { galleryPageCache, imageDataUrlCache } from "../store.ts";
   import type { GalleryPageInfo, ImageData, ImageMeta } from "../store.ts";
@@ -16,9 +16,12 @@
     refreshAll = 0,
     refreshOne = 0,
     selectedId = null,
+    handleImageSelect,
+    handleImagesLoaded,
+    handlePaginationUpdated,
+    handleUploadModalOpen,
   } = $props();
 
-  const dispatch = createEventDispatcher();
 
   let images: ImageMeta[] = $state([]);
   let loading: boolean = $state(false);
@@ -115,9 +118,9 @@
         // Cache images and page info
         if (!pageCached) updateGalleryCache();
 
-        dispatch("imagesLoaded", images);
+        handleImagesLoaded(images);
 
-        dispatch("paginationUpdated", {
+        handlePaginationUpdated({
           current_page: currentPage,
           has_more: hasMore,
         });
@@ -194,10 +197,6 @@
     }
   }
 
-  function handleUploadClick() {
-    dispatch("upload");
-  }
-
   function handleImageClick(image: ImageMeta) {
     selectImage(image);
   }
@@ -209,7 +208,7 @@
       meta: image,
     };
 
-    dispatch("imageSelect", imageData);
+    handleImageSelect(imageData);
   }
 
   function goToPage(page: number) {
@@ -277,7 +276,7 @@
       <div class="upload">
         <IconButton
           class="material-icons icon-btn"
-          onclick={handleUploadClick}
+          onclick={handleUploadModalOpen}
           >
           add
         </IconButton>

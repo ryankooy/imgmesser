@@ -165,6 +165,20 @@ pub async fn delete_image(
     Ok(Response::default())
 }
 
+/// Route for deleting an image's current version.
+pub async fn delete_current_image_version(
+    State(state): State<AppState>,
+    RequireAuth(user): RequireAuth,
+    Path(image_id): Path<String>,
+) -> Result<Response> {
+    state
+        .image_repo
+        .delete_current_version(&image_id, user)
+        .await?;
+
+    Ok(Response::default())
+}
+
 /// Route for renaming an image.
 pub async fn rename_image(
     State(state): State<AppState>,

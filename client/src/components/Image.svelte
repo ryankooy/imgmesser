@@ -1,5 +1,5 @@
 <script lang="ts">
-  import { createEventDispatcher, onMount, setContext } from "svelte";
+  import { onMount, setContext } from "svelte";
   import { tweened } from "svelte/motion";
   import { cubicOut } from "svelte/easing";
   import Cropper from "svelte-easy-crop";
@@ -19,12 +19,15 @@
     getFileExtension, getFileStem,
   } from "../utils/app.ts";
 
-  const dispatch = createEventDispatcher();
-
   let {
     image = null,
     imageIds = [],
     pagination = null,
+    closeSelectedImage,
+    handleImageUpdate,
+    handleSelectDataUrl,
+    handleSelectNextImage,
+    handleSelectPrevImage,
   } = $props();
 
   const meta: ImageMeta | null = $derived(image.meta ?? null);
@@ -124,7 +127,7 @@
       const dataUrl = await getImageDataUrl(imageId);
 
       if (dataUrl) {
-        dispatch("selectDataUrl", dataUrl);
+        handleSelectDataUrl(dataUrl);
         imageDataUrl = dataUrl;
       }
     }
@@ -226,7 +229,8 @@
   }
 
   async function handleUpdatedImage() {
-    dispatch("imageUpdate", status);
+    handleImageUpdate(status);
+
     if (!(status === ImageState.Closing || status === ImageState.Deleting)) {
       resetImage();
       await loadImageData();
@@ -235,12 +239,12 @@
 
   function handleNextImage() {
     resetImage();
-    dispatch("selectNextImage");
+    handleSelectNextImage();
   }
 
   function handlePrevImage() {
     resetImage();
-    dispatch("selectPrevImage");
+    handleSelectPrevImage();
   }
 
   function resetImage() {
@@ -258,7 +262,7 @@
     modal.classList.add("closing");
 
     modal.addEventListener("animationend", () => {
-      dispatch("close");
+      closeSelectedImage();
     });
   }
 

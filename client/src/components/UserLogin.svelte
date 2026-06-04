@@ -1,8 +1,10 @@
 <script lang="ts">
-  import { createEventDispatcher } from "svelte";
   import { userLoginUrl } from "../utils/api.ts";
 
-  const dispatch = createEventDispatcher();
+  let {
+    handleLoginSuccess,
+    setRegisterView,
+  } = $props();
 
   let username: string | null = $state(null);
   let password: string | null = $state(null);
@@ -33,7 +35,7 @@
       const data = await response.json();
 
       if (response.ok) {
-        dispatch("loginSuccess", data.user.username);
+        handleLoginSuccess(data.user.username);
         showMessage("Login successful", "success");
 
         // Reset form after successful login
@@ -67,10 +69,6 @@
     if (usernameInput) usernameInput.value = "";
     const passwordInput = document.getElementById("password") as HTMLInputElement;
     if (passwordInput) passwordInput.value = "";
-  }
-
-  function handleRegisterClicked() {
-    dispatch("registerClicked");
   }
 </script>
 
@@ -109,7 +107,7 @@
     <p>
       Need to
       <span class="clickable"
-        onclick={handleRegisterClicked}
+        onclick={setRegisterView}
         role="button"
         tabindex="0"
       >

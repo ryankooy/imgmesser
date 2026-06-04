@@ -87,6 +87,24 @@ pub async fn delete_object(
     Ok(object)
 }
 
+/// Delete specific version of object from S3 bucket.
+pub async fn delete_object_version(
+    client: &Client,
+    object_key: &str,
+    version_id: &str,
+) -> Result<DeleteObjectOutput> {
+    let bucket_name = get_bucket_name().await;
+    let object = client
+        .delete_object()
+        .bucket(bucket_name)
+        .key(object_key.to_string())
+        .version_id(version_id)
+        .send()
+        .await?;
+
+    Ok(object)
+}
+
 /// Delete object from S3 bucket.
 pub async fn delete_previous_versions(
     client: &Client,

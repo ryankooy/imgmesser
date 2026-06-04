@@ -400,6 +400,50 @@ pub async fn delete_non_current_versions(
     Ok(())
 }
 
+/// Delete a specefic version of an image.
+pub async fn delete_current_version(
+    db: &PgPool,
+    image_id: &Uuid,
+) -> Result<Option<String>> {
+    if let Some(current_version) = get_current_version(db, image_id).await? {
+        // Set the `current` flag for the next most recent
+        // version and return the version id
+        sqlx::query!(
+            r#"
+            UPDATE image_version SET current = TRUE
+            WHERE version = (
+                SELECT version FROM image_version
+                WHERE ts < $1
+                    AND image_id = $2
+                    AND version <> $3
+                ORDER BY ts DESC LIMIT 1
+            )
+            "#,
+            current_version.ts,
+            image_id,
+            &current_version.version,
+        )
+        .execute(db)
+        .await?;
+
+        // Delete the formerly current version
+        sqlx::query!(
+            r#"
+            DELETE FROM image_version
+            WHERE image_id = $1 AND version = $2
+            "#,
+            image_id,
+            &current_version.version,
+        )
+        .execute(db)
+        .await?;
+
+        return Ok(Some(current_version.version));
+    }
+
+    Ok(None)
+}
+
 /// Get the current version info for an image.
 async fn get_current_version(
     db: &PgPool,

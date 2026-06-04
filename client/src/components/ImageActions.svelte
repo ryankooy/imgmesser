@@ -62,6 +62,22 @@
     }
   }
 
+  async function deleteCurrentVersion() {
+    try {
+      const response = await fetch(`${imageUrl(imageId)}/deleteversion`, {
+        method: "POST",
+      });
+
+      if (response.ok) {
+        await handleUpdatedImage();
+      } else {
+        setAlertMessage("Failed to restore image");
+      }
+    } catch (error) {
+      console.error("Error fetching:", error);
+    }
+  }
+
   function typeIsGif(): boolean {
     return meta.content_type === "image/gif";
   }
@@ -165,7 +181,16 @@
           >
           save
         </IconButton>
-        <!-- Discard edits button -->
+        <!-- Discard current edit button -->
+        <IconButton
+          title="Discard current edit"
+          class="material-icons icon-btn delete-btn"
+          onclick={deleteCurrentVersion}
+          disabled={!imageDataUrl || !multiVersion || meta.initial_version}
+          >
+          delete
+        </IconButton>
+        <!-- Discard all edits button -->
         <IconButton
           title="Discard all edits"
           class="material-icons icon-btn delete-btn"
