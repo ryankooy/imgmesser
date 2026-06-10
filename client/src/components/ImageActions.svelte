@@ -162,7 +162,7 @@
           title="Save current edit"
           class="material-icons icon-btn"
           onclick={saveImage}
-          disabled={!imageDataUrl || !multiVersion}
+          disabled={!imageDataUrl || !multiVersion || meta.initial_version}
           >
           save
         </IconButton>
