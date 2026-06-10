@@ -24,9 +24,9 @@ use tracing_subscriber::{
 use config;
 use handlers::{
     current_user, login, logout, register, refresh,
-    delete_image, get_all_images_metadata, get_image,
-    get_image_metadata, rename_image, restore_image_version,
-    revert_image_version, upload_images,
+    delete_current_image_version, delete_image, get_all_images_metadata,
+    get_image, get_image_metadata, rename_image, restore_image_version,
+    revert_image_version, transform_image, update_image, upload_images,
 };
 use state::AppState;
 
@@ -66,11 +66,12 @@ async fn main() -> Result<()> {
         .route("/images/{id}", get(get_image))
         .route("/images/{id}/meta", get(get_image_metadata))
         .route("/images/{id}/delete", post(delete_image))
+        .route("/images/{id}/deleteversion", post(delete_current_image_version))
         .route("/images/{id}/rename", post(rename_image))
         .route("/images/{id}/revert", post(revert_image_version))
         .route("/images/{id}/restore", post(restore_image_version))
-        // TODO: add handlers, etc. for this route:
-        //.route("/images/{id}/transform", post(process_image))
+        .route("/images/{id}/transform", post(transform_image))
+        .route("/images/{id}/update", post(update_image))
         .with_state(state)
         .layer(
             ServiceBuilder::new()

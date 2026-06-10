@@ -34,44 +34,52 @@ export const handlePageRefresh = async () => {
             }
         });
     }
-}
+};
 
 // Get the extension of a filename; the period/dot is not included.
-export function getFileExtension(filename: string): string {
+export const getFileExtension = (filename: string): string => {
     return (filename.indexOf(".") !== -1) ? filename.split(".").pop() : "jpg";
-}
+};
 
 // Strip the period/dot and extension off of a filename.
-export function getFileStem(filename: string): string {
+export const getFileStem = (filename: string): string => {
     if (filename.indexOf(".") === -1) return filename;
     return filename.substring(0, filename.lastIndexOf("."));
-}
+};
 
 // Truncate the stem of a filename, appending an ellipsis
 // and the file extension.
-export function truncateFileName(val: string): string {
+export const truncateFileName = (val: string): string => {
     if (val.length < 26) return val;
     return `${val.substring(0, 22)}... .${getFileExtension(val)}`;
-}
+};
 
 // Get the display value for an image's content type.
-export function formatImageType(contentType: string): string {
+export const formatImageType = (contentType: string): string => {
     if (!contentType.startsWith("image/")) return "UNKNOWN";
     return contentType.split("/").pop().toUpperCase();
-}
+};
 
 // Format an image's file size value as human-readable.
-export function formatFileSize(bytes: number): string {
+export const formatFileSize = (bytes: number): string => {
     if (bytes < 1024) return bytes + " B";
     if (bytes < 1024 * 1024) return (bytes / 1024).toFixed(1) + " KB";
     return (bytes / (1024 * 1024)).toFixed(1) + " MB";
-}
+};
 
 // Prettify a date value.
-export function formatDate(dateStr: string): string {
+export const formatDate = (dateStr: string): string => {
     try {
         return new Date(dateStr).toLocaleString();
     } catch {
         return dateStr;
     }
-}
+};
+
+// Extract bytes from data URL.
+export const getBytesFromDataUrl = async (dataUrl: string): Promise<Uint8Array> => {
+    const response = await fetch(dataUrl);
+    const buffer = await response.arrayBuffer();
+    return new Uint8Array(buffer);
+};
+

@@ -8,7 +8,8 @@ pub mod error;
 pub mod objects;
 
 pub use objects::{
-    delete_object, get_object, get_objects, upload_object,
+    delete_object, delete_object_version, delete_previous_versions,
+    get_object, get_objects, upload_object,
 };
 
 /// Get AWS S3 client.

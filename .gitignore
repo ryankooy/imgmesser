@@ -1,8 +1,11 @@
 # Rust
 **/target
 **/Cargo.lock
-**/.env
+**/.env*
 **/db.toml
+
+# Git
+**/tags*
 
 # Node.js dependencies
 **/node_modules

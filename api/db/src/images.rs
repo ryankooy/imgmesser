@@ -114,17 +114,25 @@ pub async fn find_image_with_version_info(
         version_count AS (
             SELECT COUNT(1) AS version_count
             FROM versions
+        ),
+        original_version AS (
+            SELECT version AS original_version
+            FROM versions
+            WHERE idx = 1
         )
         SELECT i.id, i.name, i.content_type, i.created_at,
             v.ts AS last_modified, v.version,
             v.width, v.height, v.size, vc.version_count,
             v.idx AS version_index,
             v.idx = vc.version_count AS latest_version,
-            v.idx = 1 AS initial_version
+            v.idx = 1 AS initial_version,
+            ov.original_version
         FROM image_info AS i
         LEFT JOIN current_version AS v
             ON TRUE
         LEFT JOIN version_count AS vc
+            ON TRUE
+        LEFT JOIN original_version AS ov
             ON TRUE
         "#,
     )
@@ -180,18 +188,26 @@ pub async fn find_all_images(
             SELECT image_id, COUNT(1) AS version_count
             FROM versions
             GROUP BY image_id
+        ),
+        original_version AS (
+            SELECT image_id, version AS original_version
+            FROM versions
+            WHERE idx = 1
         )
         SELECT i.id, i.name, i.content_type, i.created_at,
             v.ts AS last_modified, v.version,
             v.width, v.height, v.size, vc.version_count,
             v.idx AS version_index,
             v.idx = vc.version_count AS latest_version,
-            v.idx = 1 AS initial_version
+            v.idx = 1 AS initial_version,
+            ov.original_version
         FROM images AS i
         LEFT JOIN current_version AS v
             ON v.image_id = i.id
         LEFT JOIN version_count AS vc
             ON vc.image_id = i.id
+        LEFT JOIN original_version AS ov
+            ON ov.image_id = i.id
         "#,
     )
     .bind(username)
@@ -284,6 +300,41 @@ pub async fn restore_image_version(
     Ok(None)
 }
 
+/// Set a specific version as the image's current version.
+pub async fn set_image_version(
+    db: &PgPool,
+    image_id: &Uuid,
+    version: &str,
+    username: &str,
+) -> Result<Option<String>> {
+    // Set the `current` flag for the specified
+    // version and return the version id
+    let version_option: Option<String> = sqlx::query_scalar!(
+        r#"
+        UPDATE image_version SET current = TRUE
+        FROM image
+        WHERE image_version.image_id = image.id
+            AND image.id = $1
+            AND image_version.version = $2
+            AND image.username = $3
+        RETURNING version
+        "#,
+        image_id,
+        version,
+        username,
+    )
+    .fetch_optional(db)
+    .await?;
+
+    delete_non_current_versions(
+        db,
+        image_id,
+        &version_option,
+    ).await?;
+
+    Ok(version_option)
+}
+
 /// Update the name of an image.
 pub async fn rename_image(
     db: &PgPool,
@@ -325,6 +376,72 @@ async fn unset_current_version_flags(
     }
 
     Ok(())
+}
+
+/// Delete all of an image's versions except for the current one.
+pub async fn delete_non_current_versions(
+    db: &PgPool,
+    image_id: &Uuid,
+    version: &Option<String>,
+) -> Result<()> {
+    if let Some(version_id) = version {
+        sqlx::query!(
+            r#"
+            DELETE FROM image_version
+            WHERE image_id = $1 AND version <> $2
+            "#,
+            image_id,
+            &version_id,
+        )
+        .execute(db)
+        .await?;
+    }
+
+    Ok(())
+}
+
+/// Delete a specefic version of an image.
+pub async fn delete_current_version(
+    db: &PgPool,
+    image_id: &Uuid,
+) -> Result<Option<String>> {
+    if let Some(current_version) = get_current_version(db, image_id).await? {
+        // Set the `current` flag for the next most recent
+        // version and return the version id
+        sqlx::query!(
+            r#"
+            UPDATE image_version SET current = TRUE
+            WHERE version = (
+                SELECT version FROM image_version
+                WHERE ts < $1
+                    AND image_id = $2
+                    AND version <> $3
+                ORDER BY ts DESC LIMIT 1
+            )
+            "#,
+            current_version.ts,
+            image_id,
+            &current_version.version,
+        )
+        .execute(db)
+        .await?;
+
+        // Delete the formerly current version
+        sqlx::query!(
+            r#"
+            DELETE FROM image_version
+            WHERE image_id = $1 AND version = $2
+            "#,
+            image_id,
+            &current_version.version,
+        )
+        .execute(db)
+        .await?;
+
+        return Ok(Some(current_version.version));
+    }
+
+    Ok(None)
 }
 
 /// Get the current version info for an image.

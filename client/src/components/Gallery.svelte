@@ -1,5 +1,5 @@
 <script lang="ts">
-  import { createEventDispatcher, onMount } from "svelte";
+  import { onMount } from "svelte";
   import IconButton from "@smui/icon-button";
   import { galleryPageCache, imageDataUrlCache } from "../store.ts";
   import type { GalleryPageInfo, ImageData, ImageMeta } from "../store.ts";
@@ -7,6 +7,8 @@
   import { truncateFileName } from "../utils/app.ts";
 
   let {
+    imageDataUrls,
+    imageVersions,
     nextImageTrigger = 0,
     nextPageTrigger = 0,
     prevImageTrigger = 0,
@@ -14,13 +16,14 @@
     refreshAll = 0,
     refreshOne = 0,
     selectedId = null,
+    imagesLoaded,
+    openUploadModal,
+    paginationUpdated,
+    selectImage,
   } = $props();
 
-  const dispatch = createEventDispatcher();
 
   let images: ImageMeta[] = $state([]);
-  let imageDataUrls: Map<string, string> = $state(new Map());
-  let imageVersions: Map<string, string> = $state(new Map());
   let loading: boolean = $state(false);
   let error: string = $state("");
   let currentPage: number = $state(1);
@@ -115,9 +118,9 @@
         // Cache images and page info
         if (!pageCached) updateGalleryCache();
 
-        dispatch("imagesLoaded", images);
+        imagesLoaded(images);
 
-        dispatch("paginationUpdated", {
+        paginationUpdated({
           current_page: currentPage,
           has_more: hasMore,
         });
@@ -188,28 +191,24 @@
           images[index] = image;
 
           // Reselect the current image
-          selectImage(image);
+          selectImageData(image);
         }
       }
     }
   }
 
-  function handleUploadClick() {
-    dispatch("upload");
-  }
-
   function handleImageClick(image: ImageMeta) {
-    selectImage(image);
+    selectImageData(image);
   }
 
-  function selectImage(image: ImageMeta) {
+  function selectImageData(image: ImageMeta) {
     const imageData: ImageData = {
       id: image.id,
       url: imageDataUrls.get(image.id),
       meta: image,
     };
 
-    dispatch("imageSelect", imageData);
+    selectImage(imageData);
   }
 
   function goToPage(page: number) {
@@ -246,24 +245,24 @@
   }
 
   function selectFirstImage() {
-    selectImage(images[0]);
+    selectImageData(images[0]);
   }
 
   function selectLastImage() {
-    selectImage(images[images.length - 1]);
+    selectImageData(images[images.length - 1]);
   }
 
   function selectNextImage() {
     if (selectedId) {
       let index: number = images.findIndex((img) => img.id === selectedId);
-      selectImage(images[++index]);
+      selectImageData(images[++index]);
     }
   }
 
   function selectPrevImage() {
     if (selectedId) {
       let index: number = images.findIndex((img) => img.id === selectedId);
-      selectImage(images[--index]);
+      selectImageData(images[--index]);
     }
   }
 </script>
@@ -277,7 +276,7 @@
       <div class="upload">
         <IconButton
           class="material-icons icon-btn"
-          onclick={handleUploadClick}
+          onclick={openUploadModal}
           >
           add
         </IconButton>

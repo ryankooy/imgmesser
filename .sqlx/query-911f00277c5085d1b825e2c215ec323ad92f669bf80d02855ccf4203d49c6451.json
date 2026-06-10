@@ -1,0 +1,24 @@
+{
+  "db_name": "PostgreSQL",
+  "query": "\n        UPDATE image_version SET current = TRUE\n        FROM image\n        WHERE image_version.image_id = image.id\n            AND image.id = $1\n            AND image_version.version = $2\n            AND image.username = $3\n        RETURNING version\n        ",
+  "describe": {
+    "columns": [
+      {
+        "ordinal": 0,
+        "name": "version",
+        "type_info": "Text"
+      }
+    ],
+    "parameters": {
+      "Left": [
+        "Uuid",
+        "Text",
+        "Text"
+      ]
+    },
+    "nullable": [
+      false
+    ]
+  },
+  "hash": "911f00277c5085d1b825e2c215ec323ad92f669bf80d02855ccf4203d49c6451"
+}

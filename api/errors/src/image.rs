@@ -13,6 +13,7 @@ pub enum ImageError {
     QueryFailure(String),
     NotFound,
     UserNotFound,
+    TransformFailure(String),
 }
 
 impl IntoResponse for ImageError {
@@ -64,6 +65,12 @@ impl IntoResponse for ImageError {
                 (
                     StatusCode::UNAUTHORIZED,
                     "User not found".to_string(),
+                )
+            }
+            ImageError::TransformFailure(e) => {
+                (
+                    StatusCode::INTERNAL_SERVER_ERROR,
+                    format!("Image transformation error: {}", e),
                 )
             }
         };

@@ -33,6 +33,7 @@ export interface ImageMeta {
     version_index: number;
     latest_version: boolean;
     initial_version: boolean;
+    original_version: string;
 }
 
 // Image id, data URL, and database metadata
@@ -45,4 +46,56 @@ export interface ImageData {
 
     // Image metadata
     meta: ImageMeta;
+}
+
+export interface Resize {
+    width: number;
+    height: number;
+}
+
+export interface Crop {
+    width: number;
+    height: number;
+    x: number;
+    y: number;
+}
+
+export interface Options {
+    morphology: string;
+    mask: string;
+    radius: number | null;
+}
+
+export interface Filters {
+    grayscale: boolean;
+    sepia: boolean;
+    options: Options | null;
+}
+
+// Image transformation specifications
+export interface Transformations {
+    resize: Resize | null;
+    crop: Crop | null;
+    rotate: number | null;
+    format: string | null;
+    filters: Filters | null;
+}
+
+export const enum ImageState {
+    None,
+    Loading,
+    Transforming,
+    Panning,
+    Closing,
+    Saving,
+    Canceling,
+    Deleting,
+}
+
+export const enum EditState {
+    None,
+    Rotating,
+    Cropping,
+    Resizing,
+    SettingFilters,
 }

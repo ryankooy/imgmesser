@@ -8,20 +8,20 @@ use axum::{
     http::header,
     response::{Json, Response},
 };
-use image::ImageReader;
-use std::io::Cursor;
 use std::net::SocketAddr;
 use tracing::info;
 
 use auth::middleware::RequireAuth;
 use errors::ImageError;
 use models::{
-    ContentType, Image, ImageData, ImageList,
-    UploadImage, UserInfo,
+    ContentType, Image, ImageData, ImageList, ImageVersionOnly,
+    Transformations, UploadImage, UserInfo,
 };
 use schemas::{
     ImageRenameRequest,
     ImageUpdateResponse,
+    ImageVersionRequest,
+    ImageVersionResponse,
     PaginationParams,
 };
 use state::AppState;
@@ -165,6 +165,20 @@ pub async fn delete_image(
     Ok(Response::default())
 }
 
+/// Route for deleting an image's current version.
+pub async fn delete_current_image_version(
+    State(state): State<AppState>,
+    RequireAuth(user): RequireAuth,
+    Path(image_id): Path<String>,
+) -> Result<Response> {
+    state
+        .image_repo
+        .delete_current_version(&image_id, user)
+        .await?;
+
+    Ok(Response::default())
+}
+
 /// Route for renaming an image.
 pub async fn rename_image(
     State(state): State<AppState>,
@@ -211,6 +225,40 @@ pub async fn restore_image_version(
     Ok(Json(ImageUpdateResponse { updated }))
 }
 
+/// Route for transforming an image.
+pub async fn transform_image(
+    State(state): State<AppState>,
+    RequireAuth(user): RequireAuth,
+    Path(image_id): Path<String>,
+    Json(payload): Json<Transformations>,
+) -> Result<Json<ImageVersionResponse>> {
+    let image: ImageVersionOnly = state
+        .image_repo
+        .transform(&image_id, &payload, user)
+        .await?
+        .ok_or(ImageError::NotFound)?;
+
+    Ok(Json(ImageVersionResponse {
+        version: image.version,
+    }))
+}
+
+/// Route for updating an image's version.
+pub async fn update_image(
+    State(state): State<AppState>,
+    RequireAuth(user): RequireAuth,
+    Path(image_id): Path<String>,
+    Json(payload): Json<ImageVersionRequest>,
+) -> Result<Json<ImageUpdateResponse>> {
+    let updated: bool = state
+        .image_repo
+        .update(&image_id, &payload.version, user)
+        .await?
+        .is_some();
+
+    Ok(Json(ImageUpdateResponse { updated }))
+}
+
 /// Parse multipart image data.
 async fn parse_image_data(
     field: Field<'_>,
@@ -218,10 +266,7 @@ async fn parse_image_data(
 ) -> anyhow::Result<UploadImage> {
     let name = field.file_name().unwrap_or("").to_string();
     let data = field.bytes().await?;
-
-    let dimensions = ImageReader::new(Cursor::new(&data))
-        .with_guessed_format()?
-        .into_dimensions()?;
+    let dimensions: (u32, u32) = transform::get_dimensions(&data)?;
 
     Ok(UploadImage { name, content_type, data, dimensions })
 }
