@@ -9,12 +9,13 @@
     meta = null,
     checkStatus,
     closeImage,
+    deleteImage,
     downloadImage,
-    handleDeleteImage,
-    handleDiscardEdits,
-    handleUpdatedImage,
+    discardAllEdits,
+    discardCurrentEdit,
+    imageUpdated,
     resetEditStatus,
-    saveImageEdits,
+    saveImage,
     setAlertMessage,
     toggleButtonColor,
     toggleStatus,
@@ -32,7 +33,7 @@
         const data = await response.json();
         if (data.updated) {
           $imageDataUrlCache.delete(imageId);
-          await handleUpdatedImage();
+          await imageUpdated();
         }
       } else {
         setAlertMessage("Failed to revert image");
@@ -52,24 +53,8 @@
         const data = await response.json();
         if (data.updated) {
           $imageDataUrlCache.delete(imageId);
-          await handleUpdatedImage();
+          await imageUpdated();
         }
-      } else {
-        setAlertMessage("Failed to restore image");
-      }
-    } catch (error) {
-      console.error("Error fetching:", error);
-    }
-  }
-
-  async function deleteCurrentVersion() {
-    try {
-      const response = await fetch(`${imageUrl(imageId)}/deleteversion`, {
-        method: "POST",
-      });
-
-      if (response.ok) {
-        await handleUpdatedImage();
       } else {
         setAlertMessage("Failed to restore image");
       }
@@ -134,7 +119,7 @@
       <IconButton
         title="Delete image"
         class="material-icons icon-btn delete-btn"
-        onclick={handleDeleteImage}
+        onclick={deleteImage}
         disabled={!imageDataUrl}
         >
         delete_forever
@@ -176,7 +161,7 @@
         <IconButton
           title="Save current edit"
           class="material-icons icon-btn"
-          onclick={saveImageEdits}
+          onclick={saveImage}
           disabled={!imageDataUrl || !multiVersion}
           >
           save
@@ -185,7 +170,7 @@
         <IconButton
           title="Discard current edit"
           class="material-icons icon-btn delete-btn"
-          onclick={deleteCurrentVersion}
+          onclick={discardCurrentEdit}
           disabled={!imageDataUrl || !multiVersion || meta.initial_version}
           >
           delete
@@ -194,7 +179,7 @@
         <IconButton
           title="Discard all edits"
           class="material-icons icon-btn delete-btn"
-          onclick={handleDiscardEdits}
+          onclick={discardAllEdits}
           disabled={!imageDataUrl || !multiVersion}
           >
           delete_sweep

@@ -1,7 +1,11 @@
 <script lang="ts">
   import { createEventDispatcher, getContext } from "svelte";
 
-  let { modalAction = "delete", modalActionTitle = null } = $props();
+  let {
+    modalAction = "delete",
+    modalActionTitle = null,
+    modalExtraText = null,
+  } = $props();
   const dispatch = createEventDispatcher();
 
   const imageName: string = getContext("imageName")();
@@ -43,7 +47,12 @@
     <div class="inner">
       <!-- svelte-ignore state_referenced_locally -->
       <h2>Confirm {actionTitle}</h2>
-      <p>Are you sure you want to {action} image "{imageName}"?</p>
+      <p>
+        Are you sure you want to {action} image "{imageName}"?
+        {#if modalExtraText}
+          {modalExtraText}.
+        {/if}
+      </p>
       <div class="modal-actions">
         <button class="confirm btn" onclick={handleConfirm}>
           Confirm

@@ -1,10 +1,7 @@
 <script lang="ts">
   import { userLoginUrl } from "../utils/api.ts";
 
-  let {
-    handleLoginSuccess,
-    setRegisterView,
-  } = $props();
+  let { logIn, setRegisterView } = $props();
 
   let username: string | null = $state(null);
   let password: string | null = $state(null);
@@ -35,7 +32,7 @@
       const data = await response.json();
 
       if (response.ok) {
-        handleLoginSuccess(data.user.username);
+        logIn(data.user.username);
         showMessage("Login successful", "success");
 
         // Reset form after successful login

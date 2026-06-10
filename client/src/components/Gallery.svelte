@@ -16,10 +16,10 @@
     refreshAll = 0,
     refreshOne = 0,
     selectedId = null,
-    handleImageSelect,
-    handleImagesLoaded,
-    handlePaginationUpdated,
-    handleUploadModalOpen,
+    imagesLoaded,
+    openUploadModal,
+    paginationUpdated,
+    selectImage,
   } = $props();
 
 
@@ -118,9 +118,9 @@
         // Cache images and page info
         if (!pageCached) updateGalleryCache();
 
-        handleImagesLoaded(images);
+        imagesLoaded(images);
 
-        handlePaginationUpdated({
+        paginationUpdated({
           current_page: currentPage,
           has_more: hasMore,
         });
@@ -191,24 +191,24 @@
           images[index] = image;
 
           // Reselect the current image
-          selectImage(image);
+          selectImageData(image);
         }
       }
     }
   }
 
   function handleImageClick(image: ImageMeta) {
-    selectImage(image);
+    selectImageData(image);
   }
 
-  function selectImage(image: ImageMeta) {
+  function selectImageData(image: ImageMeta) {
     const imageData: ImageData = {
       id: image.id,
       url: imageDataUrls.get(image.id),
       meta: image,
     };
 
-    handleImageSelect(imageData);
+    selectImage(imageData);
   }
 
   function goToPage(page: number) {
@@ -245,24 +245,24 @@
   }
 
   function selectFirstImage() {
-    selectImage(images[0]);
+    selectImageData(images[0]);
   }
 
   function selectLastImage() {
-    selectImage(images[images.length - 1]);
+    selectImageData(images[images.length - 1]);
   }
 
   function selectNextImage() {
     if (selectedId) {
       let index: number = images.findIndex((img) => img.id === selectedId);
-      selectImage(images[++index]);
+      selectImageData(images[++index]);
     }
   }
 
   function selectPrevImage() {
     if (selectedId) {
       let index: number = images.findIndex((img) => img.id === selectedId);
-      selectImage(images[--index]);
+      selectImageData(images[--index]);
     }
   }
 </script>
@@ -276,7 +276,7 @@
       <div class="upload">
         <IconButton
           class="material-icons icon-btn"
-          onclick={handleUploadModalOpen}
+          onclick={openUploadModal}
           >
           add
         </IconButton>

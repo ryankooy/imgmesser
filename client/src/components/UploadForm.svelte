@@ -3,10 +3,7 @@
   import { currentUser } from "../store.ts";
   import { getCurrentUser, imageUploadUrl } from "../utils/api.ts";
 
-  let {
-    handleUploadModalClose,
-    handleUploadSuccess,
-  } = $props();
+  let { closeModal, refreshGallery } = $props();
 
   let selectedFiles: File[] = $state([]);
   let previewUrls: string[] = $state([]);
@@ -94,7 +91,7 @@
 
       if (response.ok) {
         showMessage("Image(s) uploaded successfully", "success");
-        handleUploadSuccess();
+        refreshGallery();
 
         // Reset form after successful upload
         setTimeout(() => {
@@ -133,7 +130,7 @@
     modal.classList.add("closing");
 
     modal.addEventListener("animationend", () => {
-      handleUploadModalClose();
+      closeModal();
     });
   }
 

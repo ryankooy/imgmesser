@@ -23,11 +23,11 @@
     image = null,
     imageIds = [],
     pagination = null,
-    closeSelectedImage,
-    handleImageUpdate,
-    handleSelectDataUrl,
-    handleSelectNextImage,
-    handleSelectPrevImage,
+    closeImage,
+    refreshImage,
+    selectNextImage,
+    selectPrevImage,
+    setImageDataUrl,
   } = $props();
 
   const meta: ImageMeta | null = $derived(image.meta ?? null);
@@ -38,19 +38,19 @@
   let editStatus: EditState = $state(EditState.None);
 
   let editingName: boolean = $state(false);
-  let showConfirmDeleteModal: boolean = $state(false);
-  let showConfirmDeleteEditsModal: boolean = $state(false);
-  let showAlertModal: boolean = $state(false);
   let nextPageExists: boolean = $state(false);
   let prevPageExists: boolean = $state(false);
+  let showConfirmModal: boolean = $state(false);
+  let showAlertModal: boolean = $state(false);
 
   let alertText: string | null = $state(null);
+  let modalAction: string = $state("");
+  let modalActionTitle: string = $state("");
+  let modalExtraText: string | null = $state(null);
+  let modalConfirmFunc: () => void = $state(null);
 
   const imageName: string = $derived(meta.name);
   setContext("imageName", () => imageName);
-
-  let modalAction: string = "delete";
-  setContext("modalAction", () => modalAction);
 
   let editableFileStem: string = $derived(getFileStem(imageName));
 
@@ -127,7 +127,7 @@
       const dataUrl = await getImageDataUrl(imageId);
 
       if (dataUrl) {
-        handleSelectDataUrl(dataUrl);
+        setImageDataUrl(dataUrl);
         imageDataUrl = dataUrl;
       }
     }
@@ -143,9 +143,25 @@
 
       if (response.ok) {
         status = ImageState.Deleting;
-        await handleUpdatedImage();
+        await handleImageUpdated();
       } else {
         setAlertMessage("Failed to delete image");
+      }
+    } catch (error) {
+      console.error("Error fetching:", error);
+    }
+  }
+
+  async function deleteCurrentVersion() {
+    try {
+      const response = await fetch(`${imageUrl(imageId)}/deleteversion`, {
+        method: "POST",
+      });
+
+      if (response.ok) {
+        await handleImageUpdated();
+      } else {
+        setAlertMessage("Failed to restore image");
       }
     } catch (error) {
       console.error("Error fetching:", error);
@@ -169,7 +185,7 @@
 
       if (response.ok) {
         if (data.updated) {
-          await handleUpdatedImage();
+          await handleImageUpdated();
         }
       } else {
         if (data.error && data.error.includes("duplicate")) {
@@ -183,12 +199,7 @@
     }
   }
 
-  async function updateImage() {
-    if (status === ImageState.Closing) return;
-
-    let version: string | null = (status === ImageState.Saving) ? meta.version : meta.original_version;
-    if (!version) return;
-
+  async function updateImage(version: string) {
     try {
       const response = await fetch(`${imageUrl(imageId)}/update`, {
         method: "POST",
@@ -197,7 +208,7 @@
       });
 
       if (response.ok) {
-        await handleUpdatedImage();
+        await handleImageUpdated();
       } else {
         setAlertMessage("Failed to save image");
       }
@@ -217,19 +228,17 @@
   }
 
   async function discardEdits() {
-    showConfirmDeleteEditsModal = false;
     resetImage();
-    status = ImageState.Canceling;
-    await updateImage();
+    await updateImage(meta.original_version);
   }
 
   async function saveImageEdits() {
-    status === ImageState.Saving;
-    await updateImage();
+    status = ImageState.Saving;
+    await updateImage(meta.version);
   }
 
-  async function handleUpdatedImage() {
-    handleImageUpdate(status);
+  async function handleImageUpdated() {
+    refreshImage(status);
 
     if (!(status === ImageState.Closing || status === ImageState.Deleting)) {
       resetImage();
@@ -239,16 +248,17 @@
 
   function handleNextImage() {
     resetImage();
-    handleSelectNextImage();
+    selectNextImage();
   }
 
   function handlePrevImage() {
     resetImage();
-    handleSelectPrevImage();
+    selectPrevImage();
   }
 
   function resetImage() {
     resetStatus();
+    showConfirmModal = false;
 
     const transformButton = document.querySelector(".toggle-btn.transform-btn") as HTMLElement;
     transformButton.style.color = "white";
@@ -257,12 +267,12 @@
     panButton.style.color = "white";
   }
 
-  async function closeImage() {
+  async function handleCloseImage() {
     const modal = document.getElementById("image-backdrop");
     modal.classList.add("closing");
 
     modal.addEventListener("animationend", () => {
-      closeSelectedImage();
+      closeImage();
     });
   }
 
@@ -273,13 +283,13 @@
 
   function handleBackdropClick(event: MouseEvent) {
     if (event.target === event.currentTarget) {
-      closeImage();
+      handleCloseImage();
     }
   }
 
   function handleKeydown(event: KeyboardEvent) {
     if (event.key === "Escape") {
-      closeImage();
+      handleCloseImage();
     } else if (event.key === "ArrowRight") {
       handleNextImage();
     } else if (event.key === "ArrowLeft") {
@@ -317,20 +327,40 @@
     link.click();
   }
 
+  function handleSaveImage() {
+    modalAction = "save this edit of";
+    modalActionTitle = "Save Current Edit";
+    modalExtraText = "All other edits will be discarded"
+    modalConfirmFunc = saveImageEdits;
+    showConfirmModal = true;
+  }
+
   function handleDeleteImage() {
-    showConfirmDeleteModal = true;
+    modalAction = "delete";
+    modalActionTitle = "Delete Image";
+    modalExtraText = null;
+    modalConfirmFunc = deleteImage;
+    showConfirmModal = true;
   }
 
-  function handleCancelDelete() {
-    showConfirmDeleteModal = false;
+  function handleDiscardCurrentEdit() {
+    modalAction = "discard this edit of";
+    modalActionTitle = "Discard Current Edit";
+    modalExtraText = null;
+    modalConfirmFunc = deleteCurrentVersion;
+    showConfirmModal = true;
   }
 
-  function handleDiscardEdits() {
-    showConfirmDeleteEditsModal = true;
+  function handleDiscardAllEdits() {
+    modalAction = "discard all edits of";
+    modalActionTitle = "Discard All Edits";
+    modalExtraText = null;
+    modalConfirmFunc = discardEdits;
+    showConfirmModal = true;
   }
 
-  function handleCancelDiscardEdits() {
-    showConfirmDeleteEditsModal = false;
+  function handleModalCancel() {
+    showConfirmModal = false;
   }
 
   function handleCloseAlertModal() {
@@ -368,6 +398,10 @@
 
   function setAnimatedRotation(degrees: number) {
     animatedRotation.set(degrees);
+  }
+
+  function clearTransformations() {
+    transformations = {} as typeof Transformations;
   }
 </script>
 
@@ -478,13 +512,14 @@
           imageId={imageId}
           meta={meta}
           checkStatus={checkStatus}
-          closeImage={closeImage}
+          closeImage={handleCloseImage}
+          deleteImage={handleDeleteImage}
           downloadImage={downloadImage}
-          handleDeleteImage={handleDeleteImage}
-          handleDiscardEdits={handleDiscardEdits}
-          handleUpdatedImage={handleUpdatedImage}
+          discardAllEdits={handleDiscardAllEdits}
+          discardCurrentEdit={handleDiscardCurrentEdit}
+          imageUpdated={handleImageUpdated}
           resetEditStatus={resetEditStatus}
-          saveImageEdits={saveImageEdits}
+          saveImage={handleSaveImage}
           setAlertMessage={setAlertMessage}
           toggleButtonColor={toggleButtonColor}
           toggleStatus={toggleStatus}
@@ -497,8 +532,9 @@
             bind:transformations={transformations}
             width={width}
             checkEditStatus={checkEditStatus}
+            clearTransformations={clearTransformations}
             getEditStatus={getEditStatus}
-            handleUpdatedImage={handleUpdatedImage}
+            imageUpdated={handleImageUpdated}
             resetCrop={resetCrop}
             resetEditStatus={resetEditStatus}
             setAlertMessage={setAlertMessage}
@@ -522,19 +558,13 @@
     chevron_right
   </IconButton>
 
-  {#if showConfirmDeleteModal}
+  {#if showConfirmModal}
     <ConfirmModal
-      modalAction="delete"
-      modalActionTitle="Delete"
-      on:confirm={deleteImage}
-      on:cancel={handleCancelDelete}
-    />
-  {:else if showConfirmDeleteEditsModal}
-    <ConfirmModal
-      modalAction="discard all edits of"
-      modalActionTitle="Discard Edits"
-      on:confirm={discardEdits}
-      on:cancel={handleCancelDiscardEdits}
+      modalAction={modalAction}
+      modalActionTitle={modalActionTitle}
+      modalExtraText={modalExtraText}
+      on:confirm={modalConfirmFunc}
+      on:cancel={handleModalCancel}
     />
   {:else if showAlertModal}
     <AlertModal

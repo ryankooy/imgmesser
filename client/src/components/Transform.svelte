@@ -10,7 +10,8 @@
     transformations = {},
     width = 0,
     checkEditStatus,
-    handleUpdatedImage,
+    clearTransformations,
+    imageUpdated,
     resetCrop,
     resetEditStatus,
     setAlertMessage,
@@ -41,6 +42,7 @@
 
   async function transformImage() {
     if (Object.keys(transformations).length === 0) return;
+
     try {
       const response = await fetch(`${imageUrl(imageId)}/transform`, {
         method: "POST",
@@ -49,7 +51,7 @@
       });
 
       if (response.ok) {
-        await handleUpdatedImage("editing");
+        await imageUpdated();
         resetEdits();
       } else {
         setAlertMessage("Failed to transform image");
@@ -118,7 +120,7 @@
   }
 
   function resetEdits() {
-    transformations = {};
+    clearTransformations();
 
     // Reset rotate button color
     const rotateBtn = document.querySelector(".toggle-btn.rotate-btn") as HTMLElement;

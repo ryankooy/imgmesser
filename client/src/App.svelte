@@ -14,23 +14,32 @@
   import UserRegister from "./components/UserRegister.svelte";
   import UserLogin from "./components/UserLogin.svelte";
 
+  // Register the service worker, which is responsible for intercepting
+  // requests in order to authenticate users
   registerServiceWorker();
 
   onMount(() => {
     handlePageRefresh();
+
     (async () => {
+      // Set the current user
       $currentUser = await getCurrentUser();
+
+      // If no username is found, show the login page
       if ($currentUser == null) setLoginView();
     })();
   });
 
   let selectedImage: ImageData | null = $state(null);
   let selectedImageId: string | null = $state(null);
-  let showUploadModal: boolean = $state(false);
+
   let imageIds: string[] = $state([]);
-  let pagination: GalleryPagination | null = $state(null);
   let imageDataUrls: Map<string, string> = $state(new Map());
   let imageVersions: Map<string, string> = $state(new Map());
+
+  let pagination: GalleryPagination | null = $state(null);
+
+  let showUploadModal: boolean = $state(false);
 
   // Triggers for reloading gallery
   let nextImageTrigger: number = $state(0);
@@ -40,61 +49,66 @@
   let refreshAllTrigger: number = $state(0);
   let refreshOneTrigger: number = $state(0);
 
-  function handleImageSelect(image: ImageData) {
+  function handleSelectImage(image: ImageData) {
     selectedImage = image;
     selectedImageId = selectedImage.id;
   }
 
   function handleImagesLoaded(images: ImageMeta[]) {
+    // Create array of image IDs
     imageIds = images.map((img) => img.id);
 
     if (selectedImage) {
+      // Set the selected image's metadata
       selectedImage.meta = images.find((img) => img.id === selectedImageId);
     }
   }
 
-  function handleImageUpdate(status: ImageState) {
-    if (status === ImageState.Deleting) {
-      closeSelectedImage();
-      $galleryPageCache.clear();
-      refreshAllTrigger++;
-    } else {
+  function handleRefreshImage(status: ImageState) {
+    if (status === ImageState.Deleting)
+      handleRefreshGallery();
+    else
       refreshOneTrigger++;
-    }
   }
 
-  function closeSelectedImage() {
+  function handleCloseImage() {
     selectedImage = null;
     selectedImageId = null;
   }
 
   function handleSelectNextImage() {
-    if (selectedImageId) {
-      const index: number = imageIds.indexOf(selectedImageId);
+    if (!selectedImageId) return;
 
-      if (index !== -1 && index !== imageIds.length - 1) {
-        nextImageTrigger++;
-      } else if (pagination && pagination.has_more) {
-        closeSelectedImage();
-        nextPageTrigger++;
-      }
+    // Get the selected image's array index
+    const index: number = imageIds.indexOf(selectedImageId);
+
+    if (index !== -1 && index !== imageIds.length - 1) {
+      // Trigger navigation to next image
+      nextImageTrigger++;
+    } else if (pagination && pagination.has_more) {
+      // Open the first image on the next gallery page
+      handleCloseImage();
+      nextPageTrigger++;
     }
   }
 
   function handleSelectPrevImage() {
-    if (selectedImageId) {
-      const index: number = imageIds.indexOf(selectedImageId);
+    if (!selectedImageId) return;
 
-      if (index > 0) {
-        prevImageTrigger++;
-      } else if (pagination && pagination.current_page > 1) {
-        closeSelectedImage();
-        prevPageTrigger++;
-      }
+    // Get the selected image's array index
+    const index: number = imageIds.indexOf(selectedImageId);
+
+    if (index > 0) {
+      // Trigger navigation to previous image
+      prevImageTrigger++;
+    } else if (pagination && pagination.current_page > 1) {
+      // Open the last image on the previous gallery page
+      handleCloseImage();
+      prevPageTrigger++;
     }
   }
 
-  function handleSelectDataUrl(dataUrl: string) {
+  function handleSetImageDataUrl(dataUrl: string) {
     if (selectedImage) selectedImage.url = dataUrl;
   }
 
@@ -102,21 +116,21 @@
     pagination = galleryPagination;
   }
 
-  function handleUploadModalOpen() {
+  function handleOpenUploadModal() {
     showUploadModal = true;
   }
 
-  function handleUploadModalClose() {
+  function handleCloseUploadModal() {
     showUploadModal = false;
   }
 
-  function handleUploadSuccess() {
-    closeSelectedImage();
+  function handleRefreshGallery() {
+    handleCloseImage();
     $galleryPageCache.clear();
     refreshAllTrigger++;
   }
 
-  function handleLoginSuccess(username: string) {
+  function handleLogIn(username: string) {
     $currentUser = username;
     $currentView = "gallery";
   }
@@ -146,10 +160,10 @@
           refreshAll={refreshAllTrigger}
           refreshOne={refreshOneTrigger}
           selectedId={selectedImageId}
-          handleImageSelect={handleImageSelect}
-          handleImagesLoaded={handleImagesLoaded}
-          handlePaginationUpdated={handlePaginationUpdated}
-          handleUploadModalOpen={handleUploadModalOpen}
+          imagesLoaded={handleImagesLoaded}
+          openUploadModal={handleOpenUploadModal}
+          paginationUpdated={handlePaginationUpdated}
+          selectImage={handleSelectImage}
         />
 
         {#if selectedImage}
@@ -157,23 +171,23 @@
             image={selectedImage}
             imageIds={imageIds}
             pagination={pagination}
-            closeSelectedImage={closeSelectedImage}
-            handleImageUpdate={handleImageUpdate}
-            handleSelectDataUrl={handleSelectDataUrl}
-            handleSelectNextImage={handleSelectNextImage}
-            handleSelectPrevImage={handleSelectPrevImage}
+            closeImage={handleCloseImage}
+            refreshImage={handleRefreshImage}
+            selectNextImage={handleSelectNextImage}
+            selectPrevImage={handleSelectPrevImage}
+            setImageDataUrl={handleSetImageDataUrl}
           />
         {:else if showUploadModal}
           <UploadForm
-            handleUploadModalClose={handleUploadModalClose}
-            handleUploadSuccess={handleUploadSuccess}
+            closeModal={handleCloseUploadModal}
+            refreshGallery={handleRefreshGallery}
           />
         {/if}
       {:else if $currentView === "register"}
         <UserRegister setLoginView={setLoginView} />
       {:else if $currentView === "login"}
         <UserLogin
-          handleLoginSuccess={handleLoginSuccess}
+          logIn={handleLogIn}
           setRegisterView={setRegisterView}
         />
       {/if}
