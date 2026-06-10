@@ -4,7 +4,10 @@
 
 <footer>
   <div class="container">
-    <p>&copy; {currentYear} ImgMesser</p>
+    <p>
+      &copy; {currentYear} ImgMesser
+      v{PKG.version}
+    </p>
     <div class="links">
       <a href="https://github.com/ryankooy/imgmesser" target="_blank" rel="noopener">GitHub</a>
     </div>
