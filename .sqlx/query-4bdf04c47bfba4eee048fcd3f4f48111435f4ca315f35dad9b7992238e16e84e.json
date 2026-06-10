@@ -1,0 +1,15 @@
+{
+  "db_name": "PostgreSQL",
+  "query": "\n            DELETE FROM image_version\n            WHERE image_id = $1 AND version = $2\n            ",
+  "describe": {
+    "columns": [],
+    "parameters": {
+      "Left": [
+        "Uuid",
+        "Text"
+      ]
+    },
+    "nullable": []
+  },
+  "hash": "4bdf04c47bfba4eee048fcd3f4f48111435f4ca315f35dad9b7992238e16e84e"
+}
