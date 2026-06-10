@@ -27,6 +27,7 @@ pub struct Image {
     pub version_index: i64,
     pub latest_version: bool,
     pub initial_version: bool,
+    pub original_version: String,
 }
 
 impl<'a> FromRow<'a, PgRow> for Image {
@@ -50,6 +51,7 @@ impl<'a> FromRow<'a, PgRow> for Image {
             version_index: row.try_get("version_index")?,
             latest_version: row.try_get("latest_version")?,
             initial_version: row.try_get("initial_version")?,
+            original_version: row.try_get("original_version")?,
         };
 
         Ok(image)
@@ -69,6 +71,10 @@ pub struct ImageInfo {
 pub struct ImageVersion {
     pub version: String,
     pub ts: DateTime<Utc>,
+}
+
+pub struct ImageVersionOnly {
+    pub version: String,
 }
 
 /// Data for image yet to be uploaded
@@ -150,6 +156,44 @@ impl fmt::Display for ContentType {
             ContentType::UNKNOWN => write!(f, "application/octet-stream"),
         }
     }
+}
+
+#[derive(Clone, Copy, Debug, Deserialize, Serialize)]
+pub struct Resize {
+    pub width: i32,
+    pub height: i32,
+}
+
+#[derive(Clone, Copy, Debug, Deserialize, Serialize)]
+pub struct Crop {
+    pub width: u32,
+    pub height: u32,
+    pub x: u32,
+    pub y: u32,
+}
+
+#[derive(Clone, Debug, Deserialize, Serialize)]
+pub struct Options {
+    pub morphology: Option<String>,
+    pub mask: Option<String>,
+    pub radius: Option<i32>,
+}
+
+#[derive(Clone, Debug, Deserialize, Serialize)]
+pub struct Filters {
+    pub grayscale: Option<bool>,
+    pub sepia: Option<bool>,
+    pub options: Option<Options>,
+}
+
+#[derive(Clone, Debug, Deserialize, Serialize)]
+/// Image transformation specifications
+pub struct Transformations {
+    pub resize: Option<Resize>,
+    pub crop: Option<Crop>,
+    pub rotate: Option<i32>,
+    pub format: Option<String>,
+    pub filters: Option<Filters>,
 }
 
 #[cfg(test)]

@@ -11,11 +11,13 @@ db.workspace = true
 errors.workspace = true
 models.workspace = true
 s3.workspace = true
+transform.workspace = true
 
 # Non-local
 anyhow.workspace = true
 async-trait = "0.1.89"
 aws-sdk-s3.workspace = true
+bytes.workspace = true
 chrono.workspace = true
 sqlx.workspace = true
 tracing.workspace = true

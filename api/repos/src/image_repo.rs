@@ -1,5 +1,6 @@
 use async_trait::async_trait;
 use aws_sdk_s3::Client as S3Client;
+use bytes::Bytes;
 use sqlx::PgPool;
 use std::collections::HashMap;
 use std::path::Path;
@@ -9,8 +10,8 @@ use uuid::Uuid;
 use db;
 use errors::ImageError;
 use models::{
-    ContentType, Image, ImageData, ImageInfo, ImageList,
-    UploadImage, UserInfo,
+    ContentType, Image, ImageData, ImageInfo, ImageList, ImageVersionOnly,
+    Transformations, UploadImage, UserInfo,
 };
 use s3;
 
@@ -57,6 +58,12 @@ pub trait ImageRepoOps: Send + Sync {
         user: UserInfo,
     ) -> Result<()>;
 
+    async fn delete_current_version(
+        &self,
+        image_id: &str,
+        user: UserInfo,
+    ) -> Result<()>;
+
     async fn revert(
         &self,
         image_id: &str,
@@ -73,6 +80,20 @@ pub trait ImageRepoOps: Send + Sync {
         &self,
         image_id: &str,
         new_name: &str,
+        user: UserInfo,
+    ) -> Result<Option<String>>;
+
+    async fn transform(
+        &self,
+        image_id: &str,
+        specs: &Transformations,
+        user: UserInfo,
+    ) -> Result<Option<ImageVersionOnly>>;
+
+    async fn update(
+        &self,
+        image_id: &str,
+        version: &str,
         user: UserInfo,
     ) -> Result<Option<String>>;
 }
@@ -249,6 +270,36 @@ impl ImageRepoOps for ImageRepo {
         Ok(())
     }
 
+    async fn delete_current_version(
+        &self,
+        image_id: &str,
+        user: UserInfo,
+    ) -> Result<()> {
+        let image = get_image_info(&self.db, image_id, &user.username)
+            .await
+            .map_err(|e| ImageError::QueryFailure(e.to_string()))?;
+
+        // Delete the image's current version
+        if let Some(version) = db::delete_current_version(&self.db, &image.id)
+            .await
+            .map_err(|e| ImageError::QueryFailure(e.to_string()))?
+        {
+            // S3 object path of the image
+            let image_path = get_object_path(
+                &user.object_base_path,
+                &image.id,
+                &image.name,
+            );
+
+            // Delete specified version of the S3 object
+            s3::delete_object_version(&self.img_store_client, &image_path, &version)
+                .await
+                .map_err(|e| ImageError::S3OperationFailure(e.to_string()))?;
+        }
+
+        Ok(())
+    }
+
     async fn revert(
         &self,
         image_id: &str,
@@ -311,6 +362,115 @@ impl ImageRepoOps for ImageRepo {
             .map_err(|e| ImageError::QueryFailure(e.to_string()))?;
 
         Ok(image_name)
+    }
+
+    async fn transform(
+        &self,
+        image_id: &str,
+        specs: &Transformations,
+        user: UserInfo,
+    ) -> Result<Option<ImageVersionOnly>> {
+        let image = get_image_info(&self.db, image_id, &user.username)
+            .await
+            .map_err(|e| ImageError::QueryFailure(e.to_string()))?;
+
+        // S3 object path of the image
+        let image_path = get_object_path(
+            &user.object_base_path,
+            &image.id,
+            &image.name,
+        );
+
+        let data: Bytes = s3::get_object(
+            &self.img_store_client, &image_path, &image.version,
+        )
+        .await
+        .map_err(|e| ImageError::S3OperationFailure(e.to_string()))?
+        .body
+        .collect()
+        .await
+        .map_err(|_| ImageError::ReadFailure)?
+        .into_bytes();
+
+        let byte_slice: &[u8] = data.as_ref();
+        let content_type = ContentType::from_int(image.content_type);
+
+        let transformed_image = transform::transform_image(
+            byte_slice,
+            &content_type,
+            specs
+        )
+        .map_err(|e| ImageError::TransformFailure(e.to_string()))?;
+
+        match transformed_image {
+            Some(image_data) => {
+                let data = Bytes::from(image_data);
+
+                if let Some(version) = update_object_version(
+                    &self.db,
+                    &self.img_store_client,
+                    &image,
+                    image_path,
+                    data,
+                    &user.username,
+                )
+                .await? {
+                    Ok(Some(ImageVersionOnly { version }))
+                } else {
+                    Ok(None)
+                }
+            }
+            None => Ok(None),
+        }
+    }
+
+    async fn update(
+        &self,
+        image_id: &str,
+        version: &str,
+        user: UserInfo,
+    ) -> Result<Option<String>> {
+        let image = get_image_info(&self.db, image_id, &user.username)
+            .await
+            .map_err(|e| ImageError::QueryFailure(e.to_string()))?;
+
+        // S3 object path of the image
+        let image_path = get_object_path(
+            &user.object_base_path,
+            &image.id,
+            &image.name,
+        );
+
+        let new_current_version = db::set_image_version(
+            &self.db,
+            &image.id,
+            version,
+            &user.username,
+        )
+        .await
+        .map_err(|e| ImageError::QueryFailure(e.to_string()))?;
+
+        if let Some(ref new_version) = new_current_version {
+            if new_version != version {
+                return Ok(None);
+            }
+        }
+
+        // Delete previous object versions
+        if let Some(output) = s3::delete_previous_versions(
+            &self.img_store_client,
+            &image_path,
+            version,
+        )
+        .await
+        .map_err(|e| ImageError::S3OperationFailure(e.to_string()))?
+        {
+            for i in output.errors() {
+                eprintln!("error: {:?}", i);
+            }
+        }
+
+        Ok(new_current_version)
     }
 }
 
@@ -409,4 +569,60 @@ async fn upload_image(
     }
 
     Ok(())
+}
+
+/// Using the given image bytes, upload a new version of an existing image
+/// to S3 and store metadata in the database.
+async fn update_object_version(
+    db: &PgPool,
+    s3_client: &S3Client,
+    image_info: &ImageInfo,
+    image_path: String,
+    data: Bytes,
+    username: &str,
+) -> Result<Option<String>> {
+    let image: Option<Image> = match db::find_image_with_version_info(
+        &db,
+        &image_info.id,
+        username,
+    )
+    .await {
+        Ok(img) => img,
+        Err(e) => {
+            error!("Error getting image and version metadata: {}", e);
+            None
+        }
+    };
+
+    let image_size = data.len();
+    let dimensions: (u32, u32) = transform::get_dimensions(&data)
+        .map_err(|e| ImageError::TransformFailure(e.to_string()))?;
+
+    let output = s3::upload_object(
+        s3_client,
+        data,
+        &image_path,
+    )
+    .await
+    .map_err(|e| ImageError::S3OperationFailure(e.to_string()))?;
+
+    if let Some(image_details) = image {
+        if let Some(version) = output.version_id() {
+            // Add the image object version in the db
+            if let Err(e) = db::insert_image_version(
+                db,
+                &image_details.id,
+                version,
+                dimensions,
+                image_size,
+            )
+            .await {
+                error!("Image version insert failed: {}", e);
+            }
+
+            return Ok(Some(version.to_string()))
+        }
+    }
+
+    Ok(None)
 }

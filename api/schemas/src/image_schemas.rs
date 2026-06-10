@@ -6,6 +6,11 @@ pub struct ImageRenameRequest {
 }
 
 #[derive(Deserialize)]
+pub struct ImageVersionRequest {
+    pub version: String,
+}
+
+#[derive(Deserialize)]
 pub struct PaginationParams {
     #[serde(default = "default_page")]
     pub page: u32,
@@ -21,3 +26,9 @@ fn default_limit() -> u32 { 10 }
 pub struct ImageUpdateResponse {
     pub updated: bool,
 }
+
+#[derive(Serialize)]
+pub struct ImageVersionResponse {
+    pub version: String,
+}
+

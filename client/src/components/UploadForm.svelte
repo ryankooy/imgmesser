@@ -1,10 +1,9 @@
 <script lang="ts">
-  import { createEventDispatcher } from "svelte";
   import IconButton from "@smui/icon-button";
   import { currentUser } from "../store.ts";
   import { getCurrentUser, imageUploadUrl } from "../utils/api.ts";
 
-  const dispatch = createEventDispatcher();
+  let { closeModal, refreshGallery } = $props();
 
   let selectedFiles: File[] = $state([]);
   let previewUrls: string[] = $state([]);
@@ -92,7 +91,7 @@
 
       if (response.ok) {
         showMessage("Image(s) uploaded successfully", "success");
-        dispatch("uploadSuccess");
+        refreshGallery();
 
         // Reset form after successful upload
         setTimeout(() => {
@@ -131,7 +130,7 @@
     modal.classList.add("closing");
 
     modal.addEventListener("animationend", () => {
-      dispatch("close");
+      closeModal();
     });
   }
 
@@ -184,13 +183,13 @@
           </div>
         {/if}
 
-        <button
-          class="btn"
+        <IconButton
+          class="material-icons icon-btn"
           onclick={uploadImage}
           disabled={!selectedFiles.length || uploading}
           >
-          {uploading ? "Uploading..." : "Upload"}
-        </button>
+          cloud_upload
+        </IconButton>
 
         {#if message}
           <div class="message {messageType}">

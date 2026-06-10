@@ -1,8 +1,7 @@
 <script lang="ts">
-  import { createEventDispatcher } from "svelte";
   import { userRegisterUrl } from "../utils/api.ts";
 
-  const dispatch = createEventDispatcher();
+  let { setLoginView } = $props();
 
   interface Message {
     msg: string;
@@ -109,7 +108,7 @@
     const confirmPasswordInput = document.getElementById("confirmPassword") as HTMLInputElement;
     if (confirmPasswordInput) confirmPasswordInput.value = "";
 
-    dispatch("registrationSuccess");
+    setLoginView();
   }
 </script>
 

@@ -1,4 +1,4 @@
-import { apiPath } from "../store.ts";
+import { apiPath, currentUser } from "../store.ts";
 import type { ImageMeta } from "../store.ts";
 
 export function userLoginUrl(): string {
@@ -51,14 +51,15 @@ export const logOut = async (): boolean => {
 
 export const getImageDataUrl = async (imageId: string): object | null => {
     try {
-      const response = await fetch(imageUrl(imageId));
-      if (response.ok) {
-        const blob = await response.blob();
-        const dataUrl = URL.createObjectURL(blob);
-        return dataUrl;
-      }
+        const response = await fetch(imageUrl(imageId));
+
+        if (response.ok) {
+            const blob = await response.blob();
+            const dataUrl = URL.createObjectURL(blob);
+            return dataUrl;
+        }
     } catch (error) {
-      console.error("Failed to fetch image data:", error);
+        console.error("Failed to fetch image data:", error);
     }
 
     return null;
@@ -66,14 +67,34 @@ export const getImageDataUrl = async (imageId: string): object | null => {
 
 export const getImageMetadata = async (imageId: string): ImageMeta | null => {
     try {
-      const response = await fetch(`${imageUrl(imageId)}/meta`);
-      if (response.ok) {
-        const data = await response.json();
-        return data;
-      }
+        const response = await fetch(`${imageUrl(imageId)}/meta`);
+
+        if (response.ok) {
+            const data = await response.json();
+            return data;
+        }
     } catch (error) {
-      console.error("Failed to fetch image metadata:", error);
+        console.error("Failed to fetch image metadata:", error);
     }
 
     return null;
+}
+
+export const updateImage = async (imageId: string, dataUrl: string): boolean => {
+    try {
+        const formData = new FormData();
+        formData.append("user", $currentUser);
+        formData.append("files[]", dataUrl);
+
+        const response = await fetch(`${apiPath}/images/${encodeURIComponent(imageId)}/update`, {
+            method: "POST",
+            body: formData,
+        });
+
+        return response.ok;
+    } catch (error) {
+        console.error("Failed to fetch image update response:", error);
+    }
+
+    return false;
 }

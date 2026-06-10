@@ -1,6 +1,6 @@
 <script lang="ts">
   import { onMount } from "svelte";
-  import { currentView, currentUser, galleryPageCache } from "./store.ts";
+  import { currentView, currentUser, galleryPageCache, ImageState } from "./store.ts";
   import type { GalleryPagination, ImageData, ImageMeta } from "./store.ts";
   import { getCurrentUser } from "./utils/api.ts";
   import { handlePageRefresh, registerServiceWorker } from "./utils/app.ts";
@@ -9,26 +9,37 @@
   import Header from "./components/Header.svelte";
   import Footer from "./components/Footer.svelte";
   import UploadForm from "./components/UploadForm.svelte";
-  import ImageGallery from "./components/ImageGallery.svelte";
-  import ImageViewer from "./components/ImageViewer.svelte";
+  import Gallery from "./components/Gallery.svelte";
+  import Image from "./components/Image.svelte";
   import UserRegister from "./components/UserRegister.svelte";
   import UserLogin from "./components/UserLogin.svelte";
 
+  // Register the service worker, which is responsible for intercepting
+  // requests in order to authenticate users
   registerServiceWorker();
 
   onMount(() => {
     handlePageRefresh();
+
     (async () => {
+      // Set the current user
       $currentUser = await getCurrentUser();
+
+      // If no username is found, show the login page
       if ($currentUser == null) setLoginView();
     })();
   });
 
   let selectedImage: ImageData | null = $state(null);
   let selectedImageId: string | null = $state(null);
-  let showUploadModal: boolean = $state(false);
+
   let imageIds: string[] = $state([]);
+  let imageDataUrls: Map<string, string> = $state(new Map());
+  let imageVersions: Map<string, string> = $state(new Map());
+
   let pagination: GalleryPagination | null = $state(null);
+
+  let showUploadModal: boolean = $state(false);
 
   // Triggers for reloading gallery
   let nextImageTrigger: number = $state(0);
@@ -38,87 +49,89 @@
   let refreshAllTrigger: number = $state(0);
   let refreshOneTrigger: number = $state(0);
 
-  function handleImageSelect(event: CustomEvent<ImageData>) {
-    selectedImage = event.detail;
+  function handleSelectImage(image: ImageData) {
+    selectedImage = image;
     selectedImageId = selectedImage.id;
   }
 
-  function handleImagesLoaded(event: CustomEvent<ImageMeta[]>) {
-    const images = event.detail;
+  function handleImagesLoaded(images: ImageMeta[]) {
+    // Create array of image IDs
     imageIds = images.map((img) => img.id);
 
     if (selectedImage) {
+      // Set the selected image's metadata
       selectedImage.meta = images.find((img) => img.id === selectedImageId);
     }
   }
 
-  function handleImageUpdate(event: Event) {
-    const imageDeleted = event.detail;
-
-    if (imageDeleted) {
-      closeSelectedImage();
-      $galleryPageCache.clear();
-      refreshAllTrigger++;
-    } else {
+  function handleRefreshImage(status: ImageState) {
+    if (status === ImageState.Deleting)
+      handleRefreshGallery();
+    else
       refreshOneTrigger++;
-    }
   }
 
-  function closeSelectedImage() {
+  function handleCloseImage() {
     selectedImage = null;
     selectedImageId = null;
   }
 
   function handleSelectNextImage() {
-    if (selectedImageId) {
-      const index: number = imageIds.indexOf(selectedImageId);
+    if (!selectedImageId) return;
 
-      if (index !== -1 && index !== imageIds.length - 1) {
-        nextImageTrigger++;
-      } else if (pagination && pagination.has_more) {
-        closeSelectedImage();
-        nextPageTrigger++;
-      }
+    // Get the selected image's array index
+    const index: number = imageIds.indexOf(selectedImageId);
+
+    if (index !== -1 && index !== imageIds.length - 1) {
+      // Trigger navigation to next image
+      nextImageTrigger++;
+    } else if (pagination && pagination.has_more) {
+      // Open the first image on the next gallery page
+      handleCloseImage();
+      nextPageTrigger++;
     }
   }
 
   function handleSelectPrevImage() {
-    if (selectedImageId) {
-      const index: number = imageIds.indexOf(selectedImageId);
+    if (!selectedImageId) return;
 
-      if (index > 0) {
-        prevImageTrigger++;
-      } else if (pagination && pagination.current_page > 1) {
-        closeSelectedImage();
-        prevPageTrigger++;
-      }
+    // Get the selected image's array index
+    const index: number = imageIds.indexOf(selectedImageId);
+
+    if (index > 0) {
+      // Trigger navigation to previous image
+      prevImageTrigger++;
+    } else if (pagination && pagination.current_page > 1) {
+      // Open the last image on the previous gallery page
+      handleCloseImage();
+      prevPageTrigger++;
     }
   }
 
-  function handleSelectDataUrl(event: Event) {
-    if (selectedImage) selectedImage.url = event.detail;
+  function handleSetImageDataUrl(dataUrl: string) {
+    if (selectedImage) selectedImage.url = dataUrl;
   }
 
-  function handlePaginationUpdated(event: CustomEvent<GalleryPagination>) {
-    pagination = event.detail;
+  function handlePaginationUpdated(galleryPagination: GalleryPagination) {
+    pagination = galleryPagination;
   }
 
-  function handleUploadModalOpen() {
+  function handleOpenUploadModal() {
     showUploadModal = true;
   }
 
-  function handleUploadModalClose() {
+  function handleCloseUploadModal() {
     showUploadModal = false;
   }
 
-  function handleUploadSuccess() {
-    closeSelectedImage();
+  function handleRefreshGallery() {
+    handleCloseImage();
     $galleryPageCache.clear();
     refreshAllTrigger++;
   }
 
-  function handleLoginSuccess(event: Event) {
-    $currentUser = event.detail;
+  function handleLogIn(username: string) {
+    $currentUser = username;
     $currentView = "gallery";
   }
 
@@ -137,7 +150,9 @@
   <main>
     <div class="container">
       {#if $currentView === "gallery"}
-        <ImageGallery
+        <Gallery
+          imageDataUrls={imageDataUrls}
+          imageVersions={imageVersions}
           nextImageTrigger={nextImageTrigger}
           nextPageTrigger={nextPageTrigger}
           prevImageTrigger={prevImageTrigger}
@@ -145,37 +160,35 @@
           refreshAll={refreshAllTrigger}
           refreshOne={refreshOneTrigger}
           selectedId={selectedImageId}
-          on:imageSelect={handleImageSelect}
-          on:imagesLoaded={handleImagesLoaded}
-          on:paginationUpdated={handlePaginationUpdated}
-          on:upload={handleUploadModalOpen}
+          imagesLoaded={handleImagesLoaded}
+          openUploadModal={handleOpenUploadModal}
+          paginationUpdated={handlePaginationUpdated}
+          selectImage={handleSelectImage}
         />
 
         {#if selectedImage}
-          <ImageViewer
+          <Image
             image={selectedImage}
             imageIds={imageIds}
             pagination={pagination}
-            on:close={closeSelectedImage}
-            on:imageUpdate={handleImageUpdate}
-            on:selectDataUrl={handleSelectDataUrl}
-            on:selectNextImage={handleSelectNextImage}
-            on:selectPrevImage={handleSelectPrevImage}
+            closeImage={handleCloseImage}
+            refreshImage={handleRefreshImage}
+            selectNextImage={handleSelectNextImage}
+            selectPrevImage={handleSelectPrevImage}
+            setImageDataUrl={handleSetImageDataUrl}
           />
         {:else if showUploadModal}
           <UploadForm
-            on:close={handleUploadModalClose}
-            on:uploadSuccess={handleUploadSuccess}
+            closeModal={handleCloseUploadModal}
+            refreshGallery={handleRefreshGallery}
           />
         {/if}
       {:else if $currentView === "register"}
-        <UserRegister
-          on:registrationSuccess={setLoginView}
-        />
+        <UserRegister setLoginView={setLoginView} />
       {:else if $currentView === "login"}
         <UserLogin
-          on:loginSuccess={handleLoginSuccess}
-          on:registerClicked={setRegisterView}
+          logIn={handleLogIn}
+          setRegisterView={setRegisterView}
         />
       {/if}
     </div>

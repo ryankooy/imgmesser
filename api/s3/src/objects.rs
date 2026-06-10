@@ -1,11 +1,13 @@
 use aws_sdk_s3::{
     operation::{
         delete_object::DeleteObjectOutput,
+        delete_objects::DeleteObjectsOutput,
         get_object::GetObjectOutput,
         list_objects_v2::ListObjectsV2Output,
         put_object::PutObjectOutput,
     },
     primitives::ByteStream,
+    types::{ObjectIdentifier, Delete},
     Client,
 };
 use bytes::Bytes;
@@ -83,6 +85,89 @@ pub async fn delete_object(
         .await?;
 
     Ok(object)
+}
+
+/// Delete specific version of object from S3 bucket.
+pub async fn delete_object_version(
+    client: &Client,
+    object_key: &str,
+    version_id: &str,
+) -> Result<DeleteObjectOutput> {
+    let bucket_name = get_bucket_name().await;
+    let object = client
+        .delete_object()
+        .bucket(bucket_name)
+        .key(object_key.to_string())
+        .version_id(version_id)
+        .send()
+        .await?;
+
+    Ok(object)
+}
+
+/// Delete object from S3 bucket.
+pub async fn delete_previous_versions(
+    client: &Client,
+    object_key: &str,
+    current_version_id: &str,
+) -> Result<Option<DeleteObjectsOutput>> {
+    // Fetch object's versions and delete markers
+    let output = client
+        .list_object_versions()
+        .bucket(get_bucket_name().await)
+        .prefix(object_key.to_string())
+        .send()
+        .await?;
+
+    let mut to_delete = Vec::new();
+
+    // Identify non-current versions
+    for version in output.versions() {
+        if let Some(version_id) = version.version_id() {
+            if version_id != current_version_id {
+                if let Ok(object_id) = ObjectIdentifier::builder()
+                    .set_key(version.key().map(|s| s.to_string()))
+                    .set_version_id(Some(version_id.to_string()))
+                    .build()
+                {
+                    to_delete.push(object_id);
+                }
+            }
+        }
+    }
+
+    // Identify old delete markers
+    //if let Some(markers) = output.delete_markers() {
+    for marker in output.delete_markers() {
+        if !marker.is_latest().unwrap_or(true) {
+            if let Ok(object_id) = ObjectIdentifier::builder()
+                .set_key(marker.key().map(|s| s.to_string()))
+                .set_version_id(marker.version_id.clone())
+                .build()
+            {
+                to_delete.push(object_id);
+            }
+        }
+    }
+
+    if !to_delete.is_empty() {
+        if let Ok(delete_request) = Delete::builder()
+            .set_objects(Some(to_delete))
+            .build()
+        {
+            // Do the deletes
+            let delete_output = client
+                .delete_objects()
+                .bucket(get_bucket_name().await)
+                .delete(delete_request)
+                .send()
+                .await?;
+
+            return Ok(Some(delete_output));
+        }
+    }
+
+    Ok(None)
 }
 
 async fn get_bucket_name() -> String {
