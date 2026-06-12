@@ -122,7 +122,7 @@ pub async fn upload_images(
 
                 let image = parse_image_data(field, content_type)
                     .await
-                    .map_err(|_| ImageError::ReadFailure)?;
+                    .map_err(|e| ImageError::ReadFailure(e.to_string()))?;
 
                 images.push(image);
             }
