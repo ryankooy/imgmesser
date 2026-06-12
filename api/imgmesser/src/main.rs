@@ -2,6 +2,7 @@
 
 use anyhow::Result;
 use axum::{
+    extract::DefaultBodyLimit,
     http::{header, method::Method},
     routing::{get, post},
     Router,
@@ -76,6 +77,8 @@ async fn main() -> Result<()> {
         .layer(
             ServiceBuilder::new()
                 .layer(cors)
+                // Limit max size of request bodies to 250 MB
+                .layer(DefaultBodyLimit::max(250 * 1024 * 1024))
         )
         .layer(
             TraceLayer::new_for_http()
