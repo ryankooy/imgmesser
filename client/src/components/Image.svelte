@@ -503,6 +503,10 @@
             <span class="label">Uploaded</span>
             <span class="value">{formatDate(meta.created_at)}</span>
           </div>
+          <div class="detail-item">
+            <span class="label">Modified</span>
+            <span class="value">{formatDate(meta.last_modified)}</span>
+          </div>
         </div>
       </div>
 
