@@ -70,7 +70,7 @@ pub async fn find_image(
         r#"
         SELECT i.id, i.name, i.username, i.content_type, v.version
         FROM image AS i
-        LEFT JOIN image_version AS v
+        JOIN image_version AS v
             ON v.image_id = i.id
         WHERE v.current
             AND i.id = $1
@@ -128,11 +128,11 @@ pub async fn find_image_with_version_info(
             v.idx = 1 AS initial_version,
             ov.original_version
         FROM image_info AS i
-        LEFT JOIN current_version AS v
+        JOIN current_version AS v
             ON TRUE
-        LEFT JOIN version_count AS vc
+        JOIN version_count AS vc
             ON TRUE
-        LEFT JOIN original_version AS ov
+        JOIN original_version AS ov
             ON TRUE
         "#,
     )
@@ -202,11 +202,11 @@ pub async fn find_all_images(
             v.idx = 1 AS initial_version,
             ov.original_version
         FROM images AS i
-        LEFT JOIN current_version AS v
+        JOIN current_version AS v
             ON v.image_id = i.id
-        LEFT JOIN version_count AS vc
+        JOIN version_count AS vc
             ON vc.image_id = i.id
-        LEFT JOIN original_version AS ov
+        JOIN original_version AS ov
             ON ov.image_id = i.id
         "#,
     )
