@@ -5,10 +5,9 @@ use axum::{
 
 #[derive(Debug)]
 pub enum ImageError {
-    UploadFailure,
     MissingMultipartField,
     InvalidFileType,
-    ReadFailure,
+    ReadFailure(String),
     S3OperationFailure(String),
     QueryFailure(String),
     NotFound,
@@ -19,12 +18,6 @@ pub enum ImageError {
 impl IntoResponse for ImageError {
     fn into_response(self) -> Response {
         let (status, error_message) = match self {
-            ImageError::UploadFailure => {
-                (
-                    StatusCode::INTERNAL_SERVER_ERROR,
-                    "Image upload failed".to_string(),
-                )
-            }
             ImageError::MissingMultipartField => {
                 (
                     StatusCode::BAD_REQUEST,
@@ -37,10 +30,10 @@ impl IntoResponse for ImageError {
                     "Invalid file type; not an image file".to_string(),
                 )
             }
-            ImageError::ReadFailure => {
+            ImageError::ReadFailure(e) => {
                 (
                     StatusCode::INTERNAL_SERVER_ERROR,
-                    "Error reading image".to_string(),
+                    format!("Error reading image: {}", e),
                 )
             }
             ImageError::S3OperationFailure(e) => {

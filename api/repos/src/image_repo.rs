@@ -143,7 +143,7 @@ impl ImageRepoOps for ImageRepo {
         .body
         .collect()
         .await
-        .map_err(|_| ImageError::ReadFailure)?
+        .map_err(|e| ImageError::ReadFailure(e.to_string()))?
         .into_bytes();
 
         let content_type = ContentType::from_int(image.content_type)
@@ -389,7 +389,7 @@ impl ImageRepoOps for ImageRepo {
         .body
         .collect()
         .await
-        .map_err(|_| ImageError::ReadFailure)?
+        .map_err(|e| ImageError::ReadFailure(e.to_string()))?
         .into_bytes();
 
         let byte_slice: &[u8] = data.as_ref();
