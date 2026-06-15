@@ -1,5 +1,5 @@
-import { defineConfig } from 'vite';
-import { svelte } from '@sveltejs/vite-plugin-svelte';
+import { defineConfig } from "vitest/config";
+import { svelte } from "@sveltejs/vite-plugin-svelte";
 
 export default defineConfig({
   plugins: [svelte()],
@@ -7,4 +7,6 @@ export default defineConfig({
     host: "127.0.0.1",
     port: 5173,
   },
+  // Tell Vitest to use browser entry points in package.json
+  resolve: process.env.VITEST ? { conditions: ["browser"] } : undefined
 });
