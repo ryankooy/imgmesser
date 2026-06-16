@@ -55,7 +55,7 @@ h2 {
     background: none;
     color: var(--im-text);
     border: none;
-    font-size: 24px;
+    font-size: 22px;
     cursor: pointer;
     display: flex;
     align-items: center;
@@ -98,6 +98,21 @@ h2 {
 
 .icon-btn.close-btn.low-opac:active:not(:disabled) {
     opacity: 0.9;
+}
+
+.selected {
+    color: var(--im-header-gold);
+}
+
+.actions-section {
+    padding: 2px 3px;
+    margin: 3px;
+}
+
+.actions {
+    justify-content: center;
+    display: flex;
+    gap: 8px;
 }
 
 .spinner {

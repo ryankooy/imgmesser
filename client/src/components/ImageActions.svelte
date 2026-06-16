@@ -2,6 +2,7 @@
   import IconButton from "@smui/icon-button";
   import { EditState, ImageState, imageDataUrlCache } from "../store.ts";
   import { imageUrl } from "../utils/api.ts";
+  import DropdownMenu from "./DropdownMenu.svelte";
 
   let {
     imageDataUrl = "",
@@ -21,7 +22,53 @@
     toggleStatus,
   } = $props();
 
+  interface MenuItem {
+    title: string;
+    iconName: string;
+    func: (() => void) | null;
+  }
+
+  interface Menu {
+    title: string;
+    iconName: string;
+    items: MenuItem[];
+  }
+
   const multiVersion: boolean = $derived(meta.version_count > 1);
+
+  const saveMenu: Menu = {
+    title: "Save options",
+    iconName: "save",
+    items: [
+      {
+        title: "Save current edit",
+        iconName: "save",
+        func: () => saveImage(),
+      },
+      {
+        title: "Save current edit as...",
+        iconName: "save_as",
+        func: null,
+      },
+    ],
+  };
+
+  const discardMenu: Menu = {
+    title: "Discard options",
+    iconName: "delete",
+    items: [
+      {
+        title: "Discard current edit",
+        iconName: "delete",
+        func: () => discardCurrentEdit(),
+      },
+      {
+        title: "Discard all edits",
+        iconName: "delete_sweep",
+        func: () => discardAllEdits(),
+      },
+    ],
+  };
 
   async function undoEdit() {
     try {
@@ -88,15 +135,6 @@
 <div>
   <div class="actions-section">
     <div class="actions">
-      <!-- Transform button -->
-      <IconButton
-        title="Toggle transform tools"
-        class="material-icons icon-btn toggle-btn transform-btn"
-        onclick={toggleTransform}
-        disabled={!imageDataUrl || checkStatus(ImageState.Panning) || typeIsGif()}
-        >
-        transform
-      </IconButton>
       <!-- Pan tool button -->
       <IconButton
         title="Pan tool"
@@ -105,6 +143,15 @@
         disabled={!imageDataUrl || checkStatus(ImageState.Transforming)}
         >
         pan_tool
+      </IconButton>
+      <!-- Transform button -->
+      <IconButton
+        title="Toggle transform tools"
+        class="material-icons icon-btn toggle-btn transform-btn"
+        onclick={toggleTransform}
+        disabled={!imageDataUrl || checkStatus(ImageState.Panning) || typeIsGif()}
+        >
+        transform
       </IconButton>
       <!-- Download button -->
       <IconButton
@@ -136,7 +183,7 @@
     </div>
   </div>
 
-  {#if multiVersion && !typeIsGif()}
+  {#if multiVersion}
     <div class="actions-section">
       <div class="actions">
         <!-- Unto button -->
@@ -144,7 +191,7 @@
           title="Undo change"
           class="material-icons icon-btn"
           onclick={undoEdit}
-          disabled={!imageDataUrl || !multiVersion || meta.initial_version}
+          disabled={!imageDataUrl || meta.initial_version}
           >
           undo
         </IconButton>
@@ -153,54 +200,47 @@
           title="Redo change"
           class="material-icons icon-btn"
           onclick={redoEdit}
-          disabled={!imageDataUrl || !multiVersion || meta.latest_version}
+          disabled={!imageDataUrl || meta.latest_version}
           >
           redo
         </IconButton>
-        <!-- Save button -->
-        <IconButton
-          title="Save current edit"
-          class="material-icons icon-btn"
-          onclick={saveImage}
-          disabled={!imageDataUrl || !multiVersion || meta.initial_version}
-          >
-          save
-        </IconButton>
-        <!-- Discard current edit button -->
-        <IconButton
-          title="Discard current edit"
-          class="material-icons icon-btn delete-btn"
-          onclick={discardCurrentEdit}
-          disabled={!imageDataUrl || !multiVersion || meta.initial_version}
-          >
-          delete
-        </IconButton>
-        <!-- Discard all edits button -->
-        <IconButton
-          title="Discard all edits"
-          class="material-icons icon-btn delete-btn"
-          onclick={discardAllEdits}
-          disabled={!imageDataUrl || !multiVersion}
-          >
-          delete_sweep
-        </IconButton>
+
+        {#if meta.initial_version}
+          <!-- Save-as button -->
+          <IconButton
+            title="Save image as..."
+            class="material-icons icon-btn"
+            disabled={!imageDataUrl}
+            >
+            save_as
+          </IconButton>
+          <!-- Discard all edits button -->
+          <IconButton
+            title="Discard all edits"
+            class="material-icons icon-btn delete-btn"
+            onclick={discardAllEdits}
+            disabled={!imageDataUrl}
+            >
+            delete_sweep
+          </IconButton>
+        {:else}
+          <!-- Save-edit dropdown -->
+          <DropdownMenu
+            imageDataUrl={imageDataUrl}
+            menu={saveMenu}
+          />
+          <!-- Discard-edit dropdown -->
+          <DropdownMenu
+            imageDataUrl={imageDataUrl}
+            menu={discardMenu}
+          />
+        {/if}
       </div>
     </div>
   {/if}
 </div>
 
 <style>
-  .actions-section {
-    padding: 2px 3px;
-    margin: 3px;
-  }
-
-  .actions {
-    justify-content: flex-start;
-    display: flex;
-    gap: 8px;
-  }
-
   :global(.delete-btn:hover:not(:disabled)) {
     background: var(--im-warn);
   }

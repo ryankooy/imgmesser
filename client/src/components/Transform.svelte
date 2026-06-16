@@ -506,12 +506,7 @@
     font-style: oblique;
   }
 
-  .actions-section {
-    padding: 2px 3px;
-    margin: 3px;
-  }
-
-  .actions-section.filter-btns {
+  .filter-btns {
     display: flex;
     justify-content: center;
   }
@@ -527,12 +522,6 @@
     margin: 3px;
     flex-direction: column;
     justify-content: center;
-  }
-
-  .actions {
-    justify-content: flex-start;
-    display: flex;
-    gap: 8px;
   }
 
   .action-btn {
