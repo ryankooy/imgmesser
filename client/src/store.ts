@@ -77,11 +77,29 @@ export interface Transformations {
     resize: Resize | null;
     crop: Crop | null;
     rotate: number | null;
-    format: string | null;
+format: string | null;
     filters: Filters | null;
 }
 
-export const enum ImageState {
+// Icon menu item properties
+export interface IconMenuItem {
+    title: string;
+    iconName: string;
+    handleClick: (() => void) | null;
+}
+
+// Icon menu properties
+export interface IconMenu {
+    title: string;
+    iconName: string;
+    handleClick: (() => void) | null;
+    handleClickOutside: (() => void) | null;
+    toggleFunc: ((boolean) => void) | null;
+    items: IconMenuItem[];
+}
+
+// Image statuses
+export const enum ImageStatus {
     None,
     Loading,
     Transforming,
@@ -92,7 +110,8 @@ export const enum ImageState {
     Deleting,
 }
 
-export const enum EditState {
+// Image editing statuses
+export const enum EditStatus {
     None,
     Rotating,
     Cropping,

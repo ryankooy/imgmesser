@@ -1,26 +1,24 @@
 <script lang="ts">
   import IconButton from "@smui/icon-button";
   import { imageUrl } from "../utils/api.ts";
-  import { EditState, ImageState } from "../store.ts";
+  import { EditStatus, ImageStatus } from "../store.ts";
 
   let {
+    editStatus = $bindable(),
     height = 0,
     imageDataUrl = "",
     imageId = null,
+    status = $bindable(),
     transformations = {},
+    transformMenuOpen = false,
     width = 0,
-    checkEditStatus,
     clearTransformations,
     imageUpdated,
     resetCrop,
-    resetEditStatus,
     setAlertMessage,
     setAnimatedRotation,
     setAspect,
-    setEditStatus,
-    setStatus,
     toggleButtonColor,
-    toggleEditStatus,
   } = $props();
 
   let rotation: number = $state(0);
@@ -29,6 +27,7 @@
 
   let resizeWidth: number = $derived(width);
   let resizeHeight: number = $derived(height);
+  let resizeApplied: boolean = $state(false);
 
   let settingFilters: boolean = $state(false);
   let grayscaling: boolean = $state(false);
@@ -62,25 +61,27 @@
   }
 
   function toggleRotate(node: PointerEvent) {
-    toggleEditStatus(EditState.Rotating);
-    toggleButtonColor(node, checkEditStatus(EditState.Rotating));
+    editStatus.toggle(EditStatus.Rotating);
+    toggleButtonColor(node, editStatus.check(EditStatus.Rotating));
 
-    if (!checkEditStatus(EditState.Rotating)) resetRotate();
+    if (!editStatus.check(EditStatus.Rotating)) resetRotate();
   }
 
   function toggleFilters(node: PointerEvent) {
-    toggleEditStatus(EditState.SettingFilters);
-    toggleButtonColor(node, checkEditStatus(EditState.SettingFilters));
+    editStatus.toggle(EditStatus.SettingFilters);
+    toggleButtonColor(node, editStatus.check(EditStatus.SettingFilters));
 
-    if (!checkEditStatus(EditState.SettingFilters)) resetFilters();
+    if (!editStatus.check(EditStatus.SettingFilters)) resetFilters();
   }
 
   async function rotateImageRight() {
+    editStatus.set(EditStatus.Rotating);
+
     if (rotation === 270) {
       if (!!transformations.rotate) delete transformations.rotate;
       rotation = 0;
+      rotateApplied = false;
     } else {
-      setEditStatus(EditState.Rotating);
       rotation += 90;
       transformations.rotate = rotation;
       rotateApplied = true;
@@ -91,17 +92,18 @@
   }
 
   async function rotateImageLeft() {
-    setEditStatus(EditState.Rotating);
+    editStatus.set(EditStatus.Rotating);
 
-    if (rotation === 0) {
-      rotation = 270;
-      transformations.rotate = rotation;
-      rotateApplied = true;
-    } else if (rotation === 90) {
+    if (rotation === 90) {
       if (!!transformations.rotate) delete transformations.rotate;
       rotation = 0;
+      rotateApplied = false;
     } else {
-      rotation -= 90;
+      if (rotation === 0)
+        rotation = 270;
+      else
+        rotation -= 90;
+
       transformations.rotate = rotation;
       rotateApplied = true;
     }
@@ -111,9 +113,7 @@
   }
 
   async function applyEdits() {
-    setStatus(ImageState.Loading);
-
-    if (checkEditStatus(EditState.Resizing)) resizeImage();
+    status.set(ImageStatus.Loading);
     if (grayscaling) grayscaleImage();
 
     await transformImage();
@@ -134,7 +134,8 @@
     resetRotate();
     resetResize();
     resetFilters();
-    resetEditStatus();
+    editStatus.reset();
+    status.reset();
   }
 
   function resetRotate() {
@@ -144,11 +145,17 @@
   }
 
   function resizeImage() {
-    if (resizeWidth !== width || resizeHeight !== height)
+    if (resizeWidth !== width || resizeHeight !== height) {
       transformations.resize = { width: resizeWidth, height: resizeHeight };
+      resizeApplied = true;
+    } else {
+      if (!!transformations.resize) delete transformations.resize;
+      if (resizeApplied) resizeApplied = false;
+    }
   }
 
   function resetResize() {
+    resizeApplied = false;
     resizeWidth = width;
     resizeHeight = height;
   }
@@ -197,7 +204,7 @@
   }
 
   function resetFilters() {
-    resetEditStatus();
+    editStatus.reset();
     resetGrayscale();
     sepia = false;
   }
@@ -206,298 +213,264 @@
     const target = event.currentTarget as HTMLInputElement;
     resizeWidth = parseInt(target.value, 10);
     resizeHeight = Math.round((resizeWidth * height) / width);
+    resizeImage();
   }
 
   function handleHeightInput(event: Event) {
     const target = event.currentTarget as HTMLInputElement;
     resizeHeight = parseInt(target.value, 10);
     resizeWidth = Math.round((resizeHeight * width) / height);
+    resizeImage();
   }
 
-  function otherEditInProgress(stat: EditState): boolean {
-    return !(checkEditStatus(stat) || checkEditStatus(EditState.None));
+  function transformApplied(): boolean {
+    return sepia || grayscaleApplied || resizeApplied || rotateApplied || editStatus.check(EditStatus.Cropping);
   }
 </script>
 
-<div>
-  <div class="actions-section">
-    <div class="actions">
-      <!-- Rotate button -->
-      <IconButton
-        title="Rotate"
-        class="material-icons icon-btn toggle-btn rotate-btn"
-        onclick={toggleRotate}
-        disabled={!imageDataUrl || otherEditInProgress(EditState.Rotating)}
-        >
-        rotate_left
-      </IconButton>
-      <!-- Crop button -->
-      <IconButton
-        title="Crop"
-        class="material-icons icon-btn"
-        onclick={() => setEditStatus(EditState.Cropping)}
-        disabled={!imageDataUrl || otherEditInProgress(EditState.Cropping)}
-        >
-        crop
-      </IconButton>
-      <!-- Resize button -->
-      <IconButton
-        title="Resize"
-        class="material-icons icon-btn"
-        onclick={() => setEditStatus(EditState.Resizing)}
-        disabled={!imageDataUrl || otherEditInProgress(EditState.Resizing)}
-        >
-        photo_size_select_small
-      </IconButton>
-      <!-- Filters button -->
-      <IconButton
-        title="Filters"
-        class="material-icons icon-btn toggle-btn filters-btn"
-        onclick={toggleFilters}
-        disabled={!imageDataUrl || otherEditInProgress(EditState.SettingFilters)}
-        >
-        filter_b_and_w
-      </IconButton>
-    </div>
-  </div>
-
-  {#if checkEditStatus(EditState.Rotating)}
-    <div class="actions-section">
-      <div class="actions">
-        <!-- Rotate left button -->
-        <IconButton
-          title="Rotate counterclockwise"
-          class="material-icons icon-btn"
-          onclick={rotateImageLeft}
-          disabled={!imageDataUrl}
-          >
-          rotate_90_degrees_ccw
-        </IconButton>
-        <!-- Rotate right button -->
-        <IconButton
-          title="Rotate clockwise"
-          class="material-icons icon-btn"
-          onclick={rotateImageRight}
-          disabled={!imageDataUrl}
-          >
-          rotate_90_degrees_cw
-        </IconButton>
-      </div>
-    </div>
-  {/if}
-
-  {#if checkEditStatus(EditState.Cropping)}
-    <div class="actions-section">
-      <div class="actions">
-        <!-- Crop square button -->
-        <IconButton
-          title="Crop square"
-          class="material-icons icon-btn"
-          onclick={() => setAspect(1/1)}
-          disabled={!imageDataUrl}
-          >
-          crop_square
-        </IconButton>
-        <!-- Crop portrait button -->
-        <IconButton
-          title="Crop portrait"
-          class="material-icons icon-btn"
-          onclick={() => setAspect(4/5)}
-          disabled={!imageDataUrl}
-          >
-          crop_portrait
-        </IconButton>
-        <!-- Crop landscape button -->
-        <IconButton
-          title="Crop landscape"
-          class="material-icons icon-btn"
-          onclick={() => setAspect(5/4)}
-          disabled={!imageDataUrl}
-          >
-          crop_landscape
-        </IconButton>
-        <!-- Crop 3:2 button -->
-        <div
-          title="Crop 3:2"
-          class="icon-btn"
-          style="font-size: 14px;"
-          onclick={() => setAspect(3/2)}
-          disabled={!imageDataUrl}
-          >
-          3:2
-        </div>
-        <!-- Crop 16:9 button -->
-        <div
-          title="Crop 16:9"
-          class="icon-btn"
-          style="font-size: 14px;"
-          onclick={() => setAspect(16/9)}
-          disabled={!imageDataUrl}
-          >
-          16:9
-        </div>
-      </div>
-    </div>
-  {/if}
-
-  {#if checkEditStatus(EditState.Resizing)}
-    <div class="actions-section">
-      <div class="actions-form">
-        <label class="form-row">
-          <span>W</span>
-          <input
-            type="number"
-            name="resize-width"
-            inputmode="numeric"
-            min="0"
-            bind:value={resizeWidth}
-            oninput={handleWidthInput}
-            autofocus
-          />
-        </label>
-        <label class="form-row">
-          <span>H</span>
-          <input
-            type="number"
-            name="resize-height"
-            inputmode="numeric"
-            min="0"
-            bind:value={resizeHeight}
-            oninput={handleHeightInput}
-            autofocus
-          />
-        </label>
-      </div>
-    </div>
-  {/if}
-
-  {#if checkEditStatus(EditState.SettingFilters)}
-    <div class="titled-actions-section">
-      <div class="actions-section filter-btns">
+{#if !transformMenuOpen}
+  <div
+    in:fade={{ duration: 200 }}
+    out:fade={{ duration: 200 }}
+    >
+    {#if editStatus.check(EditStatus.Rotating)}
+      <div class="actions-section">
         <div class="actions">
-          <button
-            class={grayscaling ? "btn action-btn active" : "btn action-btn"}
-            onclick={toggleGrayscale}
+          <!-- Rotate left button -->
+          <IconButton
+            title="Rotate counterclockwise"
+            class="material-icons icon-btn"
+            onclick={rotateImageLeft}
+            disabled={!imageDataUrl}
             >
-            GRAYSCALE
-          </button>
-          <button
-            class={sepia ? "btn action-btn active" : "btn action-btn"}
-            onclick={toggleSepia}
+            rotate_90_degrees_ccw
+          </IconButton>
+          <!-- Rotate right button -->
+          <IconButton
+            title="Rotate clockwise"
+            class="material-icons icon-btn"
+            onclick={rotateImageRight}
+            disabled={!imageDataUrl}
             >
-            SEPIA
-          </button>
+            rotate_90_degrees_cw
+          </IconButton>
         </div>
       </div>
-    </div>
-  {/if}
+    {/if}
 
-  {#if grayscaling}
-    <div class="titled-actions-section">
-      <div class="actions-section-header">
-        Morphology
-      </div>
-      <div class="actions-section filter-btns">
+    {#if editStatus.check(EditStatus.Cropping)}
+      <div class="actions-section">
         <div class="actions">
-          <button
-            class={grayscaleMorph === "dilate" ? "btn action-btn active" : "btn action-btn"}
-            onclick={() => setGrayscaleMorph("dilate")}
+          <!-- Crop square button -->
+          <IconButton
+            title="Crop square"
+            class="material-icons icon-btn"
+            onclick={() => setAspect(1/1)}
+            disabled={!imageDataUrl}
             >
-            DILATE
-          </button>
-          <button
-            class={grayscaleMorph === "erode" ? "btn action-btn active" : "btn action-btn"}
-            onclick={() => setGrayscaleMorph("erode")}
+            crop_square
+          </IconButton>
+          <!-- Crop portrait button -->
+          <IconButton
+            title="Crop portrait"
+            class="material-icons icon-btn"
+            onclick={() => setAspect(4/5)}
+            disabled={!imageDataUrl}
             >
-            ERODE
-          </button>
-          <button
-            class={grayscaleMorph === "open" ? "btn action-btn active" : "btn action-btn"}
-            onclick={() => setGrayscaleMorph("open")}
+            crop_portrait
+          </IconButton>
+          <!-- Crop landscape button -->
+          <IconButton
+            title="Crop landscape"
+            class="material-icons icon-btn"
+            onclick={() => setAspect(5/4)}
+            disabled={!imageDataUrl}
             >
-            OPEN
-          </button>
-          <button
-            class={grayscaleMorph === "close" ? "btn action-btn active" : "btn action-btn"}
-            onclick={() => setGrayscaleMorph("close")}
+            crop_landscape
+          </IconButton>
+          <!-- Crop 3:2 button -->
+          <div
+            title="Crop 3:2"
+            class="icon-btn"
+            style="font-size: 14px;"
+            onclick={() => setAspect(3/2)}
+            disabled={!imageDataUrl}
             >
-            CLOSE
-          </button>
+            3:2
+          </div>
+          <!-- Crop 16:9 button -->
+          <div
+            title="Crop 16:9"
+            class="icon-btn"
+            style="font-size: 14px;"
+            onclick={() => setAspect(16/9)}
+            disabled={!imageDataUrl}
+            >
+            16:9
+          </div>
         </div>
       </div>
-    </div>
-    {#if grayscaleApplied}
+    {/if}
+
+    {#if editStatus.check(EditStatus.Resizing)}
+      <div class="actions-section">
+        <div class="actions-form">
+          <label class="form-row">
+            <span>W</span>
+            <input
+              type="number"
+              name="resize-width"
+              inputmode="numeric"
+              min="0"
+              bind:value={resizeWidth}
+              oninput={handleWidthInput}
+              autofocus
+            />
+          </label>
+          <label class="form-row">
+            <span>H</span>
+            <input
+              type="number"
+              name="resize-height"
+              inputmode="numeric"
+              min="0"
+              bind:value={resizeHeight}
+              oninput={handleHeightInput}
+              autofocus
+            />
+          </label>
+        </div>
+      </div>
+    {/if}
+
+    {#if editStatus.check(EditStatus.SettingFilters)}
       <div class="titled-actions-section">
-        <div class="actions-section-header">
-          Mask
-        </div>
         <div class="actions-section filter-btns">
           <div class="actions">
             <button
-              class={grayscaleMask === "square" ? "btn action-btn active" : "btn action-btn"}
-              onclick={() => setGrayscaleMask("square")}
+              class={grayscaling ? "btn action-btn active" : "btn action-btn"}
+              onclick={toggleGrayscale}
               >
-              SQUARE
+              GRAYSCALE
             </button>
             <button
-              class={grayscaleMask === "disk" ? "btn action-btn active" : "btn action-btn"}
-              onclick={() => setGrayscaleMask("disk")}
+              class={sepia ? "btn action-btn active" : "btn action-btn"}
+              onclick={toggleSepia}
               >
-              DISK
-            </button>
-            <button
-              class={grayscaleMask === "diamond" ? "btn action-btn active" : "btn action-btn"}
-              onclick={() => setGrayscaleMask("diamond")}
-              >
-              DIAMOND
+              SEPIA
             </button>
           </div>
         </div>
       </div>
+    {/if}
+
+    {#if grayscaling}
       <div class="titled-actions-section">
         <div class="actions-section-header">
-          Mask Radius
+          Morphology
         </div>
         <div class="actions-section filter-btns">
-          <input
-            type="number"
-            name="mask-radius"
-            inputmode="numeric"
-            min="1"
-            max="9"
-            bind:value={grayscaleRadius}
-            autofocus
-          />
+          <div class="actions">
+            <button
+              class={grayscaleMorph === "dilate" ? "btn action-btn active" : "btn action-btn"}
+              onclick={() => setGrayscaleMorph("dilate")}
+              >
+              DILATE
+            </button>
+            <button
+              class={grayscaleMorph === "erode" ? "btn action-btn active" : "btn action-btn"}
+              onclick={() => setGrayscaleMorph("erode")}
+              >
+              ERODE
+            </button>
+            <button
+              class={grayscaleMorph === "open" ? "btn action-btn active" : "btn action-btn"}
+              onclick={() => setGrayscaleMorph("open")}
+              >
+              OPEN
+            </button>
+            <button
+              class={grayscaleMorph === "close" ? "btn action-btn active" : "btn action-btn"}
+              onclick={() => setGrayscaleMorph("close")}
+              >
+              CLOSE
+            </button>
+          </div>
+        </div>
+      </div>
+      {#if grayscaleApplied}
+        <div class="titled-actions-section">
+          <div class="actions-section-header">
+            Mask
+          </div>
+          <div class="actions-section filter-btns">
+            <div class="actions">
+              <button
+                class={grayscaleMask === "square" ? "btn action-btn active" : "btn action-btn"}
+                onclick={() => setGrayscaleMask("square")}
+                >
+                SQUARE
+              </button>
+              <button
+                class={grayscaleMask === "disk" ? "btn action-btn active" : "btn action-btn"}
+                onclick={() => setGrayscaleMask("disk")}
+                >
+                DISK
+              </button>
+              <button
+                class={grayscaleMask === "diamond" ? "btn action-btn active" : "btn action-btn"}
+                onclick={() => setGrayscaleMask("diamond")}
+                >
+                DIAMOND
+              </button>
+            </div>
+          </div>
+        </div>
+        <div class="titled-actions-section">
+          <div class="actions-section-header">
+            Mask Radius
+          </div>
+          <div class="actions-section filter-btns">
+            <input
+              type="number"
+              name="mask-radius"
+              inputmode="numeric"
+              min="1"
+              max="9"
+              bind:value={grayscaleRadius}
+              autofocus
+            />
+          </div>
+        </div>
+      {/if}
+    {/if}
+
+    {#if !editStatus.check(EditStatus.None)}
+      <div class="actions-section">
+        <div class="actions">
+          <!-- Apply edits button -->
+          <IconButton
+            title="Apply edits"
+            class="material-icons icon-btn"
+            onclick={applyEdits}
+            disabled={!imageDataUrl || !transformApplied()}
+            >
+            check
+          </IconButton>
+          <!-- Cancel edits button -->
+          <IconButton
+            title="Cancel edits"
+            class="material-icons icon-btn"
+            onclick={resetEdits}
+            disabled={!imageDataUrl}
+            >
+            cancel
+          </IconButton>
         </div>
       </div>
     {/if}
-  {/if}
-
-  {#if checkEditStatus(EditState.Cropping) || checkEditStatus(EditState.Resizing) || sepia || grayscaleApplied || rotateApplied}
-    <div class="actions-section">
-      <div class="actions">
-        <!-- Apply edits button -->
-        <IconButton
-          title="Apply edits"
-          class="material-icons icon-btn"
-          onclick={applyEdits}
-          disabled={!imageDataUrl}
-          >
-          check
-        </IconButton>
-        <!-- Cancel edits button -->
-        <IconButton
-          title="Cancel edits"
-          class="material-icons icon-btn"
-          onclick={resetEdits}
-          disabled={!imageDataUrl}
-          >
-          cancel
-        </IconButton>
-      </div>
-    </div>
-  {/if}
-</div>
+  </div>
+{/if}
 
 <style>
   input {

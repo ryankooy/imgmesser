@@ -11,7 +11,7 @@
   import ImageCropper from "./ImageCropper.svelte";
   import ImageActions from "./ImageActions.svelte";
   import Transform from "./Transform.svelte";
-  import { EditState, ImageState, imageDataUrlCache } from "../store.ts";
+  import { EditStatus, ImageStatus, imageDataUrlCache } from "../store.ts";
   import type { ImageData, ImageMeta, Transformations } from "../store.ts";
   import { getImageDataUrl, imageUrl } from "../utils/api.ts";
   import {
@@ -30,18 +30,43 @@
     setImageDataUrl,
   } = $props();
 
+  class State<T extends number> {
+    private status: T = $state(0);
+
+    set(status: T) {
+      this.status = status;
+    }
+
+    get(): T {
+      return this.status;
+    }
+
+    toggle(status: T) {
+      this.status = (this.status !== status) ? status : 0 as T;
+    }
+
+    check(status: T): boolean {
+      return this.status === status;
+    }
+
+    reset() {
+      this.status = 0 as T;
+    }
+  }
+
   const meta: ImageMeta | null = $derived(image.meta ?? null);
   const imageId: string = $derived(image.id);
   let imageDataUrl: string = $derived(image.url ?? "");
 
-  let status: ImageState = $state(ImageState.None);
-  let editStatus: EditState = $state(EditState.None);
+  let status = $state(new State<ImageStatus>());
+  let editStatus = $state(new State<EditStatus>());
 
   let editingName: boolean = $state(false);
   let nextPageExists: boolean = $state(false);
   let prevPageExists: boolean = $state(false);
   let showConfirmModal: boolean = $state(false);
   let showAlertModal: boolean = $state(false);
+  let transformMenuOpen: boolean = $state(false);
 
   let alertText: string | null = $state(null);
   let modalAction: string = $state("");
@@ -78,48 +103,8 @@
     }
   });
 
-  function setStatus(stat: ImageState) {
-    status = stat;
-  }
-
-  function getStatus(): ImageState {
-    return status;
-  }
-
-  function toggleStatus(stat: ImageState) {
-    status = (status !== stat) ? stat : ImageState.None;
-  }
-
-  function checkStatus(stat: ImageState): boolean {
-    return status === stat;
-  }
-
-  function resetStatus() {
-    status = ImageState.None;
-  }
-
-  function setEditStatus(stat: EditState) {
-    editStatus = stat;
-  }
-
-  function getEditStatus(): EditState {
-    return editStatus;
-  }
-
-  function toggleEditStatus(stat: EditState) {
-    editStatus = (editStatus !== stat) ? stat : EditState.None;
-  }
-
-  function checkEditStatus(stat: EditState): boolean {
-    return editStatus === stat;
-  }
-
-  function resetEditStatus() {
-    editStatus = EditState.None;
-  }
-
   async function loadImageData() {
-    setStatus(ImageState.Loading);
+    status.set(ImageStatus.Loading);
 
     if ($imageDataUrlCache.has(imageId)) {
       imageDataUrl = $imageDataUrlCache.get(imageId);
@@ -132,7 +117,7 @@
       }
     }
 
-    resetStatus();
+    status.reset();
   }
 
   async function deleteImage() {
@@ -142,7 +127,7 @@
       });
 
       if (response.ok) {
-        status = ImageState.Deleting;
+        status.set(ImageStatus.Deleting);
         await handleImageUpdated();
       } else {
         setAlertMessage("Failed to delete image");
@@ -218,7 +203,7 @@
   }
 
   function resetCrop() {
-    resetEditStatus();
+    editStatus.reset();
     zoom = aspect = 1;
     crop = { x: 0, y: 0};
   }
@@ -233,14 +218,14 @@
   }
 
   async function saveImageEdits() {
-    status = ImageState.Saving;
+    status.set(ImageStatus.Saving);
     await updateImage(meta.version);
   }
 
   async function handleImageUpdated() {
     refreshImage(status);
 
-    if (!(status === ImageState.Closing || status === ImageState.Deleting)) {
+    if (!(status.check(ImageStatus.Closing) || status.check(ImageStatus.Deleting))) {
       resetImage();
       await loadImageData();
     }
@@ -257,11 +242,8 @@
   }
 
   function resetImage() {
-    resetStatus();
+    status.reset();
     showConfirmModal = false;
-
-    const transformButton = document.querySelector(".toggle-btn.transform-btn") as HTMLElement;
-    transformButton.style.color = "white";
 
     const panButton = document.querySelector(".toggle-btn.pan-btn") as HTMLElement;
     panButton.style.color = "white";
@@ -424,13 +406,13 @@
 
   <div class="modal-content image-modal">
     <div class="image-container">
-      {#if status === ImageState.Loading}
+      {#if status.check(ImageStatus.Loading)}
         <div class="loading-spinner">
           <div class="spinner"></div>
           <p>Loading image...</p>
         </div>
       {:else if imageDataUrl}
-        {#if editStatus === EditState.Cropping}
+        {#if editStatus.check(EditStatus.Cropping)}
           <ImageCropper
             aspect={aspect}
             bind:crop={crop}
@@ -440,13 +422,13 @@
             width={width}
             bind:zoom={zoom}
           />
-        {:else if editStatus === EditState.Rotating}
+        {:else if editStatus.check(EditStatus.Rotating)}
           <img
             src={imageDataUrl}
             style="transform: rotate({$animatedRotation}deg);"
             alt={imageName}
           />
-        {:else if status === ImageState.Panning}
+        {:else if status.check(ImageStatus.Panning)}
           <div class="image-viewer">
             <ImageViewer src={imageDataUrl} alt={imageName} />
           </div>
@@ -512,42 +494,39 @@
 
       <div class="actions-wrapper">
         <ImageActions
+          bind:editStatus
           imageDataUrl={imageDataUrl}
           imageId={imageId}
           meta={meta}
-          checkStatus={checkStatus}
+          bind:status
+          bind:transformMenuOpen={transformMenuOpen}
           closeImage={handleCloseImage}
           deleteImage={handleDeleteImage}
           downloadImage={downloadImage}
           discardAllEdits={handleDiscardAllEdits}
           discardCurrentEdit={handleDiscardCurrentEdit}
           imageUpdated={handleImageUpdated}
-          resetEditStatus={resetEditStatus}
           saveImage={handleSaveImage}
           setAlertMessage={setAlertMessage}
           toggleButtonColor={toggleButtonColor}
-          toggleStatus={toggleStatus}
         />
-        {#if status === ImageState.Transforming}
+        {#if status.check(ImageStatus.Transforming)}
           <Transform
+            bind:editStatus
             height={height}
             imageDataUrl={imageDataUrl}
             imageId={imageId}
+            bind:status
             bind:transformations={transformations}
+            bind:transformMenuOpen={transformMenuOpen}
             width={width}
-            checkEditStatus={checkEditStatus}
             clearTransformations={clearTransformations}
-            getEditStatus={getEditStatus}
             imageUpdated={handleImageUpdated}
             resetCrop={resetCrop}
-            resetEditStatus={resetEditStatus}
             setAlertMessage={setAlertMessage}
             setAnimatedRotation={setAnimatedRotation}
             setAspect={setAspect}
-            setEditStatus={setEditStatus}
-            setStatus={setStatus}
             toggleButtonColor={toggleButtonColor}
-            toggleEditStatus={toggleEditStatus}
           />
         {/if}
       </div>

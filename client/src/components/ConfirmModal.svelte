@@ -48,7 +48,7 @@
       <!-- svelte-ignore state_referenced_locally -->
       <h2>Confirm {actionTitle}</h2>
       <p>
-        Are you sure you want to {action} image "{imageName}"?
+        Are you sure you want to {action} image <em>{imageName}</em>?
         {#if modalExtraText}
           {modalExtraText}.
         {/if}

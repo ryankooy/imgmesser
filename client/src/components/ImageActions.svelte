@@ -1,74 +1,104 @@
 <script lang="ts">
   import IconButton from "@smui/icon-button";
-  import { EditState, ImageState, imageDataUrlCache } from "../store.ts";
+  import { EditStatus, ImageStatus, imageDataUrlCache } from "../store.ts";
+  import type { IconMenu } from "../store.ts";
   import { imageUrl } from "../utils/api.ts";
+  import { toggleHidden } from "../utils/app.ts";
   import DropdownMenu from "./DropdownMenu.svelte";
 
   let {
+    editStatus = $bindable(),
     imageDataUrl = "",
     imageId = null,
     meta = null,
-    checkStatus,
+    status = $bindable(),
+    transformMenuOpen = false,
     closeImage,
     deleteImage,
     downloadImage,
     discardAllEdits,
     discardCurrentEdit,
     imageUpdated,
-    resetEditStatus,
     saveImage,
     setAlertMessage,
     toggleButtonColor,
-    toggleStatus,
   } = $props();
-
-  interface MenuItem {
-    title: string;
-    iconName: string;
-    func: (() => void) | null;
-  }
-
-  interface Menu {
-    title: string;
-    iconName: string;
-    items: MenuItem[];
-  }
 
   const multiVersion: boolean = $derived(meta.version_count > 1);
 
-  const saveMenu: Menu = {
+  const transformMenu: IconMenu = {
+    title: "Transform tools",
+    iconName: "transform",
+    handleClick: () => openTransformMenu(),
+    handleClickOutside: () => status.reset(),
+    toggleFunc: (hide: boolean) => toggleEditIcons(hide),
+    items: [
+      {
+        title: "Rotate",
+        iconName: "rotate_left",
+        handleClick: () => handleTransform(EditStatus.Rotating),
+      },
+      {
+        title: "Crop",
+        iconName: "crop",
+        handleClick: () => handleTransform(EditStatus.Cropping),
+      },
+      {
+        title: "Resize",
+        iconName: "photo_size_select_small",
+        handleClick: () => handleTransform(EditStatus.Resizing),
+      },
+      {
+        title: "Filters",
+        iconName: "filter_b_and_w",
+        handleClick: () => handleTransform(EditStatus.SettingFilters),
+      },
+    ],
+  };
+
+  const saveMenu: IconMenu = {
     title: "Save options",
     iconName: "save",
     items: [
       {
         title: "Save current edit",
         iconName: "save",
-        func: () => saveImage(),
+        handleClick: () => saveImage(),
       },
       {
         title: "Save current edit as...",
         iconName: "save_as",
-        func: null,
+        //TODO: add click handler
       },
     ],
   };
 
-  const discardMenu: Menu = {
+  const discardMenu: IconMenu = {
     title: "Discard options",
     iconName: "delete",
     items: [
       {
         title: "Discard current edit",
         iconName: "delete",
-        func: () => discardCurrentEdit(),
+        handleClick: () => discardCurrentEdit(),
       },
       {
         title: "Discard all edits",
         iconName: "delete_sweep",
-        func: () => discardAllEdits(),
+        handleClick: () => discardAllEdits(),
       },
     ],
   };
+
+  function toggleEditIcons(hide: boolean) {
+    const editIcons = document.getElementById("edit-actions") as HTMLElement;
+    toggleHidden(editIcons, hide);
+  }
+
+  function handleTransform(status: EditStatus) {
+    transformMenuOpen = false;
+    editStatus.set(status);
+  }
 
   async function undoEdit() {
     try {
@@ -114,21 +144,24 @@
     return meta.content_type === "image/gif";
   }
 
-  function toggleTransform(node: PointerEvent) {
-    if (checkStatus(ImageState.Panning)) {
+  function openTransformMenu() {
+    if (status.check(ImageStatus.Panning)) {
       const panBtn = document.querySelector(".toggle-btn.pan-btn") as HTMLElement;
       panBtn.style.color = "white";
     }
 
-    toggleStatus(ImageState.Transforming);
-    toggleButtonColor(node, checkStatus(ImageState.Transforming));
-
-    if (!checkStatus(ImageState.Transforming)) resetEditStatus();
+    status.set(ImageStatus.Transforming);
+    transformMenuOpen = true;
+    editStatus.reset();
   }
 
   function togglePanTool(node: PointerEvent) {
-    toggleStatus(ImageState.Panning);
-    toggleButtonColor(node, checkStatus(ImageState.Panning));
+    status.toggle(ImageStatus.Panning);
+
+    const isPanning: boolean = status.check(ImageStatus.Panning);
+
+    toggleButtonColor(node, isPanning);
+    toggleEditIcons(isPanning);
   }
 </script>
 
@@ -140,19 +173,15 @@
         title="Pan tool"
         class="material-icons icon-btn toggle-btn pan-btn"
         onclick={togglePanTool}
-        disabled={!imageDataUrl || checkStatus(ImageState.Transforming)}
+        disabled={!imageDataUrl || status.check(ImageStatus.Transforming)}
         >
         pan_tool
       </IconButton>
-      <!-- Transform button -->
-      <IconButton
-        title="Toggle transform tools"
-        class="material-icons icon-btn toggle-btn transform-btn"
-        onclick={toggleTransform}
-        disabled={!imageDataUrl || checkStatus(ImageState.Panning) || typeIsGif()}
-        >
-        transform
-      </IconButton>
+      <!-- Transform menu button -->
+      <DropdownMenu
+        menu={transformMenu}
+        disabled={!imageDataUrl || typeIsGif() || !status.check(ImageStatus.None)}
+      />
       <!-- Download button -->
       <IconButton
         title="Download image"
@@ -183,8 +212,8 @@
     </div>
   </div>
 
-  {#if multiVersion}
-    <div class="actions-section">
+  {#if multiVersion && editStatus.check(EditStatus.None)}
+    <div class="actions-section fade-element" id="edit-actions">
       <div class="actions">
         <!-- Unto button -->
         <IconButton
@@ -226,13 +255,13 @@
         {:else}
           <!-- Save-edit dropdown -->
           <DropdownMenu
-            imageDataUrl={imageDataUrl}
             menu={saveMenu}
+            disabled={!imageDataUrl}
           />
           <!-- Discard-edit dropdown -->
           <DropdownMenu
-            imageDataUrl={imageDataUrl}
             menu={discardMenu}
+            disabled={!imageDataUrl}
           />
         {/if}
       </div>
