@@ -11,8 +11,13 @@
   import ImageCropper from "./ImageCropper.svelte";
   import ImageActions from "./ImageActions.svelte";
   import Transform from "./Transform.svelte";
-  import { EditStatus, ImageStatus, imageDataUrlCache } from "../store.ts";
-  import type { ImageData, ImageMeta, Transformations } from "../store.ts";
+  import {
+    EditStatus, ImageStatus, ModalType, imageDataUrlCache,
+  } from "../store.ts";
+  import type {
+    ActionModal, ActionModalButton, ConfirmModalOptions,
+    ImageData, ImageMeta, Transformations
+  } from "../store.ts";
   import { getImageDataUrl, imageUrl } from "../utils/api.ts";
   import {
     formatDate, formatFileSize, formatImageType,
@@ -76,6 +81,8 @@
 
   const imageName: string = $derived(meta.name);
   setContext("imageName", () => imageName);
+
+  let actionModal: ActionModal | null = $state(null);
 
   let editableFileStem: string = $derived(getFileStem(imageName));
 
@@ -310,34 +317,72 @@
   }
 
   function handleSaveImage() {
-    modalAction = "save this edit of";
-    modalActionTitle = "Save Current Edit";
-    modalExtraText = "All other edits will be discarded"
-    modalConfirmFunc = saveImageEdits;
+    actionModal = {
+      title: "Confirm Save Current Edit",
+      type: ModalType.Confirm,
+      options: {
+        actionText: "save this edit of",
+        extraText: "All other edits will be discarded.",
+        handleAction: async () => await saveImageEdits(),
+      },
+    };
+
+    showConfirmModal = true;
+  }
+
+  function handleSaveImageCopy() {
+    actionModal = {
+      title: "Save Image Copy",
+      type: ModalType.SaveImageCopy,
+      isConfirmType: false,
+      buttons: [
+        {
+          text: "Save Copy",
+          //TODO: add click handler
+        },
+      ],
+    };
+
     showConfirmModal = true;
   }
 
   function handleDeleteImage() {
-    modalAction = "delete";
-    modalActionTitle = "Delete Image";
-    modalExtraText = null;
-    modalConfirmFunc = deleteImage;
+    actionModal = {
+      title: "Confirm Delete Image",
+      type: ModalType.Confirm,
+      isConfirmType: true,
+      options: {
+        actionText: "delete",
+        handleAction: async () => await deleteImage(),
+      },
+    };
+
     showConfirmModal = true;
   }
 
   function handleDiscardCurrentEdit() {
-    modalAction = "discard this edit of";
-    modalActionTitle = "Discard Current Edit";
-    modalExtraText = null;
-    modalConfirmFunc = deleteCurrentVersion;
+    actionModal = {
+      title: "Confirm Discard Current Edit",
+      type: ModalType.Confirm,
+      options: {
+        actionText: "discard this edit of",
+        handleAction: async () => await deleteCurrentVersion(),
+      },
+    };
+
     showConfirmModal = true;
   }
 
   function handleDiscardAllEdits() {
-    modalAction = "discard all edits of";
-    modalActionTitle = "Discard All Edits";
-    modalExtraText = null;
-    modalConfirmFunc = discardEdits;
+    actionModal = {
+      title: "Confirm Discard All Edits",
+      type: ModalType.Confirm,
+      options: {
+        actionText: "discard all edits of",
+        handleAction: async () => await discardEdits(),
+      },
+    };
+
     showConfirmModal = true;
   }
 
@@ -507,6 +552,7 @@
           discardCurrentEdit={handleDiscardCurrentEdit}
           imageUpdated={handleImageUpdated}
           saveImage={handleSaveImage}
+          saveImageCopy={handleSaveImageCopy}
           setAlertMessage={setAlertMessage}
           toggleButtonColor={toggleButtonColor}
         />
@@ -543,11 +589,8 @@
 
   {#if showConfirmModal}
     <ConfirmModal
-      modalAction={modalAction}
-      modalActionTitle={modalActionTitle}
-      modalExtraText={modalExtraText}
-      on:confirm={modalConfirmFunc}
-      on:cancel={handleModalCancel}
+      props={actionModal}
+      onCancel={handleModalCancel}
     />
   {:else if showAlertModal}
     <AlertModal

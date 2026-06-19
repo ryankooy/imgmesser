@@ -98,6 +98,35 @@ export interface IconMenu {
     items: IconMenuItem[];
 }
 
+// Modal types
+export const enum ModalType {
+    Confirm,
+    Alert,
+    SaveImageCopy,
+}
+
+// Confirm-type modal options
+export interface ConfirmModalOptions {
+    actionText: string;
+    extraText: string | null;
+    handleAction: () => void;
+}
+
+// Modal button properties
+export interface ActionModalButton {
+    text: string;
+    handleClick: () => void;
+}
+
+// Modal properties
+export interface ActionModal {
+    title: string;
+    text: string | null;
+    type: ModalType;
+    options: ConfirmModalOptions | null;
+    buttons: ActionModalButton[] | null;
+}
+
 // Image statuses
 export const enum ImageStatus {
     None,

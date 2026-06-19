@@ -20,6 +20,7 @@
     discardCurrentEdit,
     imageUpdated,
     saveImage,
+    saveImageCopy,
     setAlertMessage,
     toggleButtonColor,
   } = $props();
@@ -68,7 +69,7 @@
       {
         title: "Save current edit as...",
         iconName: "save_as",
-        //TODO: add click handler
+        handleClick: () => saveImageCopy(),
       },
     ],
   };
@@ -239,6 +240,7 @@
           <IconButton
             title="Save image as..."
             class="material-icons icon-btn"
+            onclick={saveImageCopy}
             disabled={!imageDataUrl}
             >
             save_as
