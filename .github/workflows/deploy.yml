@@ -1,14 +1,15 @@
 name: CI/CD Production Pipeline
 
-# Trigger the workflow on pushes to the main branch or on pull requests
+# Trigger the workflow on tag pushes from `stable` branch
 on:
   push:
-    branches: [ ci-cd ]
-  pull_request:
-    branches: [ main ]
+    branches:
+      - stable
+    tags:
+      - "*" # Triggers on all tag pushes
 
 jobs:
-  # 1. CI JOB: BUILD AND PUSH SVELTE FRONTEND IMAGE
+  # 1. BUILD AND PUSH SVELTE FRONTEND IMAGE
   build-app:
     runs-on: ubuntu-latest
     steps:
@@ -34,7 +35,7 @@ jobs:
           cache-from: type=gha
           cache-to: type=gha,mode=max
 
-  # 2. CD JOB: BUILD AND PUSH RUST BACKEND IMAGE
+  # 2. BUILD AND PUSH RUST BACKEND IMAGE
   build-api:
     runs-on: ubuntu-latest
     steps:
@@ -60,7 +61,7 @@ jobs:
           cache-from: type=gha
           cache-to: type=gha,mode=max
 
-  # 3. COPY JOB: COPY FILES TO EC2
+  # 3. COPY DEPLOYMENT FILES TO EC2
   copy-files:
     runs-on: ubuntu-latest
     steps:
@@ -78,28 +79,17 @@ jobs:
           target: "~/"
           strip_components: 1
 
-  # 4. DEPLOY APP JOB: SSH INTO EC2 AND UPDATE SERVICES
-  deploy-app:
+  # 4. DEPLOY JOB: SSH INTO EC2 AND UPDATE SERVICES
+  deploy:
     runs-on: ubuntu-latest
-    # Wait for tests to pass successfully before running the deployment
-    #needs: test-and-build
-    # Ensure deployment only executes on actual merges to the main branch
-    #if: github.event_name == 'push' && github.ref == 'refs/heads/main'
-    needs: [build-app, copy-files]
+    needs: [build-app, build-api, copy-files]
+    if: startsWith(github.ref, "refs/tags/") && github.ref_name == "stable"
     steps:
       - name: Checkout Source Code
         uses: actions/checkout@v4
 
       - name: Deploy via SSH
         uses: appleboy/ssh-action@v1.0.3
-        env:
-          DOCKER_USER: ${{ secrets.DOCKERHUB_USERNAME }}
-          API_DOCKER_IP: ${{ secrets.API_DOCKER_IP }}
-          POSTGRES_USER: ${{ secrets.POSTGRES_USER }}
-          POSTGRES_PASSWORD: ${{ secrets.POSTGRES_PASSWORD }}
-          POSTGRES_DB: ${{ secrets. POSTGRES_DB }}
-          CERTBOT_DOMAIN: ${{ secrets.CERTBOT_DOMAIN }}
-          CERTBOT_EMAIL: ${{ secrets.CERTBOT_EMAIL }}
         with:
           host: ${{ secrets.EC2_HOST }}
           username: ${{ secrets.EC2_USERNAME }}
@@ -113,7 +103,7 @@ jobs:
               imgmesser-nw || true
 
             export DOCKER_USER="${{ secrets.DOCKERHUB_USERNAME }}"
-            export API_DOCKER_IP"${{ secrets.API_DOCKER_IP }}"
+            export API_DOCKER_IP="${{ secrets.API_DOCKER_IP }}"
             export POSTGRES_USER="${{ secrets.POSTGRES_USER }}"
             export POSTGRES_PASSWORD="${{ secrets.POSTGRES_PASSWORD }}"
             export POSTGRES_DB="${{ secrets. POSTGRES_DB }}"
@@ -121,71 +111,23 @@ jobs:
             export CERTBOT_EMAIL="${{ secrets.CERTBOT_EMAIL }}"
 
             # Fetch the newly pushed container updates
-            docker compose pull app
-
-            chmod 755 make_certs.sh make_dummy_certs.sh
+            docker compose pull
 
             # Run certbot service and create dummy certs
-            docker compose run --rm --entrypoint "~/make_dummy_certs.sh" certbot
+            docker compose run --rm \
+              --entrypoint "/opt/certbot/tools/make_dummy_certs.sh" certbot
 
             # Restart modified services smoothly in detached mode
             docker compose --profile nginx up --detach --remove-orphans
 
             # Run certbot again separately to create real certs
-            docker compose run --rm --entrypoint "~/make_certs.sh" certbot
+            docker compose run --rm \
+              --entrypoint "/opt/certbot/tools/make_certs.sh" certbot
 
             # Reload Nginx in running client container
             docker compose exec app nginx -s reload
 
-            # Prune stale image layers to keep EC2 storage footprint small
-            docker image prune -f
-
-  # 5. DEPLOY API JOB: SSH INTO EC2 AND UPDATE SERVICES
-  deploy-api:
-    runs-on: ubuntu-latest
-    # Wait for tests to pass successfully before running the deployment
-    #needs: test-and-build
-    # Ensure deployment only executes on actual merges to the main branch
-    #if: github.event_name == 'push' && github.ref == 'refs/heads/main'
-    needs: [build-api, copy-files]
-    steps:
-      - name: Checkout Source Code
-        uses: actions/checkout@v4
-
-      - name: Deploy via SSH
-        uses: appleboy/ssh-action@v1.0.3
-        env:
-          DOCKER_USER: ${{ secrets.DOCKERHUB_USERNAME }}
-          API_DOCKER_IP: ${{ secrets.API_DOCKER_IP }}
-          POSTGRES_USER: ${{ secrets.POSTGRES_USER }}
-          POSTGRES_PASSWORD: ${{ secrets.POSTGRES_PASSWORD }}
-          POSTGRES_DB: ${{ secrets. POSTGRES_DB }}
-          CERTBOT_DOMAIN: ${{ secrets.CERTBOT_DOMAIN }}
-          CERTBOT_EMAIL: ${{ secrets.CERTBOT_EMAIL }}
-        with:
-          host: ${{ secrets.EC2_HOST }}
-          username: ${{ secrets.EC2_USERNAME }}
-          key: ${{ secrets.EC2_SSH_KEY }}
-          port: 22
-          script: |
-            # Create Docker network if it doesn't exist
-            docker network create --driver bridge \
-              --subnet "${{ secrets.DOCKER_NETWORK_SUBNET }}" \
-              --gateway "${{ secrets.DOCKER_NETWORK_GATEWAY }}" \
-              imgmesser-nw || true
-
-            export DOCKER_USER="${{ secrets.DOCKERHUB_USERNAME }}"
-            export API_DOCKER_IP"${{ secrets.API_DOCKER_IP }}"
-            export POSTGRES_USER="${{ secrets.POSTGRES_USER }}"
-            export POSTGRES_PASSWORD="${{ secrets.POSTGRES_PASSWORD }}"
-            export POSTGRES_DB="${{ secrets. POSTGRES_DB }}"
-            export CERTBOT_DOMAIN="${{ secrets.CERTBOT_DOMAIN }}"
-            export CERTBOT_EMAIL="${{ secrets.CERTBOT_EMAIL }}"
-
-            # Fetch the newly pushed container updates
-            docker compose pull api
-
-            # Restart modified services smoothly in detached mode
+            # Restart `api` service in detached mode
             docker compose up --detach --remove-orphans api
 
             # Prune stale image layers to keep EC2 storage footprint small
