@@ -86,15 +86,15 @@ jobs:
     steps:
       - name: Deploy via SSH
         uses: appleboy/ssh-action@v1.0.3
+        env:
+          DOCKER_USER: ${{ secrets.DOCKERHUB_USERNAME }}
+          CERTBOT_DOMAIN: ${{ secrets.CERTBOT_DOMAIN }}
+          CERTBOT_EMAIL: ${{ secrets.CERTBOT_EMAIL }}
         with:
           host: ${{ secrets.EC2_HOST }}
           username: ${{ secrets.EC2_USERNAME }}
           key: ${{ secrets.EC2_SSH_KEY }}
           port: 22
-          env:
-            DOCKER_USER: ${{ secrets.DOCKERHUB_USERNAME }}
-            CERTBOT_DOMAIN: ${{ secrets.CERTBOT_DOMAIN }}
-            CERTBOT_EMAIL: ${{ secrets.CERTBOT_EMAIL }}
           script: |
             # Create Docker network if it doesn't exist
             docker network create --driver bridge \
@@ -131,17 +131,17 @@ jobs:
     steps:
       - name: Deploy via SSH
         uses: appleboy/ssh-action@v1.0.3
+        env:
+          DOCKER_USER: ${{ secrets.DOCKERHUB_USERNAME }}
+          API_DOCKER_IP: ${{ secrets.API_DOCKER_IP }}
+          POSTGRES_USER: ${{ secrets.POSTGRES_USER }}
+          POSTGRES_PASSWORD: ${{ secrets.POSTGRES_PASSWORD }}
+          POSTGRES_DB: ${{ secrets. POSTGRES_DB }}
         with:
           host: ${{ secrets.EC2_HOST }}
           username: ${{ secrets.EC2_USERNAME }}
           key: ${{ secrets.EC2_SSH_KEY }}
           port: 22
-          env:
-            DOCKER_USER: ${{ secrets.DOCKERHUB_USERNAME }}
-            API_DOCKER_IP: ${{ secrets.API_DOCKER_IP }}
-            POSTGRES_USER: ${{ secrets.POSTGRES_USER }}
-            POSTGRES_PASSWORD: ${{ secrets.POSTGRES_PASSWORD }}
-            POSTGRES_DB: ${{ secrets. POSTGRES_DB }}
           script: |
             # Create Docker network if it doesn't exist
             docker network create --driver bridge \
