@@ -3,7 +3,7 @@ name: CI/CD Production Pipeline
 # Trigger the workflow on pushes to the main branch or on pull requests
 on:
   push:
-    branches: [ main ]
+    branches: [ ci-cd ]
   pull_request:
     branches: [ main ]
 
@@ -103,22 +103,22 @@ jobs:
               imgmesser-nw || true
 
             # Fetch the newly pushed container updates
-            docker compose pull app
+            docker compose pull app | tee last_run.log
 
             # Run certbot service and create dummy certs
-            docker compose run --rm --entrypoint "./make_dummy_certs.sh" certbot
+            docker compose run --rm --entrypoint "./make_dummy_certs.sh" certbot | tee last_run.log
 
             # Restart modified services smoothly in detached mode
-            docker compose --profile nginx up --detach --remove-orphans
+            docker compose --profile nginx up --detach --remove-orphans | tee last_run.log
 
             # Run certbot again separately to create real certs
-            docker compose run --rm --entrypoint "./make_certs.sh" certbot
+            docker compose run --rm --entrypoint "./make_certs.sh" certbot | tee last_run.log
 
             # Reload Nginx in running client container
-            docker compose exec app nginx -s reload
+            docker compose exec app nginx -s reload | tee last_run.log
 
             # Prune stale image layers to keep EC2 storage footprint small
-            docker image prune -f
+            docker image prune -f | tee last_run.log
 
   # 5. DEPLOY API JOB: SSH INTO EC2 AND UPDATE SERVICES
   deploy-api:
@@ -150,11 +150,11 @@ jobs:
               imgmesser-nw || true
 
             # Fetch the newly pushed container updates
-            docker compose pull api
+            docker compose pull api | tee last_run.log
 
             # Restart modified services smoothly in detached mode
-            docker compose up --detach --remove-orphans api
+            docker compose up --detach --remove-orphans api | tee last_run.log
 
             # Prune stale image layers to keep EC2 storage footprint small
-            docker image prune -f
+            docker image prune -f | tee last_run.log
 
