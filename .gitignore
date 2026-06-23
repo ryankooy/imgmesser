@@ -1,6 +1,5 @@
 # Rust
 **/target
-**/Cargo.lock
 **/.env*
 **/db.toml
 
@@ -18,7 +17,7 @@
 **/.env*.local
 
 # Package lock
-**/package-lock.json
+#**/package-lock.json
 
 # Log files
 **/*.log
