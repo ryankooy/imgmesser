@@ -1,10 +1,10 @@
 services:
   app:
     build:
-      context: .
-      dockerfile: ./Dockerfile.app
+      context: ./client
+      dockerfile: ./client/Dockerfile.app
 
   api:
     build:
       context: .
-      dockerfile: ./Dockerfile.api
+      dockerfile: ./Dockerfile
