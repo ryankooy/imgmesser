@@ -94,6 +94,10 @@ jobs:
         uses: appleboy/ssh-action@v1.0.3
         env:
           DOCKER_USER: ${{ secrets.DOCKERHUB_USERNAME }}
+          API_DOCKER_IP: ${{ secrets.API_DOCKER_IP }}
+          POSTGRES_USER: ${{ secrets.POSTGRES_USER }}
+          POSTGRES_PASSWORD: ${{ secrets.POSTGRES_PASSWORD }}
+          POSTGRES_DB: ${{ secrets. POSTGRES_DB }}
           CERTBOT_DOMAIN: ${{ secrets.CERTBOT_DOMAIN }}
           CERTBOT_EMAIL: ${{ secrets.CERTBOT_EMAIL }}
         with:
@@ -108,23 +112,33 @@ jobs:
               --gateway "${{ secrets.DOCKER_NETWORK_GATEWAY }}" \
               imgmesser-nw || true
 
+            export DOCKER_USER="${{ secrets.DOCKERHUB_USERNAME }}"
+            export API_DOCKER_IP"${{ secrets.API_DOCKER_IP }}"
+            export POSTGRES_USER="${{ secrets.POSTGRES_USER }}"
+            export POSTGRES_PASSWORD="${{ secrets.POSTGRES_PASSWORD }}"
+            export POSTGRES_DB="${{ secrets. POSTGRES_DB }}"
+            export CERTBOT_DOMAIN="${{ secrets.CERTBOT_DOMAIN }}"
+            export CERTBOT_EMAIL="${{ secrets.CERTBOT_EMAIL }}"
+
             # Fetch the newly pushed container updates
-            docker compose pull app | tee last_run.log
+            docker compose pull app
+
+            chmod 755 make_certs.sh make_dummy_certs.sh
 
             # Run certbot service and create dummy certs
-            docker compose run --rm --entrypoint "./make_dummy_certs.sh" certbot | tee last_run.log
+            docker compose run --rm --entrypoint "~/make_dummy_certs.sh" certbot
 
             # Restart modified services smoothly in detached mode
-            docker compose --profile nginx up --detach --remove-orphans | tee last_run.log
+            docker compose --profile nginx up --detach --remove-orphans
 
             # Run certbot again separately to create real certs
-            docker compose run --rm --entrypoint "./make_certs.sh" certbot | tee last_run.log
+            docker compose run --rm --entrypoint "~/make_certs.sh" certbot
 
             # Reload Nginx in running client container
-            docker compose exec app nginx -s reload | tee last_run.log
+            docker compose exec app nginx -s reload
 
             # Prune stale image layers to keep EC2 storage footprint small
-            docker image prune -f | tee last_run.log
+            docker image prune -f
 
   # 5. DEPLOY API JOB: SSH INTO EC2 AND UPDATE SERVICES
   deploy-api:
@@ -146,6 +160,8 @@ jobs:
           POSTGRES_USER: ${{ secrets.POSTGRES_USER }}
           POSTGRES_PASSWORD: ${{ secrets.POSTGRES_PASSWORD }}
           POSTGRES_DB: ${{ secrets. POSTGRES_DB }}
+          CERTBOT_DOMAIN: ${{ secrets.CERTBOT_DOMAIN }}
+          CERTBOT_EMAIL: ${{ secrets.CERTBOT_EMAIL }}
         with:
           host: ${{ secrets.EC2_HOST }}
           username: ${{ secrets.EC2_USERNAME }}
@@ -158,12 +174,20 @@ jobs:
               --gateway "${{ secrets.DOCKER_NETWORK_GATEWAY }}" \
               imgmesser-nw || true
 
+            export DOCKER_USER="${{ secrets.DOCKERHUB_USERNAME }}"
+            export API_DOCKER_IP"${{ secrets.API_DOCKER_IP }}"
+            export POSTGRES_USER="${{ secrets.POSTGRES_USER }}"
+            export POSTGRES_PASSWORD="${{ secrets.POSTGRES_PASSWORD }}"
+            export POSTGRES_DB="${{ secrets. POSTGRES_DB }}"
+            export CERTBOT_DOMAIN="${{ secrets.CERTBOT_DOMAIN }}"
+            export CERTBOT_EMAIL="${{ secrets.CERTBOT_EMAIL }}"
+
             # Fetch the newly pushed container updates
-            docker compose pull api | tee last_run.log
+            docker compose pull api
 
             # Restart modified services smoothly in detached mode
-            docker compose up --detach --remove-orphans api | tee last_run.log
+            docker compose up --detach --remove-orphans api
 
             # Prune stale image layers to keep EC2 storage footprint small
-            docker image prune -f | tee last_run.log
+            docker image prune -f
 
