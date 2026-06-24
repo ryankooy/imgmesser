@@ -7,7 +7,7 @@ source ./.env.deploy
 
 function usage() {
     cat <<'MSG'
-Usage: deploy.sh [-h] [-c] [-d] [-s api|app]
+Usage: manual_deploy.sh [-h] [-c] [-d] [-s api|app]
     -s <service>    Docker service name; if not included,
                     all services are deployed
     -c              Copy config files to EC2 instance
