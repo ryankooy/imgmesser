@@ -10,7 +10,7 @@ use uuid::Uuid;
 use db;
 use errors::ImageError;
 use models::{
-    ContentType, Image, ImageData, ImageInfo, ImageList, ImageVersionOnly,
+    ContentType, Image, ImageData, ImageInfo, ImageList, ImageVersion,
     Transformations, UploadImage, UserInfo,
 };
 use s3;
@@ -88,7 +88,7 @@ pub trait ImageRepoOps: Send + Sync {
         image_id: &str,
         specs: &Transformations,
         user: UserInfo,
-    ) -> Result<Option<ImageVersionOnly>>;
+    ) -> Result<Option<ImageVersion>>;
 
     async fn update(
         &self,
@@ -369,7 +369,7 @@ impl ImageRepoOps for ImageRepo {
         image_id: &str,
         specs: &Transformations,
         user: UserInfo,
-    ) -> Result<Option<ImageVersionOnly>> {
+    ) -> Result<Option<ImageVersion>> {
         let image = get_image_info(&self.db, image_id, &user.username)
             .await
             .map_err(|e| ImageError::QueryFailure(e.to_string()))?;
@@ -415,7 +415,7 @@ impl ImageRepoOps for ImageRepo {
                     &user.username,
                 )
                 .await? {
-                    Ok(Some(ImageVersionOnly { version }))
+                    Ok(Some(ImageVersion { version }))
                 } else {
                     Ok(None)
                 }

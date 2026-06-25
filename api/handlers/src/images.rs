@@ -14,7 +14,7 @@ use tracing::info;
 use auth::middleware::RequireAuth;
 use errors::ImageError;
 use models::{
-    ContentType, Image, ImageData, ImageList, ImageVersionOnly,
+    ContentType, Image, ImageData, ImageList, ImageVersion,
     Transformations, UploadImage, UserInfo,
 };
 use schemas::{
@@ -232,7 +232,7 @@ pub async fn transform_image(
     Path(image_id): Path<String>,
     Json(payload): Json<Transformations>,
 ) -> Result<Json<ImageVersionResponse>> {
-    let image: ImageVersionOnly = state
+    let image: ImageVersion = state
         .image_repo
         .transform(&image_id, &payload, user)
         .await?
