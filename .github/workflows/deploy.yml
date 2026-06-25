@@ -107,7 +107,7 @@ jobs:
               docker network create --driver bridge \
                 --subnet "${{ secrets.DOCKER_NETWORK_SUBNET }}" \
                 --gateway "${{ secrets.DOCKER_NETWORK_GATEWAY }}" \
-                imgmesser-nw || true
+                imgmesser-nw
             fi
 
             export DOCKER_USER="${{ secrets.DOCKERHUB_USERNAME }}"
@@ -123,14 +123,16 @@ jobs:
 
             # Run certbot service and create dummy certs
             docker compose run --rm \
-              --entrypoint "/opt/certbot/tools/make_dummy_certs.sh" certbot
+              --entrypoint "DOMAIN=${CERTBOT_DOMAIN} /opt/certbot/tools/make_dummy_certs.sh" \
+              certbot
 
             # Run `app` service in a new container
             docker compose --profile nginx up --detach
 
             # Run certbot again separately to create real certs
             docker compose run --rm \
-              --entrypoint "/opt/certbot/tools/make_certs.sh" certbot
+              --entrypoint "DOMAIN=${CERTBOT_DOMAIN} EMAIL=${CERTBOT_EMAIL} /opt/certbot/tools/make_certs.sh" \
+              certbot
 
             # Reload Nginx in `app` container
             docker compose exec app nginx -s reload
