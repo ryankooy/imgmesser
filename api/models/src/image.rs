@@ -67,13 +67,7 @@ pub struct ImageInfo {
     pub version: String,
 }
 
-#[derive(Clone, Debug, FromRow)]
 pub struct ImageVersion {
-    pub version: String,
-    pub ts: DateTime<Utc>,
-}
-
-pub struct ImageVersionOnly {
     pub version: String,
 }
 
