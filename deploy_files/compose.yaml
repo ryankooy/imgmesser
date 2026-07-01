@@ -1,8 +1,8 @@
-name: ${PROJECT}
+name: imgmesser
 
 services:
   app:
-    image: ${DOCKER_USER}/${PROJECT}-app:latest
+    image: ${DOCKER_USER}/imgmesser-app:latest
     ports:
       - "80:80"
       - "443:443"
@@ -19,15 +19,20 @@ services:
 
   certbot:
     image: certbot/certbot
+    environment:
+      DOMAIN: "${CERTBOT_DOMAIN}"
+      EMAIL: "${CERTBOT_EMAIL}"
     volumes:
       - ./data/certbot_webroot:/var/www/certbot:rw
       - ./etc/letsencrypt:/etc/letsencrypt:rw
+      - ./make_dummy_certs.sh:/opt/certbot/tools/make_dummy_certs.sh:rx
+      - ./make_certs.sh:/opt/certbot/tools/make_certs.sh:rx
     entrypoint: "/bin/sh -c 'trap exit TERM; while :; do certbot renew; sleep 12h & wait $${!}; done;'"
     networks:
       - nw
 
   api:
-    image: ${DOCKER_USER}/${PROJECT}-api:latest
+    image: ${DOCKER_USER}/imgmesser-api:latest
     ports:
       - "8080:8080"
     depends_on:
@@ -52,7 +57,7 @@ services:
 networks:
   nw:
     external: true
-    name: ${PROJECT}-nw
+    name: imgmesser-nw
 
 volumes:
   postgres_data:

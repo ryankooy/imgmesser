@@ -1,0 +1,23 @@
+{
+  "db_name": "PostgreSQL",
+  "query": "\n            UPDATE image_version SET current = TRUE\n            WHERE version = (\n                SELECT next.version\n                FROM image_version curr\n                JOIN image_version next\n                    ON next.image_id = curr.image_id\n                WHERE curr.image_id = $1\n                    AND curr.version = $2\n                    AND next.ts > curr.ts\n                ORDER BY next.ts ASC LIMIT 1\n            )\n            RETURNING version\n            ",
+  "describe": {
+    "columns": [
+      {
+        "ordinal": 0,
+        "name": "version",
+        "type_info": "Text"
+      }
+    ],
+    "parameters": {
+      "Left": [
+        "Uuid",
+        "Text"
+      ]
+    },
+    "nullable": [
+      false
+    ]
+  },
+  "hash": "7fb10e3dd80408393e4ff959ac5b1fb671bcc8af41313b07a70a43a04da77021"
+}
