@@ -268,6 +268,20 @@
         {/if}
       </div>
     </div>
+  {:else}
+    <div class="actions-section fade-element" id="edit-actions">
+      <div class="actions">
+        <!-- Save-as button -->
+        <IconButton
+          title="Save image as..."
+          class="material-icons icon-btn"
+          onclick={saveImageCopy}
+          disabled={!imageDataUrl}
+          >
+          save_as
+        </IconButton>
+      </div>
+    </div>
   {/if}
 </div>
 

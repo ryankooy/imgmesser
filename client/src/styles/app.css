@@ -212,3 +212,23 @@ h2 {
       transform: scale(0.9);
     }
 }
+
+.modal-actions {
+    display: flex;
+    justify-content: flex-end;
+    gap: 10px;
+}
+
+.confirm {
+    border: 1px solid var(--im-warn);
+}
+
+.confirm:hover:not(:disabled) {
+    background: var(--im-warn);
+}
+
+.confirm:active:not(:disabled) {
+    background: var(--im-btn-active-warn);
+    border: 1px solid var(--im-btn-active-warn);
+}
+

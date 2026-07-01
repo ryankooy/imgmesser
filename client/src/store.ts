@@ -77,7 +77,7 @@ export interface Transformations {
     resize: Resize | null;
     crop: Crop | null;
     rotate: number | null;
-format: string | null;
+    format: string | null;
     filters: Filters | null;
 }
 
@@ -115,7 +115,7 @@ export interface ConfirmModalOptions {
 // Modal button properties
 export interface ActionModalButton {
     text: string;
-    handleClick: () => void;
+    handleClick: (() => void) | ((text: string) => void);
 }
 
 // Modal properties
@@ -134,9 +134,8 @@ export const enum ImageStatus {
     Transforming,
     Panning,
     Closing,
-    Saving,
-    Canceling,
     Deleting,
+    Copying,
 }
 
 // Image editing statuses

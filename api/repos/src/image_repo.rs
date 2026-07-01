@@ -96,6 +96,13 @@ pub trait ImageRepoOps: Send + Sync {
         version: &str,
         user: UserInfo,
     ) -> Result<Option<String>>;
+
+    async fn save_copy(
+        &self,
+        image_id: &str,
+        copy_name: &str,
+        user: UserInfo,
+    ) -> Result<Option<String>>;
 }
 
 #[async_trait]
@@ -471,6 +478,69 @@ impl ImageRepoOps for ImageRepo {
         }
 
         Ok(new_current_version)
+    }
+
+    async fn save_copy(
+        &self,
+        image_id: &str,
+        copy_name: &str,
+        user: UserInfo,
+    ) -> Result<Option<String>> {
+        let image = get_image_info(&self.db, image_id, &user.username)
+            .await
+            .map_err(|e| ImageError::QueryFailure(e.to_string()))?;
+
+        // S3 object path of the image
+        let image_path = get_object_path(
+            &user.object_base_path,
+            &image.id,
+            &image.name,
+        );
+
+        let image_copy_id = Uuid::now_v7();
+        let image_copy_path = get_object_path(
+            &user.object_base_path,
+            &image_copy_id,
+            copy_name,
+        );
+
+        let output = s3::copy_object(
+            &self.img_store_client,
+            &image_path,
+            &image.version,
+            &image_copy_path,
+        )
+        .await
+        .map_err(|e| ImageError::S3OperationFailure(e.to_string()))?;
+
+        if let Err(e) = db::insert_image(
+            &self.db,
+            &image_copy_id,
+            &copy_name,
+            ContentType::from_int(image.content_type),
+            &user.username,
+        )
+        .await {
+            error!("Image insert failed: {}", e);
+        }
+
+        if let Some(image_copy_version) = output.version_id() {
+            // Add the image object version in the db
+            if let Err(e) = db::insert_image_copy_version(
+                &self.db,
+                &image.id,
+                &image.version,
+                &image_copy_id,
+                image_copy_version,
+            )
+            .await {
+                error!("Image version insert failed: {}", e);
+            }
+
+            return Ok(Some(image_copy_version.to_string()));
+        }
+
+        Ok(None)
     }
 }
 

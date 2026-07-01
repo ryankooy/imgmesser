@@ -65,7 +65,7 @@
   }
 
   function handleRefreshImage(status: ImageStatus) {
-    if (status === ImageStatus.Deleting)
+    if (status.in([ImageStatus.Copying, ImageStatus.Deleting]))
       handleRefreshGallery();
     else
       refreshOneTrigger++;

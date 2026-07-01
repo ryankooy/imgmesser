@@ -57,6 +57,10 @@
     reset() {
       this.status = 0 as T;
     }
+
+    in(statuses: T[]): boolean {
+      return statuses.includes(this.status);
+    }
   }
 
   const meta: ImageMeta | null = $derived(image.meta ?? null);
@@ -191,6 +195,31 @@
     }
   }
 
+  async function saveImageCopy(imageCopyName: string) {
+    if (imageCopyName === "") return;
+
+    try {
+      const response = await fetch(`${imageUrl(imageId)}/savecopy`, {
+        method: "POST",
+        headers: {"Content-Type": "application/json"},
+        body: JSON.stringify({ image_name: imageCopyName }),
+      });
+
+      const data = await response.json();
+
+      if (response.ok) {
+        if (data.updated) {
+          status.set(ImageStatus.Copying);
+          await handleImageUpdated();
+        }
+      } else {
+        setAlertMessage("Failed to save image copy");
+      }
+    } catch (error) {
+      console.error("Error fetching:", error);
+    }
+  }
+
   async function updateImage(version: string) {
     try {
       const response = await fetch(`${imageUrl(imageId)}/update`, {
@@ -225,14 +254,13 @@
   }
 
   async function saveImageEdits() {
-    status.set(ImageStatus.Saving);
     await updateImage(meta.version);
   }
 
   async function handleImageUpdated() {
     refreshImage(status);
 
-    if (!(status.check(ImageStatus.Closing) || status.check(ImageStatus.Deleting))) {
+    if (!status.in([ImageStatus.Closing, ImageStatus.Copying, ImageStatus.Deleting])) {
       resetImage();
       await loadImageData();
     }
@@ -323,7 +351,7 @@
       options: {
         actionText: "save this edit of",
         extraText: "All other edits will be discarded.",
-        handleAction: async () => await saveImageEdits(),
+        handleAction: saveImageEdits,
       },
     };
 
@@ -338,7 +366,7 @@
       buttons: [
         {
           text: "Save Copy",
-          //TODO: add click handler
+          handleClick: saveImageCopy,
         },
       ],
     };
@@ -353,7 +381,7 @@
       isConfirmType: true,
       options: {
         actionText: "delete",
-        handleAction: async () => await deleteImage(),
+        handleAction: deleteImage,
       },
     };
 
@@ -366,7 +394,7 @@
       type: ModalType.Confirm,
       options: {
         actionText: "discard this edit of",
-        handleAction: async () => await deleteCurrentVersion(),
+        handleAction: deleteCurrentVersion,
       },
     };
 
