@@ -83,3 +83,13 @@ export const getBytesFromDataUrl = async (dataUrl: string): Promise<Uint8Array> 
     return new Uint8Array(buffer);
 };
 
+// Toggle an element's visibility.
+export const toggleHidden = (el: HTMLElement, hide: boolean) => {
+    if (!el) return;
+
+    if (hide)
+        el.classList.add("is-hidden");
+    else
+        setTimeout(() => el.classList.remove("is-hidden"), 150);
+}
+

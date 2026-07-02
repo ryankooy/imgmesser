@@ -55,7 +55,7 @@ h2 {
     background: none;
     color: var(--im-text);
     border: none;
-    font-size: 24px;
+    font-size: 22px;
     cursor: pointer;
     display: flex;
     align-items: center;
@@ -98,6 +98,33 @@ h2 {
 
 .icon-btn.close-btn.low-opac:active:not(:disabled) {
     opacity: 0.9;
+}
+
+.selected {
+    color: var(--im-header-gold);
+}
+
+.actions-section {
+    padding: 2px 3px;
+    margin: 3px;
+}
+
+.actions {
+    justify-content: center;
+    display: flex;
+    gap: 8px;
+}
+
+.fade-element {
+    opacity: 1;
+    visibility: visible;
+    transition: opacity 0.3s ease, visibility 0.3s ease;
+    transition-behavior: allow-discrete;
+}
+
+.fade-element.is-hidden {
+    opacity: 0;
+    visibility: hidden;
 }
 
 .spinner {
@@ -185,3 +212,23 @@ h2 {
       transform: scale(0.9);
     }
 }
+
+.modal-actions {
+    display: flex;
+    justify-content: flex-end;
+    gap: 10px;
+}
+
+.confirm {
+    border: 1px solid var(--im-warn);
+}
+
+.confirm:hover:not(:disabled) {
+    background: var(--im-warn);
+}
+
+.confirm:active:not(:disabled) {
+    background: var(--im-btn-active-warn);
+    border: 1px solid var(--im-btn-active-warn);
+}
+

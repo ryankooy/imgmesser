@@ -81,18 +81,65 @@ export interface Transformations {
     filters: Filters | null;
 }
 
-export const enum ImageState {
+// Icon menu item properties
+export interface IconMenuItem {
+    title: string;
+    iconName: string;
+    handleClick: (() => void) | null;
+}
+
+// Icon menu properties
+export interface IconMenu {
+    title: string;
+    iconName: string;
+    handleClick: (() => void) | null;
+    handleClickOutside: (() => void) | null;
+    toggleFunc: ((boolean) => void) | null;
+    items: IconMenuItem[];
+}
+
+// Modal types
+export const enum ModalType {
+    Confirm,
+    Alert,
+    SaveImageCopy,
+}
+
+// Confirm-type modal options
+export interface ConfirmModalOptions {
+    actionText: string;
+    extraText: string | null;
+    handleAction: () => void;
+}
+
+// Modal button properties
+export interface ActionModalButton {
+    text: string;
+    handleClick: (() => void) | ((text: string) => void);
+}
+
+// Modal properties
+export interface ActionModal {
+    title: string;
+    text: string | null;
+    type: ModalType;
+    options: ConfirmModalOptions | null;
+    buttons: ActionModalButton[] | null;
+}
+
+// Image statuses
+export const enum ImageStatus {
     None,
     Loading,
     Transforming,
     Panning,
     Closing,
-    Saving,
-    Canceling,
     Deleting,
+    Copying,
 }
 
-export const enum EditState {
+// Image editing statuses
+export const enum EditStatus {
     None,
     Rotating,
     Cropping,

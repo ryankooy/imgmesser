@@ -1,6 +1,6 @@
 <script lang="ts">
   import { onMount } from "svelte";
-  import { currentView, currentUser, galleryPageCache, ImageState } from "./store.ts";
+  import { currentView, currentUser, galleryPageCache, ImageStatus } from "./store.ts";
   import type { GalleryPagination, ImageData, ImageMeta } from "./store.ts";
   import { getCurrentUser } from "./utils/api.ts";
   import { handlePageRefresh, registerServiceWorker } from "./utils/app.ts";
@@ -64,8 +64,8 @@
     }
   }
 
-  function handleRefreshImage(status: ImageState) {
-    if (status === ImageState.Deleting)
+  function handleRefreshImage(status: ImageStatus) {
+    if (status.in([ImageStatus.Copying, ImageStatus.Deleting]))
       handleRefreshGallery();
     else
       refreshOneTrigger++;

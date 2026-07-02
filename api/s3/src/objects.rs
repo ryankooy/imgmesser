@@ -1,5 +1,6 @@
 use aws_sdk_s3::{
     operation::{
+        copy_object::CopyObjectOutput,
         delete_object::DeleteObjectOutput,
         delete_objects::DeleteObjectsOutput,
         get_object::GetObjectOutput,
@@ -168,6 +169,29 @@ pub async fn delete_previous_versions(
     }
 
     Ok(None)
+}
+
+/// Make copy of object in S3 bucket.
+pub async fn copy_object(
+    client: &Client,
+    object_key: &str,
+    version_id: &str,
+    new_object_key: &str,
+) -> Result<CopyObjectOutput> {
+    let bucket_name = get_bucket_name().await;
+    let copy_source = format!(
+        "{}/{}?versionId={}", bucket_name, object_key, version_id,
+    );
+
+    let object = client
+        .copy_object()
+        .bucket(bucket_name)
+        .key(new_object_key.to_string())
+        .copy_source(copy_source)
+        .send()
+        .await?;
+
+    Ok(object)
 }
 
 async fn get_bucket_name() -> String {

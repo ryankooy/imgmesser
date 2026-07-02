@@ -1,35 +1,35 @@
 <script lang="ts">
-  import { createEventDispatcher, getContext } from "svelte";
+  import { getContext } from "svelte";
+  import { ModalType } from "../store.ts";
+  import { getFileExtension, getFileStem } from "../utils/app.ts";
+  import SaveImageCopyModal from "./SaveImageCopyModal.svelte";
 
-  let {
-    modalAction = "delete",
-    modalActionTitle = null,
-    modalExtraText = null,
-  } = $props();
-  const dispatch = createEventDispatcher();
+  let { props, onCancel } = $props();
 
   const imageName: string = getContext("imageName")();
-  let action: string = (() => modalAction)();
-  let actionTitle: string | null = $derived(modalActionTitle);
+  let imageCopyFileStem: string = $state(getFileStem(imageName));
+  let imageCopyFileExt: string = $state(getFileExtension(imageName));
 
-  if ((() => !actionTitle)())
-    actionTitle = action.charAt(0).toUpperCase() + action.slice(1);
-
-  function closeModal(eventName: string) {
+  function handleCloseModal(fn: (() => void) | ((text: string) => void) | null, value: string | null) {
     const modal = document.getElementById("confirm-action-backdrop");
     modal.classList.add("closing");
 
-    modal.addEventListener("animationend", () => {
-      dispatch(eventName);
-    });
+    if (fn) {
+      modal.addEventListener("animationend", () => {
+        if (value != null)
+          fn(value);
+        else
+          fn();
+      });
+    }
   }
 
   function handleConfirm() {
-    closeModal("confirm");
+    if (props.options) handleCloseModal(props.options.handleAction);
   }
 
   function handleCancel() {
-    closeModal("cancel");
+    handleCloseModal(onCancel);
   }
 
   function handleModalClick(event: CustomEvent) {
@@ -46,45 +46,51 @@
   <div class="modal-content" onclick={handleModalClick}>
     <div class="inner">
       <!-- svelte-ignore state_referenced_locally -->
-      <h2>Confirm {actionTitle}</h2>
-      <p>
-        Are you sure you want to {action} image "{imageName}"?
-        {#if modalExtraText}
-          {modalExtraText}.
+      <h2>{props.title}</h2>
+
+      {#if props.type === ModalType.Confirm}
+        <p>
+          {#if props.options}
+            Are you sure you want to {props.options.actionText} image <em>{imageName}</em>?
+            {#if props.options.extraText}
+              {props.options.extraText}
+            {/if}
+          {:else}
+            Are you sure?
+          {/if}
+        </p>
+
+        <div class="modal-actions">
+          <button class="confirm btn" onclick={handleConfirm}>
+            Confirm
+          </button>
+          <button class="btn" onclick={handleCancel}>
+            Cancel
+          </button>
+        </div>
+      {:else if props.type === ModalType.SaveImageCopy}
+        <SaveImageCopyModal
+          imageName={imageName}
+          props={props}
+          cancel={handleCancel}
+          closeModal={handleCloseModal}
+        />
+      {:else}
+        {#if props.text}
+          <p>{props.text}</p>
         {/if}
-      </p>
-      <div class="modal-actions">
-        <button class="confirm btn" onclick={handleConfirm}>
-          Confirm
-        </button>
-        <button class="btn" onclick={handleCancel}>
-          Cancel
-        </button>
-      </div>
+
+        <div class="modal-actions">
+          <button class="btn" onclick={handleCancel}>
+            OK
+          </button>
+        </div>
+      {/if}
     </div>
   </div>
 </div>
 
 <style>
-  .modal-actions {
-    display: flex;
-    justify-content: flex-end;
-    gap: 10px;
-  }
-
-  .confirm {
-    border: 1px solid var(--im-warn);
-  }
-
-  .confirm:hover:not(:disabled) {
-    background: var(--im-warn);
-  }
-
-  .confirm:active:not(:disabled) {
-    background: var(--im-btn-active-warn);
-    border: 1px solid var(--im-btn-active-warn);
-  }
-
   p {
     padding: 12px;
     text-align: center;

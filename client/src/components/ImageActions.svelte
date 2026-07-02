@@ -1,27 +1,105 @@
 <script lang="ts">
   import IconButton from "@smui/icon-button";
-  import { EditState, ImageState, imageDataUrlCache } from "../store.ts";
+  import { EditStatus, ImageStatus, imageDataUrlCache } from "../store.ts";
+  import type { IconMenu } from "../store.ts";
   import { imageUrl } from "../utils/api.ts";
+  import { toggleHidden } from "../utils/app.ts";
+  import DropdownMenu from "./DropdownMenu.svelte";
 
   let {
+    editStatus = $bindable(),
     imageDataUrl = "",
     imageId = null,
     meta = null,
-    checkStatus,
+    status = $bindable(),
+    transformMenuOpen = false,
     closeImage,
     deleteImage,
     downloadImage,
     discardAllEdits,
     discardCurrentEdit,
     imageUpdated,
-    resetEditStatus,
     saveImage,
+    saveImageCopy,
     setAlertMessage,
     toggleButtonColor,
-    toggleStatus,
   } = $props();
 
   const multiVersion: boolean = $derived(meta.version_count > 1);
+
+  const transformMenu: IconMenu = {
+    title: "Transform tools",
+    iconName: "transform",
+    handleClick: () => openTransformMenu(),
+    handleClickOutside: () => status.reset(),
+    toggleFunc: (hide: boolean) => toggleEditIcons(hide),
+    items: [
+      {
+        title: "Rotate",
+        iconName: "rotate_left",
+        handleClick: () => handleTransform(EditStatus.Rotating),
+      },
+      {
+        title: "Crop",
+        iconName: "crop",
+        handleClick: () => handleTransform(EditStatus.Cropping),
+      },
+      {
+        title: "Resize",
+        iconName: "photo_size_select_small",
+        handleClick: () => handleTransform(EditStatus.Resizing),
+      },
+      {
+        title: "Filters",
+        iconName: "filter_b_and_w",
+        handleClick: () => handleTransform(EditStatus.SettingFilters),
+      },
+    ],
+  };
+
+  const saveMenu: IconMenu = {
+    title: "Save options",
+    iconName: "save",
+    items: [
+      {
+        title: "Save current edit",
+        iconName: "save",
+        handleClick: () => saveImage(),
+      },
+      {
+        title: "Save current edit as...",
+        iconName: "save_as",
+        handleClick: () => saveImageCopy(),
+      },
+    ],
+  };
+
+  const discardMenu: IconMenu = {
+    title: "Discard options",
+    iconName: "delete",
+    items: [
+      {
+        title: "Discard current edit",
+        iconName: "delete",
+        handleClick: () => discardCurrentEdit(),
+      },
+      {
+        title: "Discard all edits",
+        iconName: "delete_sweep",
+        handleClick: () => discardAllEdits(),
+      },
+    ],
+  };
+
+  function toggleEditIcons(hide: boolean) {
+    const editIcons = document.getElementById("edit-actions") as HTMLElement;
+    toggleHidden(editIcons, hide);
+  }
+
+  function handleTransform(status: EditStatus) {
+    transformMenuOpen = false;
+    editStatus.set(status);
+  }
 
   async function undoEdit() {
     try {
@@ -67,45 +145,44 @@
     return meta.content_type === "image/gif";
   }
 
-  function toggleTransform(node: PointerEvent) {
-    if (checkStatus(ImageState.Panning)) {
+  function openTransformMenu() {
+    if (status.check(ImageStatus.Panning)) {
       const panBtn = document.querySelector(".toggle-btn.pan-btn") as HTMLElement;
       panBtn.style.color = "white";
     }
 
-    toggleStatus(ImageState.Transforming);
-    toggleButtonColor(node, checkStatus(ImageState.Transforming));
-
-    if (!checkStatus(ImageState.Transforming)) resetEditStatus();
+    status.set(ImageStatus.Transforming);
+    transformMenuOpen = true;
+    editStatus.reset();
   }
 
   function togglePanTool(node: PointerEvent) {
-    toggleStatus(ImageState.Panning);
-    toggleButtonColor(node, checkStatus(ImageState.Panning));
+    status.toggle(ImageStatus.Panning);
+
+    const isPanning: boolean = status.check(ImageStatus.Panning);
+
+    toggleButtonColor(node, isPanning);
+    toggleEditIcons(isPanning);
   }
 </script>
 
 <div>
   <div class="actions-section">
     <div class="actions">
-      <!-- Transform button -->
-      <IconButton
-        title="Toggle transform tools"
-        class="material-icons icon-btn toggle-btn transform-btn"
-        onclick={toggleTransform}
-        disabled={!imageDataUrl || checkStatus(ImageState.Panning) || typeIsGif()}
-        >
-        transform
-      </IconButton>
       <!-- Pan tool button -->
       <IconButton
         title="Pan tool"
         class="material-icons icon-btn toggle-btn pan-btn"
         onclick={togglePanTool}
-        disabled={!imageDataUrl || checkStatus(ImageState.Transforming)}
+        disabled={!imageDataUrl || status.check(ImageStatus.Transforming)}
         >
         pan_tool
       </IconButton>
+      <!-- Transform menu button -->
+      <DropdownMenu
+        menu={transformMenu}
+        disabled={!imageDataUrl || typeIsGif() || !status.check(ImageStatus.None)}
+      />
       <!-- Download button -->
       <IconButton
         title="Download image"
@@ -136,71 +213,77 @@
     </div>
   </div>
 
-  {#if multiVersion && !typeIsGif()}
-    <div class="actions-section">
+  {#if editStatus.check(EditStatus.None)}
+    <div class="actions-section fade-element" id="edit-actions">
       <div class="actions">
-        <!-- Unto button -->
-        <IconButton
-          title="Undo change"
-          class="material-icons icon-btn"
-          onclick={undoEdit}
-          disabled={!imageDataUrl || !multiVersion || meta.initial_version}
-          >
-          undo
-        </IconButton>
-        <!-- Redo button -->
-        <IconButton
-          title="Redo change"
-          class="material-icons icon-btn"
-          onclick={redoEdit}
-          disabled={!imageDataUrl || !multiVersion || meta.latest_version}
-          >
-          redo
-        </IconButton>
-        <!-- Save button -->
-        <IconButton
-          title="Save current edit"
-          class="material-icons icon-btn"
-          onclick={saveImage}
-          disabled={!imageDataUrl || !multiVersion || meta.initial_version}
-          >
-          save
-        </IconButton>
-        <!-- Discard current edit button -->
-        <IconButton
-          title="Discard current edit"
-          class="material-icons icon-btn delete-btn"
-          onclick={discardCurrentEdit}
-          disabled={!imageDataUrl || !multiVersion || meta.initial_version}
-          >
-          delete
-        </IconButton>
-        <!-- Discard all edits button -->
-        <IconButton
-          title="Discard all edits"
-          class="material-icons icon-btn delete-btn"
-          onclick={discardAllEdits}
-          disabled={!imageDataUrl || !multiVersion}
-          >
-          delete_sweep
-        </IconButton>
+        {#if multiVersion}
+          <!-- Unto button -->
+          <IconButton
+            title="Undo change"
+            class="material-icons icon-btn"
+            onclick={undoEdit}
+            disabled={!imageDataUrl || meta.initial_version}
+            >
+            undo
+          </IconButton>
+          <!-- Redo button -->
+          <IconButton
+            title="Redo change"
+            class="material-icons icon-btn"
+            onclick={redoEdit}
+            disabled={!imageDataUrl || meta.latest_version}
+            >
+            redo
+          </IconButton>
+
+          {#if meta.initial_version}
+            <!-- Save-as button -->
+            <IconButton
+              title="Save image as..."
+              class="material-icons icon-btn"
+              onclick={saveImageCopy}
+              disabled={!imageDataUrl}
+              >
+              save_as
+            </IconButton>
+            <!-- Discard all edits button -->
+            <IconButton
+              title="Discard all edits"
+              class="material-icons icon-btn delete-btn"
+              onclick={discardAllEdits}
+              disabled={!imageDataUrl}
+              >
+              delete_sweep
+            </IconButton>
+          {:else}
+            <!-- Save-edit dropdown -->
+            <DropdownMenu
+              menu={saveMenu}
+              disabled={!imageDataUrl}
+            />
+            <!-- Discard-edit dropdown -->
+            <DropdownMenu
+              menu={discardMenu}
+              disabled={!imageDataUrl}
+            />
+          {/if}
+        {:else}
+          <!-- Save-as button -->
+          <IconButton
+            title="Save image as..."
+            class="material-icons icon-btn"
+            onclick={saveImageCopy}
+            disabled={!imageDataUrl}
+            >
+            save_as
+          </IconButton>
+        {/if}
       </div>
     </div>
   {/if}
 </div>
 
 <style>
-  .actions-section {
-    padding: 2px 3px;
-    margin: 3px;
-  }
-
-  .actions {
-    justify-content: flex-start;
-    display: flex;
-    gap: 8px;
-  }
-
   :global(.delete-btn:hover:not(:disabled)) {
     background: var(--im-warn);
   }
