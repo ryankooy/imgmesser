@@ -206,7 +206,6 @@ impl ImageRepoOps for ImageRepo {
         .map_err(|e| ImageError::S3OperationFailure(e.to_string()))?;
 
         let mut objects = output.contents().to_vec();
-        let total = objects.len();
 
         // Sort the objects in descending order by time modified
         objects.sort_by(|a, b| b.last_modified.cmp(&a.last_modified));
@@ -228,22 +227,30 @@ impl ImageRepoOps for ImageRepo {
         }
 
         // Calculate pagination
-        let start = ((page - 1) * limit) as usize;
-        let end = (start + limit as usize).min(total);
-        let has_more = end < total;
+        let start_idx = ((page - 1) * limit) as usize;
+        let end_idx = start_idx + limit as usize;
+        let mut match_count: usize = 0;
 
-        // Build image list
-        let images: Vec<Image> = objects[start..end]
+        // Build list of image metadata, selecting only images matching
+        // S3 objects and that are within pagination range
+        let images: Vec<Image> = objects
             .iter()
             .filter_map(|object| {
                 if let Some(key) = object.key() {
                     if let Some(image) = image_map.get(key) {
-                        return Some(image.clone());
+                        match_count += 1;
+
+                        if match_count > start_idx && match_count <= end_idx {
+                            return Some(image.clone());
+                        }
                     }
                 }
                 None
             })
             .collect();
+
+        let total: usize = match_count;
+        let has_more = end_idx.min(total) < total;
 
         Ok(ImageList { images, total, has_more })
     }
