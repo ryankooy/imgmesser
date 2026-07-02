@@ -16,7 +16,6 @@ pub async fn insert_image(
         r#"
         INSERT INTO image (id, name, content_type, username)
         VALUES ($1, $2, $3, $4)
-        ON CONFLICT (name, username) DO NOTHING
         "#,
         id,
         name,
@@ -225,6 +224,34 @@ pub async fn delete_image(
     sqlx::query!(
         "DELETE FROM image WHERE id = $1",
         image_id,
+    )
+    .execute(db)
+    .await?;
+
+    Ok(())
+}
+
+/// Insert image copy version data into the database.
+pub async fn insert_image_copy_version(
+    db: &PgPool,
+    id: &Uuid,
+    version: &str,
+    copy_id: &Uuid,
+    copy_version: &str,
+) -> Result<()> {
+    sqlx::query!(
+        r#"
+        INSERT INTO image_version (
+            image_id, version, current, width, height, size
+        )
+        SELECT $1, $2, TRUE, width, height, size
+        FROM image_version
+        WHERE image_id = $3 AND version = $4
+        "#,
+        copy_id,
+        copy_version,
+        id,
+        version,
     )
     .execute(db)
     .await?;

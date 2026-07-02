@@ -11,6 +11,11 @@ pub struct ImageVersionRequest {
 }
 
 #[derive(Deserialize)]
+pub struct ImageCopyRequest {
+    pub image_name: String,
+}
+
+#[derive(Deserialize)]
 pub struct PaginationParams {
     #[serde(default = "default_page")]
     pub page: u32,

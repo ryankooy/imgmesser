@@ -11,8 +11,13 @@
   import ImageCropper from "./ImageCropper.svelte";
   import ImageActions from "./ImageActions.svelte";
   import Transform from "./Transform.svelte";
-  import { EditState, ImageState, imageDataUrlCache } from "../store.ts";
-  import type { ImageData, ImageMeta, Transformations } from "../store.ts";
+  import {
+    EditStatus, ImageStatus, ModalType, imageDataUrlCache,
+  } from "../store.ts";
+  import type {
+    ActionModal, ActionModalButton, ConfirmModalOptions,
+    ImageData, ImageMeta, Transformations
+  } from "../store.ts";
   import { getImageDataUrl, imageUrl } from "../utils/api.ts";
   import {
     formatDate, formatFileSize, formatImageType,
@@ -30,18 +35,47 @@
     setImageDataUrl,
   } = $props();
 
+  class State<T extends number> {
+    private status: T = $state(0);
+
+    set(status: T) {
+      this.status = status;
+    }
+
+    get(): T {
+      return this.status;
+    }
+
+    toggle(status: T) {
+      this.status = (this.status !== status) ? status : 0 as T;
+    }
+
+    check(status: T): boolean {
+      return this.status === status;
+    }
+
+    reset() {
+      this.status = 0 as T;
+    }
+
+    in(statuses: T[]): boolean {
+      return statuses.includes(this.status);
+    }
+  }
+
   const meta: ImageMeta | null = $derived(image.meta ?? null);
   const imageId: string = $derived(image.id);
   let imageDataUrl: string = $derived(image.url ?? "");
 
-  let status: ImageState = $state(ImageState.None);
-  let editStatus: EditState = $state(EditState.None);
+  let status = $state(new State<ImageStatus>());
+  let editStatus = $state(new State<EditStatus>());
 
   let editingName: boolean = $state(false);
   let nextPageExists: boolean = $state(false);
   let prevPageExists: boolean = $state(false);
   let showConfirmModal: boolean = $state(false);
   let showAlertModal: boolean = $state(false);
+  let transformMenuOpen: boolean = $state(false);
 
   let alertText: string | null = $state(null);
   let modalAction: string = $state("");
@@ -51,6 +85,8 @@
 
   const imageName: string = $derived(meta.name);
   setContext("imageName", () => imageName);
+
+  let actionModal: ActionModal | null = $state(null);
 
   let editableFileStem: string = $derived(getFileStem(imageName));
 
@@ -78,48 +114,8 @@
     }
   });
 
-  function setStatus(stat: ImageState) {
-    status = stat;
-  }
-
-  function getStatus(): ImageState {
-    return status;
-  }
-
-  function toggleStatus(stat: ImageState) {
-    status = (status !== stat) ? stat : ImageState.None;
-  }
-
-  function checkStatus(stat: ImageState): boolean {
-    return status === stat;
-  }
-
-  function resetStatus() {
-    status = ImageState.None;
-  }
-
-  function setEditStatus(stat: EditState) {
-    editStatus = stat;
-  }
-
-  function getEditStatus(): EditState {
-    return editStatus;
-  }
-
-  function toggleEditStatus(stat: EditState) {
-    editStatus = (editStatus !== stat) ? stat : EditState.None;
-  }
-
-  function checkEditStatus(stat: EditState): boolean {
-    return editStatus === stat;
-  }
-
-  function resetEditStatus() {
-    editStatus = EditState.None;
-  }
-
   async function loadImageData() {
-    setStatus(ImageState.Loading);
+    status.set(ImageStatus.Loading);
 
     if ($imageDataUrlCache.has(imageId)) {
       imageDataUrl = $imageDataUrlCache.get(imageId);
@@ -132,7 +128,7 @@
       }
     }
 
-    resetStatus();
+    status.reset();
   }
 
   async function deleteImage() {
@@ -142,7 +138,7 @@
       });
 
       if (response.ok) {
-        status = ImageState.Deleting;
+        status.set(ImageStatus.Deleting);
         await handleImageUpdated();
       } else {
         setAlertMessage("Failed to delete image");
@@ -199,6 +195,31 @@
     }
   }
 
+  async function saveImageCopy(imageCopyName: string) {
+    if (imageCopyName === "") return;
+
+    try {
+      const response = await fetch(`${imageUrl(imageId)}/savecopy`, {
+        method: "POST",
+        headers: {"Content-Type": "application/json"},
+        body: JSON.stringify({ image_name: imageCopyName }),
+      });
+
+      const data = await response.json();
+
+      if (response.ok) {
+        if (data.updated) {
+          status.set(ImageStatus.Copying);
+          await handleImageUpdated();
+        }
+      } else {
+        setAlertMessage("Failed to save image copy");
+      }
+    } catch (error) {
+      console.error("Error fetching:", error);
+    }
+  }
+
   async function updateImage(version: string) {
     try {
       const response = await fetch(`${imageUrl(imageId)}/update`, {
@@ -218,7 +239,7 @@
   }
 
   function resetCrop() {
-    resetEditStatus();
+    editStatus.reset();
     zoom = aspect = 1;
     crop = { x: 0, y: 0};
   }
@@ -233,14 +254,13 @@
   }
 
   async function saveImageEdits() {
-    status = ImageState.Saving;
     await updateImage(meta.version);
   }
 
   async function handleImageUpdated() {
     refreshImage(status);
 
-    if (!(status === ImageState.Closing || status === ImageState.Deleting)) {
+    if (!status.in([ImageStatus.Closing, ImageStatus.Copying, ImageStatus.Deleting])) {
       resetImage();
       await loadImageData();
     }
@@ -257,11 +277,8 @@
   }
 
   function resetImage() {
-    resetStatus();
+    status.reset();
     showConfirmModal = false;
-
-    const transformButton = document.querySelector(".toggle-btn.transform-btn") as HTMLElement;
-    transformButton.style.color = "white";
 
     const panButton = document.querySelector(".toggle-btn.pan-btn") as HTMLElement;
     panButton.style.color = "white";
@@ -328,34 +345,72 @@
   }
 
   function handleSaveImage() {
-    modalAction = "save this edit of";
-    modalActionTitle = "Save Current Edit";
-    modalExtraText = "All other edits will be discarded"
-    modalConfirmFunc = saveImageEdits;
+    actionModal = {
+      title: "Confirm Save Current Edit",
+      type: ModalType.Confirm,
+      options: {
+        actionText: "save this edit of",
+        extraText: "All other edits will be discarded.",
+        handleAction: saveImageEdits,
+      },
+    };
+
+    showConfirmModal = true;
+  }
+
+  function handleSaveImageCopy() {
+    actionModal = {
+      title: "Save Image Copy",
+      type: ModalType.SaveImageCopy,
+      isConfirmType: false,
+      buttons: [
+        {
+          text: "Save Copy",
+          handleClick: saveImageCopy,
+        },
+      ],
+    };
+
     showConfirmModal = true;
   }
 
   function handleDeleteImage() {
-    modalAction = "delete";
-    modalActionTitle = "Delete Image";
-    modalExtraText = null;
-    modalConfirmFunc = deleteImage;
+    actionModal = {
+      title: "Confirm Delete Image",
+      type: ModalType.Confirm,
+      isConfirmType: true,
+      options: {
+        actionText: "delete",
+        handleAction: deleteImage,
+      },
+    };
+
     showConfirmModal = true;
   }
 
   function handleDiscardCurrentEdit() {
-    modalAction = "discard this edit of";
-    modalActionTitle = "Discard Current Edit";
-    modalExtraText = null;
-    modalConfirmFunc = deleteCurrentVersion;
+    actionModal = {
+      title: "Confirm Discard Current Edit",
+      type: ModalType.Confirm,
+      options: {
+        actionText: "discard this edit of",
+        handleAction: deleteCurrentVersion,
+      },
+    };
+
     showConfirmModal = true;
   }
 
   function handleDiscardAllEdits() {
-    modalAction = "discard all edits of";
-    modalActionTitle = "Discard All Edits";
-    modalExtraText = null;
-    modalConfirmFunc = discardEdits;
+    actionModal = {
+      title: "Confirm Discard All Edits",
+      type: ModalType.Confirm,
+      options: {
+        actionText: "discard all edits of",
+        handleAction: async () => await discardEdits(),
+      },
+    };
+
     showConfirmModal = true;
   }
 
@@ -424,13 +479,13 @@
 
   <div class="modal-content image-modal">
     <div class="image-container">
-      {#if status === ImageState.Loading}
+      {#if status.check(ImageStatus.Loading)}
         <div class="loading-spinner">
           <div class="spinner"></div>
           <p>Loading image...</p>
         </div>
       {:else if imageDataUrl}
-        {#if editStatus === EditState.Cropping}
+        {#if editStatus.check(EditStatus.Cropping)}
           <ImageCropper
             aspect={aspect}
             bind:crop={crop}
@@ -440,13 +495,13 @@
             width={width}
             bind:zoom={zoom}
           />
-        {:else if editStatus === EditState.Rotating}
+        {:else if editStatus.check(EditStatus.Rotating)}
           <img
             src={imageDataUrl}
             style="transform: rotate({$animatedRotation}deg);"
             alt={imageName}
           />
-        {:else if status === ImageState.Panning}
+        {:else if status.check(ImageStatus.Panning)}
           <div class="image-viewer">
             <ImageViewer src={imageDataUrl} alt={imageName} />
           </div>
@@ -512,42 +567,40 @@
 
       <div class="actions-wrapper">
         <ImageActions
+          bind:editStatus
           imageDataUrl={imageDataUrl}
           imageId={imageId}
           meta={meta}
-          checkStatus={checkStatus}
+          bind:status
+          bind:transformMenuOpen={transformMenuOpen}
           closeImage={handleCloseImage}
           deleteImage={handleDeleteImage}
           downloadImage={downloadImage}
           discardAllEdits={handleDiscardAllEdits}
           discardCurrentEdit={handleDiscardCurrentEdit}
           imageUpdated={handleImageUpdated}
-          resetEditStatus={resetEditStatus}
           saveImage={handleSaveImage}
+          saveImageCopy={handleSaveImageCopy}
           setAlertMessage={setAlertMessage}
           toggleButtonColor={toggleButtonColor}
-          toggleStatus={toggleStatus}
         />
-        {#if status === ImageState.Transforming}
+        {#if status.check(ImageStatus.Transforming)}
           <Transform
+            bind:editStatus
             height={height}
             imageDataUrl={imageDataUrl}
             imageId={imageId}
+            bind:status
             bind:transformations={transformations}
+            bind:transformMenuOpen={transformMenuOpen}
             width={width}
-            checkEditStatus={checkEditStatus}
             clearTransformations={clearTransformations}
-            getEditStatus={getEditStatus}
             imageUpdated={handleImageUpdated}
             resetCrop={resetCrop}
-            resetEditStatus={resetEditStatus}
             setAlertMessage={setAlertMessage}
             setAnimatedRotation={setAnimatedRotation}
             setAspect={setAspect}
-            setEditStatus={setEditStatus}
-            setStatus={setStatus}
             toggleButtonColor={toggleButtonColor}
-            toggleEditStatus={toggleEditStatus}
           />
         {/if}
       </div>
@@ -564,11 +617,8 @@
 
   {#if showConfirmModal}
     <ConfirmModal
-      modalAction={modalAction}
-      modalActionTitle={modalActionTitle}
-      modalExtraText={modalExtraText}
-      on:confirm={modalConfirmFunc}
-      on:cancel={handleModalCancel}
+      props={actionModal}
+      onCancel={handleModalCancel}
     />
   {:else if showAlertModal}
     <AlertModal

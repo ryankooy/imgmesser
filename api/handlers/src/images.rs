@@ -18,6 +18,7 @@ use models::{
     Transformations, UploadImage, UserInfo,
 };
 use schemas::{
+    ImageCopyRequest,
     ImageRenameRequest,
     ImageUpdateResponse,
     ImageVersionRequest,
@@ -257,6 +258,22 @@ pub async fn update_image(
         .is_some();
 
     Ok(Json(ImageUpdateResponse { updated }))
+}
+
+/// Route for copying an image.
+pub async fn copy_image(
+    State(state): State<AppState>,
+    RequireAuth(user): RequireAuth,
+    Path(image_id): Path<String>,
+    Json(payload): Json<ImageCopyRequest>,
+) -> Result<Json<ImageUpdateResponse>> {
+    let copied: bool = state
+        .image_repo
+        .save_copy(&image_id, &payload.image_name, user)
+        .await?
+        .is_some();
+
+    Ok(Json(ImageUpdateResponse { updated: copied }))
 }
 
 /// Parse multipart image data.
