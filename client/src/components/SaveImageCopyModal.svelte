@@ -3,7 +3,9 @@
 
   let { imageName, props, cancel, closeModal } = $props();
 
-  let imageCopyFileStem: string = $derived(getFileStem(imageName) + "_COPY");
+  const imageFileStem: string = $derived(getFileStem(imageName));
+
+  let imageCopyFileStem: string = $derived(imageFileStem + "_COPY");
   const imageCopyFileExt: string = $derived(getFileExtension(imageName));
 
   function handleClick(button: object) {
@@ -35,7 +37,11 @@
   <div class="modal-actions">
     {#if props.buttons}
       {#each props.buttons as btn (btn.text)}
-        <button class="btn" onclick={() => handleClick(btn)}>
+        <button
+          class="btn"
+          onclick={() => handleClick(btn)}
+          disabled={imageCopyFileStem === imageFileStem}
+          >
           {btn.text}
         </button>
       {/each}

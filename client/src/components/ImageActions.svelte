@@ -213,29 +213,61 @@
     </div>
   </div>
 
-  {#if multiVersion && editStatus.check(EditStatus.None)}
+  {#if editStatus.check(EditStatus.None)}
     <div class="actions-section fade-element" id="edit-actions">
       <div class="actions">
-        <!-- Unto button -->
-        <IconButton
-          title="Undo change"
-          class="material-icons icon-btn"
-          onclick={undoEdit}
-          disabled={!imageDataUrl || meta.initial_version}
-          >
-          undo
-        </IconButton>
-        <!-- Redo button -->
-        <IconButton
-          title="Redo change"
-          class="material-icons icon-btn"
-          onclick={redoEdit}
-          disabled={!imageDataUrl || meta.latest_version}
-          >
-          redo
-        </IconButton>
+        {#if multiVersion}
+          <!-- Unto button -->
+          <IconButton
+            title="Undo change"
+            class="material-icons icon-btn"
+            onclick={undoEdit}
+            disabled={!imageDataUrl || meta.initial_version}
+            >
+            undo
+          </IconButton>
+          <!-- Redo button -->
+          <IconButton
+            title="Redo change"
+            class="material-icons icon-btn"
+            onclick={redoEdit}
+            disabled={!imageDataUrl || meta.latest_version}
+            >
+            redo
+          </IconButton>
 
-        {#if meta.initial_version}
+          {#if meta.initial_version}
+            <!-- Save-as button -->
+            <IconButton
+              title="Save image as..."
+              class="material-icons icon-btn"
+              onclick={saveImageCopy}
+              disabled={!imageDataUrl}
+              >
+              save_as
+            </IconButton>
+            <!-- Discard all edits button -->
+            <IconButton
+              title="Discard all edits"
+              class="material-icons icon-btn delete-btn"
+              onclick={discardAllEdits}
+              disabled={!imageDataUrl}
+              >
+              delete_sweep
+            </IconButton>
+          {:else}
+            <!-- Save-edit dropdown -->
+            <DropdownMenu
+              menu={saveMenu}
+              disabled={!imageDataUrl}
+            />
+            <!-- Discard-edit dropdown -->
+            <DropdownMenu
+              menu={discardMenu}
+              disabled={!imageDataUrl}
+            />
+          {/if}
+        {:else}
           <!-- Save-as button -->
           <IconButton
             title="Save image as..."
@@ -245,41 +277,7 @@
             >
             save_as
           </IconButton>
-          <!-- Discard all edits button -->
-          <IconButton
-            title="Discard all edits"
-            class="material-icons icon-btn delete-btn"
-            onclick={discardAllEdits}
-            disabled={!imageDataUrl}
-            >
-            delete_sweep
-          </IconButton>
-        {:else}
-          <!-- Save-edit dropdown -->
-          <DropdownMenu
-            menu={saveMenu}
-            disabled={!imageDataUrl}
-          />
-          <!-- Discard-edit dropdown -->
-          <DropdownMenu
-            menu={discardMenu}
-            disabled={!imageDataUrl}
-          />
         {/if}
-      </div>
-    </div>
-  {:else}
-    <div class="actions-section fade-element" id="edit-actions">
-      <div class="actions">
-        <!-- Save-as button -->
-        <IconButton
-          title="Save image as..."
-          class="material-icons icon-btn"
-          onclick={saveImageCopy}
-          disabled={!imageDataUrl}
-          >
-          save_as
-        </IconButton>
       </div>
     </div>
   {/if}
