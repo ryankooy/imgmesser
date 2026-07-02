@@ -123,7 +123,8 @@ jobs:
 
             # Run certbot service and create dummy certs
             docker compose run --rm \
-              --entrypoint "DOMAIN=${CERTBOT_DOMAIN} /opt/certbot/tools/make_dummy_certs.sh" \
+              -e DOMAIN="${CERTBOT_DOMAIN}" \
+              --entrypoint "/opt/certbot/tools/make_dummy_certs.sh" \
               certbot
 
             # Run `app` service in a new container
@@ -131,7 +132,9 @@ jobs:
 
             # Run certbot again separately to create real certs
             docker compose run --rm \
-              --entrypoint "DOMAIN=${CERTBOT_DOMAIN} EMAIL=${CERTBOT_EMAIL} /opt/certbot/tools/make_certs.sh" \
+              -e DOMAIN="${CERTBOT_DOMAIN}" \
+              -e EMAIL="${CERTBOT_EMAIL}" \
+              --entrypoint "/opt/certbot/tools/make_certs.sh" \
               certbot
 
             # Reload Nginx in `app` container
