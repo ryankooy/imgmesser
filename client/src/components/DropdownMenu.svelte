@@ -74,5 +74,6 @@
 <style>
   #menu {
     position: absolute;
+    background: black;
   }
 </style>
