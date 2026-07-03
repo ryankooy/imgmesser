@@ -72,6 +72,8 @@
     padding: 12px 12px 36px 12px;
     align-items: center;
     gap: 1em;
+    flex-wrap: wrap;
+    justify-content: center;
   }
 
   .form-input label {

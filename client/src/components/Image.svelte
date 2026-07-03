@@ -529,12 +529,7 @@
 
   <div class="modal-content image-modal">
     <div class="image-container">
-      {#if status.check(ImageStatus.Loading)}
-        <div class="loading-spinner">
-          <div class="spinner"></div>
-          <p>Loading image...</p>
-        </div>
-      {:else if imageDataUrl}
+      {#if imageDataUrl}
         {#if editStatus.check(EditStatus.Cropping)}
           <ImageCropper
             aspect={aspect}
@@ -562,6 +557,12 @@
           </div>
         {:else}
           <img src={imageDataUrl} alt={imageName} />
+        {/if}
+
+        {#if status.check(ImageStatus.Loading)}
+          <div class="loading-spinner-overlay">
+            <div class="spinner"></div>
+          </div>
         {/if}
       {:else}
         <div class="error">Failed to load image</div>
@@ -729,12 +730,13 @@
     pointer-events: none;
   }
 
-  .loading-spinner {
+  .loading-spinner-overlay {
+    position: absolute;
+    width: 100%;
+    height: 100%;
     display: flex;
-    flex-direction: column;
+    justify-content: center;
     align-items: center;
-    gap: 16px;
-    color: var(--im-label);
   }
 
   .image-info {
