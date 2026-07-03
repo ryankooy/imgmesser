@@ -158,11 +158,7 @@
 
   function togglePanTool(node: PointerEvent) {
     status.toggle(ImageStatus.Panning);
-
-    const isPanning: boolean = status.check(ImageStatus.Panning);
-
-    toggleButtonColor(node, isPanning);
-    toggleEditIcons(isPanning);
+    toggleButtonColor(node, status.check(ImageStatus.Panning));
   }
 </script>
 

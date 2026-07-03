@@ -3,7 +3,7 @@
   import { tweened } from "svelte/motion";
   import { cubicOut } from "svelte/easing";
   import Cropper from "svelte-easy-crop";
-  import { ImageViewer } from "svelte-image-viewer";
+  import { Viewer } from "svelte-image-viewer";
   import { hammerSwipe } from "../utils/action.ts";
   import IconButton from "@smui/icon-button";
   import AlertModal from "./AlertModal.svelte";
@@ -98,6 +98,19 @@
   let zoom: number = $state(1);
   let aspect: number = $state(1);
 
+  let panning: boolean = $state(false);
+
+  let panViewer = $state(null);
+  const containerWidth: number = 1024;
+  const containerHeight: number = 512;
+  const scaleX = () => containerWidth / width;
+  const scaleY = () => containerHeight / height;
+  const panStartScale: number = Math.min(scaleX(), scaleY());
+
+  const scrollKeys: string[] = [
+    "Space", "ArrowUp", "ArrowDown", "PageUp", "PageDown", "Home", "End",
+  ];
+
   const animatedRotation = tweened(0, {
     duration: 300,
     easing: cubicOut
@@ -112,6 +125,9 @@
       nextPageExists = pagination.has_more;
       prevPageExists = pagination.current_page > 1;
     }
+
+    panning = status.check(ImageStatus.Panning);
+    disableSwipe();
   });
 
   async function loadImageData() {
@@ -307,10 +323,14 @@
   function handleKeydown(event: KeyboardEvent) {
     if (event.key === "Escape") {
       handleCloseImage();
-    } else if (event.key === "ArrowRight") {
-      handleNextImage();
-    } else if (event.key === "ArrowLeft") {
-      handlePrevImage();
+    } else if (scrollKeys.includes(event.key)) {
+      event.preventDefault();
+    } else if (!panning) {
+      if (event.key === "ArrowRight") {
+        handleNextImage();
+      } else if (event.key === "ArrowLeft") {
+        handlePrevImage();
+      }
     }
   }
 
@@ -458,9 +478,36 @@
   function clearTransformations() {
     transformations = {} as typeof Transformations;
   }
+
+  function disableSwipe() {
+    const el = document.getElementById("image-backdrop") as HTMLElement;
+
+    if (panning)
+      el.classList.add("panning");
+    else
+      el.classList.remove("panning");
+  }
+
+  function handlePanViewerReady() {
+    if (panViewer) {
+      panViewer.setTransform({
+        scale: panStartScale,
+        x: 0,
+        y: 0
+      });
+    }
+  }
+
+  function preventDefault(event: WheelEvent | TouchEvent) {
+    event.preventDefault();
+  }
 </script>
 
-<svelte:window on:keydown={handleKeydown} />
+<svelte:window
+  on:wheel|nonpassive={preventDefault}
+  on:touchmove|nonpassive={preventDefault}
+  on:keydown={handleKeydown}
+/>
 
 <div
   class="modal-backdrop"
@@ -469,22 +516,20 @@
   use:hammerSwipe
   onswipe={handleSwipe}
   >
-  <IconButton
-    class="material-icons icon-btn"
-    onclick={handlePrevImage}
-    disabled={imageIds.indexOf(imageId) === 0 && !prevPageExists}
-    >
-    chevron_left
-  </IconButton>
+
+  {#if !panning}
+    <IconButton
+      class="material-icons icon-btn"
+      onclick={handlePrevImage}
+      disabled={imageIds.indexOf(imageId) === 0 && !prevPageExists}
+      >
+      chevron_left
+    </IconButton>
+  {/if}
 
   <div class="modal-content image-modal">
     <div class="image-container">
-      {#if status.check(ImageStatus.Loading)}
-        <div class="loading-spinner">
-          <div class="spinner"></div>
-          <p>Loading image...</p>
-        </div>
-      {:else if imageDataUrl}
+      {#if imageDataUrl}
         {#if editStatus.check(EditStatus.Cropping)}
           <ImageCropper
             aspect={aspect}
@@ -501,12 +546,23 @@
             style="transform: rotate({$animatedRotation}deg);"
             alt={imageName}
           />
-        {:else if status.check(ImageStatus.Panning)}
-          <div class="image-viewer">
-            <ImageViewer src={imageDataUrl} alt={imageName} />
+        {:else if panning}
+          <div
+            class="image-viewer"
+            style="width: {containerWidth}px; height: {containerHeight}px;"
+            >
+            <Viewer bind:this={panViewer} onready={handlePanViewerReady}>
+              <img src={imageDataUrl} alt={imageName} />
+            </Viewer>
           </div>
         {:else}
           <img src={imageDataUrl} alt={imageName} />
+        {/if}
+
+        {#if status.check(ImageStatus.Loading)}
+          <div class="loading-spinner-overlay">
+            <div class="spinner"></div>
+          </div>
         {/if}
       {:else}
         <div class="error">Failed to load image</div>
@@ -514,56 +570,58 @@
     </div>
 
     <div class="image-info">
-      <div class="image-header">
-        <div class="image-name">
-          {#if editingName}
-            <div class="name-edit">
-              <input
-                type="text"
-                bind:value={editableFileStem}
-                onblur={disableNameEditing}
-                onkeydown={handleKeydownOnEdit}
-                autofocus
-              />
-              <IconButton
-                class="material-icons icon-btn"
-                id="accept-btn"
-                onclick={renameImage}
-                aria-label="Accept Edit"
-                >
-                check
-              </IconButton>
-            </div>
-          {:else}
-            <h3 onclick={enableNameEditing}>{editableFileStem}</h3>
-          {/if}
+      {#if !panning}
+        <div class="image-header">
+          <div class="image-name">
+            {#if editingName}
+              <div class="name-edit">
+                <input
+                  type="text"
+                  bind:value={editableFileStem}
+                  onblur={disableNameEditing}
+                  onkeydown={handleKeydownOnEdit}
+                  autofocus
+                />
+                <IconButton
+                  class="material-icons icon-btn"
+                  id="accept-btn"
+                  onclick={renameImage}
+                  aria-label="Accept Edit"
+                  >
+                  check
+                </IconButton>
+              </div>
+            {:else}
+              <h3 onclick={enableNameEditing}>{editableFileStem}</h3>
+            {/if}
+          </div>
         </div>
-      </div>
 
-      <div class="image-details">
-        <div class="details-grid">
-          <div class="detail-item">
-            <span class="label">Type</span>
-            <span class="value">{formatImageType(meta.content_type)}</span>
-          </div>
-          <div class="detail-item">
-            <span class="label">File Size</span>
-            <span class="value">{formatFileSize(meta.size)}</span>
-          </div>
-          <div class="detail-item">
-            <span class="label">Image Size</span>
-            <span class="value">{width} x {height}</span>
-          </div>
-          <div class="detail-item">
-            <span class="label">Uploaded</span>
-            <span class="value">{formatDate(meta.created_at)}</span>
-          </div>
-          <div class="detail-item">
-            <span class="label">Modified</span>
-            <span class="value">{formatDate(meta.last_modified)}</span>
+        <div class="image-details">
+          <div class="details-grid">
+            <div class="detail-item">
+              <span class="label">Type</span>
+              <span class="value">{formatImageType(meta.content_type)}</span>
+            </div>
+            <div class="detail-item">
+              <span class="label">File Size</span>
+              <span class="value">{formatFileSize(meta.size)}</span>
+            </div>
+            <div class="detail-item">
+              <span class="label">Image Size</span>
+              <span class="value">{width} x {height}</span>
+            </div>
+            <div class="detail-item">
+              <span class="label">Uploaded</span>
+              <span class="value">{formatDate(meta.created_at)}</span>
+            </div>
+            <div class="detail-item">
+              <span class="label">Modified</span>
+              <span class="value">{formatDate(meta.last_modified)}</span>
+            </div>
           </div>
         </div>
-      </div>
+      {/if}
 
       <div class="actions-wrapper">
         <ImageActions
@@ -607,13 +665,15 @@
     </div>
   </div>
 
-  <IconButton
-    class="material-icons icon-btn"
-    onclick={handleNextImage}
-    disabled={imageIds.indexOf(imageId) === imageIds.length - 1 && !nextPageExists}
-    >
-    chevron_right
-  </IconButton>
+  {#if !panning}
+    <IconButton
+      class="material-icons icon-btn"
+      onclick={handleNextImage}
+      disabled={imageIds.indexOf(imageId) === imageIds.length - 1 && !nextPageExists}
+      >
+      chevron_right
+    </IconButton>
+  {/if}
 
   {#if showConfirmModal}
     <ConfirmModal
@@ -629,15 +689,19 @@
 </div>
 
 <style>
+  #image-backdrop {
+    background: black;
+  }
+
   .image-modal {
     max-width: 90vw;
-    height: 100vh;
     max-height: fit-content;
     display: flex;
   }
 
   .image-container {
     width: 100%;
+    height: auto;
     overflow: hidden;
     background: black;
     display: flex;
@@ -647,17 +711,16 @@
 
   .image-viewer {
     position: relative;
-    height: 512px;
-    width: 100%;
     user-select: none;
     cursor: grab;
+    border: var(--im-border);
   }
 
   .image-viewer:active {
     cursor: grabbing;
   }
 
-  .image-container img {
+  img {
     width: auto;
     height: auto;
     max-width: 100%;
@@ -667,12 +730,13 @@
     pointer-events: none;
   }
 
-  .loading-spinner {
+  .loading-spinner-overlay {
+    position: absolute;
+    width: 100%;
+    height: 100%;
     display: flex;
-    flex-direction: column;
+    justify-content: center;
     align-items: center;
-    gap: 16px;
-    color: var(--im-label);
   }
 
   .image-info {
@@ -761,11 +825,11 @@
   @media (max-width: 640px) {
     .image-modal {
       display: block;
+      overflow: visible;
     }
 
     .image-container {
       max-height: 100vh;
-      min-height: 50vh;
     }
 
     .image-details {

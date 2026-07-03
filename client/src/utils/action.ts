@@ -7,11 +7,14 @@ export function hammerSwipe(node: HTMLElement) {
     const mc = new Hammer(node, { touchAction: "none" });
 
     mc.on("swipeleft swiperight", (ev) => {
-        node.dispatchEvent(new CustomEvent("swipe", {
-            detail: {
-                direction: ev.type,
-            }
-        }));
+        // Don't dispatch swipe event if element has "panning" class
+        if (!node.classList.contains("panning")) {
+            node.dispatchEvent(new CustomEvent("swipe", {
+                detail: {
+                    direction: ev.type,
+                }
+            }));
+        }
     });
 
     return {
