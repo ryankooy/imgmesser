@@ -30,8 +30,8 @@
   const transformMenu: IconMenu = {
     title: "Transform tools",
     iconName: "transform",
-    handleClick: () => openTransformMenu(),
-    handleClickOutside: () => status.reset(),
+    handleClick: toggleTransformMenu,
+    handleClickOutside: cancelTransform,
     toggleFunc: (hide: boolean) => toggleEditIcons(hide),
     items: [
       {
@@ -145,15 +145,15 @@
     return meta.content_type === "image/gif";
   }
 
-  function openTransformMenu() {
-    if (status.check(ImageStatus.Panning)) {
-      const panBtn = document.querySelector(".toggle-btn.pan-btn") as HTMLElement;
-      panBtn.style.color = "white";
-    }
-
-    status.set(ImageStatus.Transforming);
-    transformMenuOpen = true;
+  function toggleTransformMenu() {
+    status.toggle(ImageStatus.Transforming);
+    transformMenuOpen = !transformMenuOpen;
     editStatus.reset();
+  }
+
+  function cancelTransform() {
+    status.reset();
+    transformMenuOpen = false;
   }
 
   function togglePanTool(node: PointerEvent) {
@@ -163,53 +163,53 @@
 </script>
 
 <div>
-  <div class="actions-section">
-    <div class="actions">
-      <!-- Pan tool button -->
-      <IconButton
-        title="Pan tool"
-        class="material-icons icon-btn toggle-btn pan-btn"
-        onclick={togglePanTool}
-        disabled={!imageDataUrl || status.check(ImageStatus.Transforming)}
-        >
-        pan_tool
-      </IconButton>
-      <!-- Transform menu button -->
-      <DropdownMenu
-        menu={transformMenu}
-        disabled={!imageDataUrl || typeIsGif() || !status.check(ImageStatus.None)}
-      />
-      <!-- Download button -->
-      <IconButton
-        title="Download image"
-        class="material-icons icon-btn"
-        onclick={downloadImage}
-        disabled={!imageDataUrl}
-        >
-        download
-      </IconButton>
-      <!-- Delete button -->
-      <IconButton
-        title="Delete image"
-        class="material-icons icon-btn delete-btn"
-        onclick={deleteImage}
-        disabled={!imageDataUrl}
-        >
-        delete_forever
-      </IconButton>
-      <!-- Close button -->
-      <IconButton
-        title="Close image"
-        class="material-icons icon-btn"
-        onclick={closeImage}
-        aria-label="Close"
-        >
-        close
-      </IconButton>
-    </div>
-  </div>
-
   {#if editStatus.check(EditStatus.None)}
+    <div class="actions-section fade-element">
+      <div class="actions">
+        <!-- Pan tool button -->
+        <IconButton
+          title="Pan tool"
+          class="material-icons icon-btn toggle-btn pan-btn"
+          onclick={togglePanTool}
+          disabled={!imageDataUrl || status.check(ImageStatus.Transforming)}
+          >
+          pan_tool
+        </IconButton>
+        <!-- Transform menu button -->
+        <DropdownMenu
+          menu={transformMenu}
+          disabled={!imageDataUrl || typeIsGif() || status.check(ImageStatus.Panning)}
+        />
+        <!-- Download button -->
+        <IconButton
+          title="Download image"
+          class="material-icons icon-btn"
+          onclick={downloadImage}
+          disabled={!imageDataUrl}
+          >
+          download
+        </IconButton>
+        <!-- Delete button -->
+        <IconButton
+          title="Delete image"
+          class="material-icons icon-btn delete-btn"
+          onclick={deleteImage}
+          disabled={!imageDataUrl}
+          >
+          delete_forever
+        </IconButton>
+        <!-- Close button -->
+        <IconButton
+          title="Close image"
+          class="material-icons icon-btn"
+          onclick={closeImage}
+          aria-label="Close"
+          >
+          close
+        </IconButton>
+      </div>
+    </div>
+
     <div class="actions-section fade-element" id="edit-actions">
       <div class="actions">
         {#if multiVersion}

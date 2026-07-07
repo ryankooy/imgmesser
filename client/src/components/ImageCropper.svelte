@@ -32,6 +32,7 @@
     bind:crop
     bind:zoom
     aspect={aspect}
+    maxZoom={16}
     oncropcomplete={onCropComplete}
   />
 </div>
@@ -40,12 +41,14 @@
   .cropper-container {
     position: relative;
     width: 100%;
-    height: 75%;
+    height: 90dvh;
+    overflow: hidden;
+    border: var(--im-border);
   }
 
   @media (max-width: 640px) {
     .cropper-container {
-      min-height: 50vh;
+      max-height: 60dvh;
     }
   }
 </style>
