@@ -34,8 +34,8 @@
   let grayscaleApplied: boolean = $state(false);
 
   let grayscaleMorph: string | null = $state(null);
-  let grayscaleMask: string = $state("square");
   let grayscaleRadius: number = $state(1);
+  const grayscaleMask: string = "disk";
 
   let sepia: boolean = $state(false);
 
@@ -184,17 +184,12 @@
   function resetGrayscale() {
     grayscaling = grayscaleApplied = false;
     grayscaleMorph = null;
-    grayscaleMask = "square";
     grayscaleRadius = 1;
   }
 
   function setGrayscaleMorph(morphology: string) {
     grayscaleMorph = morphology;
     grayscaleApplied = true;
-  }
-
-  function setGrayscaleMask(mask: string) {
-    grayscaleMask = mask;
   }
 
   function toggleSepia() {
@@ -234,117 +229,135 @@
     out:fade={{ duration: 200 }}
     >
     {#if editStatus.check(EditStatus.Rotating)}
-      <div class="actions-section">
-        <div class="actions">
-          <!-- Rotate left button -->
-          <IconButton
-            title="Rotate counterclockwise"
-            class="material-icons icon-btn"
-            onclick={rotateImageLeft}
-            disabled={!imageDataUrl}
-            >
-            rotate_90_degrees_ccw
-          </IconButton>
-          <!-- Rotate right button -->
-          <IconButton
-            title="Rotate clockwise"
-            class="material-icons icon-btn"
-            onclick={rotateImageRight}
-            disabled={!imageDataUrl}
-            >
-            rotate_90_degrees_cw
-          </IconButton>
+      <div class="titled-actions-section">
+        <div class="actions-section-header">
+          ROTATE
+        </div>
+        <div class="actions-section">
+          <div class="actions">
+            <!-- Rotate left button -->
+            <IconButton
+              title="Rotate counterclockwise"
+              class="material-icons icon-btn"
+              onclick={rotateImageLeft}
+              disabled={!imageDataUrl}
+              >
+              rotate_90_degrees_ccw
+            </IconButton>
+            <!-- Rotate right button -->
+            <IconButton
+              title="Rotate clockwise"
+              class="material-icons icon-btn"
+              onclick={rotateImageRight}
+              disabled={!imageDataUrl}
+              >
+              rotate_90_degrees_cw
+            </IconButton>
+          </div>
         </div>
       </div>
     {/if}
 
     {#if editStatus.check(EditStatus.Cropping)}
-      <div class="actions-section">
-        <div class="actions">
-          <!-- Crop square button -->
-          <IconButton
-            title="Crop square"
-            class="material-icons icon-btn"
-            onclick={() => setAspect(1/1)}
-            disabled={!imageDataUrl}
-            >
-            crop_square
-          </IconButton>
-          <!-- Crop portrait button -->
-          <IconButton
-            title="Crop portrait"
-            class="material-icons icon-btn"
-            onclick={() => setAspect(4/5)}
-            disabled={!imageDataUrl}
-            >
-            crop_portrait
-          </IconButton>
-          <!-- Crop landscape button -->
-          <IconButton
-            title="Crop landscape"
-            class="material-icons icon-btn"
-            onclick={() => setAspect(5/4)}
-            disabled={!imageDataUrl}
-            >
-            crop_landscape
-          </IconButton>
-          <!-- Crop 3:2 button -->
-          <div
-            title="Crop 3:2"
-            class="icon-btn"
-            style="font-size: 14px;"
-            onclick={() => setAspect(3/2)}
-            disabled={!imageDataUrl}
-            >
-            3:2
-          </div>
-          <!-- Crop 16:9 button -->
-          <div
-            title="Crop 16:9"
-            class="icon-btn"
-            style="font-size: 14px;"
-            onclick={() => setAspect(16/9)}
-            disabled={!imageDataUrl}
-            >
-            16:9
+      <div class="titled-actions-section">
+        <div class="actions-section-header">
+          CROP
+        </div>
+        <div class="actions-section">
+          <div class="actions">
+            <!-- Crop square button -->
+            <IconButton
+              title="Crop square"
+              class="material-icons icon-btn"
+              onclick={() => setAspect(1/1)}
+              disabled={!imageDataUrl}
+              >
+              crop_square
+            </IconButton>
+            <!-- Crop portrait button -->
+            <IconButton
+              title="Crop portrait"
+              class="material-icons icon-btn"
+              onclick={() => setAspect(4/5)}
+              disabled={!imageDataUrl}
+              >
+              crop_portrait
+            </IconButton>
+            <!-- Crop landscape button -->
+            <IconButton
+              title="Crop landscape"
+              class="material-icons icon-btn"
+              onclick={() => setAspect(5/4)}
+              disabled={!imageDataUrl}
+              >
+              crop_landscape
+            </IconButton>
+            <!-- Crop 3:2 button -->
+            <div
+              title="Crop 3:2"
+              class="icon-btn"
+              style="font-size: 14px;"
+              onclick={() => setAspect(3/2)}
+              disabled={!imageDataUrl}
+              >
+              3:2
+            </div>
+            <!-- Crop 16:9 button -->
+            <div
+              title="Crop 16:9"
+              class="icon-btn"
+              style="font-size: 14px;"
+              onclick={() => setAspect(16/9)}
+              disabled={!imageDataUrl}
+              >
+              16:9
+            </div>
           </div>
         </div>
       </div>
     {/if}
 
     {#if editStatus.check(EditStatus.Resizing)}
-      <div class="actions-section">
-        <div class="actions-form">
-          <label class="form-row">
-            <span>W</span>
-            <input
-              type="number"
-              name="resize-width"
-              inputmode="numeric"
-              min="0"
-              bind:value={resizeWidth}
-              oninput={handleWidthInput}
-              autofocus
-            />
-          </label>
-          <label class="form-row">
-            <span>H</span>
-            <input
-              type="number"
-              name="resize-height"
-              inputmode="numeric"
-              min="0"
-              bind:value={resizeHeight}
-              oninput={handleHeightInput}
-              autofocus
-            />
-          </label>
+      <div class="titled-actions-section">
+        <div class="actions-section-header">
+          RESIZE
+        </div>
+        <div class="actions-section">
+          <div class="actions-form">
+            <label class="form-row">
+              <span>Width</span>
+              <input
+                type="number"
+                name="resize-width"
+                inputmode="numeric"
+                min="0"
+                bind:value={resizeWidth}
+                oninput={handleWidthInput}
+                autofocus
+              />
+            </label>
+            <label class="form-row">
+              <span>Height</span>
+              <input
+                type="number"
+                name="resize-height"
+                inputmode="numeric"
+                min="0"
+                bind:value={resizeHeight}
+                oninput={handleHeightInput}
+                autofocus
+              />
+            </label>
+          </div>
         </div>
       </div>
     {/if}
 
     {#if editStatus.check(EditStatus.SettingFilters)}
       <div class="titled-actions-section">
+        <div class="actions-section-header">
+          FILTERS
+        </div>
         <div class="actions-section filter-btns">
           <div class="actions">
             <button
@@ -399,33 +412,6 @@
         </div>
       </div>
       {#if grayscaleApplied}
-        <div class="titled-actions-section">
-          <div class="actions-section-header">
-            Mask
-          </div>
-          <div class="actions-section filter-btns">
-            <div class="actions">
-              <button
-                class={grayscaleMask === "square" ? "btn action-btn active" : "btn action-btn"}
-                onclick={() => setGrayscaleMask("square")}
-                >
-                SQUARE
-              </button>
-              <button
-                class={grayscaleMask === "disk" ? "btn action-btn active" : "btn action-btn"}
-                onclick={() => setGrayscaleMask("disk")}
-                >
-                DISK
-              </button>
-              <button
-                class={grayscaleMask === "diamond" ? "btn action-btn active" : "btn action-btn"}
-                onclick={() => setGrayscaleMask("diamond")}
-                >
-                DIAMOND
-              </button>
-            </div>
-          </div>
-        </div>
         <div class="titled-actions-section">
           <div class="actions-section-header">
             Mask Radius
@@ -516,6 +502,13 @@
     gap: 8px;
   }
 
+  .form-row {
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    flex-direction: column;
+  }
+
   .form-row span {
     width: auto;
     color: var(--im-label);
@@ -527,6 +520,7 @@
     font-size: 14px;
     width: 4rem;
     cursor: text;
+    text-align: center;
   }
 
   .form-row input:focus {

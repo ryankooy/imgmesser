@@ -49,6 +49,10 @@
   let refreshAllTrigger: number = $state(0);
   let refreshOneTrigger: number = $state(0);
 
+  const scrollKeys: string[] = [
+    "Space", "ArrowUp", "ArrowDown", "PageUp", "PageDown", "Home", "End",
+  ];
+
   function handleSelectImage(image: ImageData) {
     selectedImage = image;
     selectedImageId = selectedImage.id;
@@ -142,7 +146,22 @@
   function setLoginView() {
     $currentView = "login";
   }
+
+  function handleKeydown(event: KeyboardEvent) {
+    if (selectedImage && scrollKeys.includes(event.key))
+      event.preventDefault();
+  }
+
+  function preventDefault(event: WheelEvent | TouchEvent) {
+    if (selectedImage) event.preventDefault();
+  }
 </script>
+
+<svelte:window
+  on:wheel|nonpassive={preventDefault}
+  on:touchmove|nonpassive={preventDefault}
+  on:keydown={handleKeydown}
+/>
 
 <div class="app">
   <Header />
@@ -171,6 +190,7 @@
             image={selectedImage}
             imageIds={imageIds}
             pagination={pagination}
+            scrollKeys={scrollKeys}
             closeImage={handleCloseImage}
             refreshImage={handleRefreshImage}
             selectNextImage={handleSelectNextImage}

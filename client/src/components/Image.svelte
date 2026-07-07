@@ -28,6 +28,7 @@
     image = null,
     imageIds = [],
     pagination = null,
+    scrollKeys,
     closeImage,
     refreshImage,
     selectNextImage,
@@ -60,6 +61,10 @@
 
     in(statuses: T[]): boolean {
       return statuses.includes(this.status);
+    }
+
+    isNone(): boolean {
+      return this.status === 0 as T;
     }
   }
 
@@ -98,18 +103,14 @@
   let zoom: number = $state(1);
   let aspect: number = $state(1);
 
-  let panning: boolean = $state(false);
+  let navDisabled: boolean = $state(false);
 
   let panViewer = $state(null);
   const containerWidth: number = 1024;
   const containerHeight: number = 512;
   const scaleX = () => containerWidth / width;
   const scaleY = () => containerHeight / height;
-  const panStartScale: number = Math.min(scaleX(), scaleY());
-
-  const scrollKeys: string[] = [
-    "Space", "ArrowUp", "ArrowDown", "PageUp", "PageDown", "Home", "End",
-  ];
+  const panStartScale: number = Math.min(scaleX(), scaleY()) * 2;
 
   const animatedRotation = tweened(0, {
     duration: 300,
@@ -126,7 +127,7 @@
       prevPageExists = pagination.current_page > 1;
     }
 
-    panning = status.check(ImageStatus.Panning);
+    navDisabled = status.check(ImageStatus.Panning) || !editStatus.isNone();
     disableSwipe();
   });
 
@@ -165,6 +166,8 @@
   }
 
   async function deleteCurrentVersion() {
+    status.set(ImageStatus.Loading);
+
     try {
       const response = await fetch(`${imageUrl(imageId)}/deleteversion`, {
         method: "POST",
@@ -297,7 +300,7 @@
     showConfirmModal = false;
 
     const panButton = document.querySelector(".toggle-btn.pan-btn") as HTMLElement;
-    panButton.style.color = "white";
+    if (panButton) panButton.style.color = "white";
   }
 
   async function handleCloseImage() {
@@ -314,23 +317,15 @@
     el.style.color = toggled ? "var(--im-header-gold)" : "white";
   }
 
-  function handleBackdropClick(event: MouseEvent) {
-    if (event.target === event.currentTarget) {
-      handleCloseImage();
-    }
-  }
-
   function handleKeydown(event: KeyboardEvent) {
     if (event.key === "Escape") {
       handleCloseImage();
-    } else if (scrollKeys.includes(event.key)) {
-      event.preventDefault();
-    } else if (!panning) {
-      if (event.key === "ArrowRight") {
-        handleNextImage();
-      } else if (event.key === "ArrowLeft") {
-        handlePrevImage();
-      }
+    } else if (navDisabled) {
+      if (scrollKeys.includes(event.key)) event.preventDefault();
+    } else if (event.key === "ArrowRight") {
+      handleNextImage();
+    } else if (event.key === "ArrowLeft") {
+      handlePrevImage();
     }
   }
 
@@ -482,7 +477,7 @@
   function disableSwipe() {
     const el = document.getElementById("image-backdrop") as HTMLElement;
 
-    if (panning)
+    if (navDisabled)
       el.classList.add("panning");
     else
       el.classList.remove("panning");
@@ -499,25 +494,20 @@
   }
 
   function preventDefault(event: WheelEvent | TouchEvent) {
-    event.preventDefault();
+    if (navDisabled) event.preventDefault();
   }
 </script>
 
-<svelte:window
-  on:wheel|nonpassive={preventDefault}
-  on:touchmove|nonpassive={preventDefault}
-  on:keydown={handleKeydown}
-/>
+<svelte:window on:keydown={handleKeydown} />
 
 <div
   class="modal-backdrop"
   id="image-backdrop"
-  onclick={handleBackdropClick}
   use:hammerSwipe
   onswipe={handleSwipe}
   >
 
-  {#if !panning}
+  {#if !navDisabled}
     <IconButton
       class="material-icons icon-btn"
       onclick={handlePrevImage}
@@ -546,12 +536,17 @@
             style="transform: rotate({$animatedRotation}deg);"
             alt={imageName}
           />
-        {:else if panning}
+        {:else if status.check(ImageStatus.Panning)}
           <div
             class="image-viewer"
             style="width: {containerWidth}px; height: {containerHeight}px;"
             >
-            <Viewer bind:this={panViewer} onready={handlePanViewerReady}>
+            <Viewer
+              bind:this={panViewer}
+              onready={handlePanViewerReady}
+              maxScale={10}
+              maxZoom={16}
+              >
               <img src={imageDataUrl} alt={imageName} />
             </Viewer>
           </div>
@@ -570,7 +565,7 @@
     </div>
 
     <div class="image-info">
-      {#if !panning}
+      {#if !navDisabled}
         <div class="image-header">
           <div class="image-name">
             {#if editingName}
@@ -624,48 +619,50 @@
       {/if}
 
       <div class="actions-wrapper">
-        <ImageActions
-          bind:editStatus
-          imageDataUrl={imageDataUrl}
-          imageId={imageId}
-          meta={meta}
-          bind:status
-          bind:transformMenuOpen={transformMenuOpen}
-          closeImage={handleCloseImage}
-          deleteImage={handleDeleteImage}
-          downloadImage={downloadImage}
-          discardAllEdits={handleDiscardAllEdits}
-          discardCurrentEdit={handleDiscardCurrentEdit}
-          imageUpdated={handleImageUpdated}
-          saveImage={handleSaveImage}
-          saveImageCopy={handleSaveImageCopy}
-          setAlertMessage={setAlertMessage}
-          toggleButtonColor={toggleButtonColor}
-        />
-        {#if status.check(ImageStatus.Transforming)}
-          <Transform
+        {#key imageId}
+          <ImageActions
             bind:editStatus
-            height={height}
             imageDataUrl={imageDataUrl}
             imageId={imageId}
+            meta={meta}
             bind:status
-            bind:transformations={transformations}
             bind:transformMenuOpen={transformMenuOpen}
-            width={width}
-            clearTransformations={clearTransformations}
+            closeImage={handleCloseImage}
+            deleteImage={handleDeleteImage}
+            downloadImage={downloadImage}
+            discardAllEdits={handleDiscardAllEdits}
+            discardCurrentEdit={handleDiscardCurrentEdit}
             imageUpdated={handleImageUpdated}
-            resetCrop={resetCrop}
+            saveImage={handleSaveImage}
+            saveImageCopy={handleSaveImageCopy}
             setAlertMessage={setAlertMessage}
-            setAnimatedRotation={setAnimatedRotation}
-            setAspect={setAspect}
             toggleButtonColor={toggleButtonColor}
           />
-        {/if}
+          {#if status.check(ImageStatus.Transforming)}
+            <Transform
+              bind:editStatus
+              height={height}
+              imageDataUrl={imageDataUrl}
+              imageId={imageId}
+              bind:status
+              bind:transformations={transformations}
+              bind:transformMenuOpen={transformMenuOpen}
+              width={width}
+              clearTransformations={clearTransformations}
+              imageUpdated={handleImageUpdated}
+              resetCrop={resetCrop}
+              setAlertMessage={setAlertMessage}
+              setAnimatedRotation={setAnimatedRotation}
+              setAspect={setAspect}
+              toggleButtonColor={toggleButtonColor}
+            />
+          {/if}
+        {/key}
       </div>
     </div>
   </div>
 
-  {#if !panning}
+  {#if !navDisabled}
     <IconButton
       class="material-icons icon-btn"
       onclick={handleNextImage}
@@ -741,6 +738,7 @@
 
   .image-info {
     display: flex;
+    min-width: 256px;
     flex-direction: column;
     justify-content: center;
     padding: 0 12px;
@@ -823,9 +821,14 @@
   }
 
   @media (max-width: 640px) {
+    #image-backdrop {
+      padding: 5px;
+    }
+
     .image-modal {
       display: block;
       overflow: visible;
+      padding: 5px;
     }
 
     .image-container {
