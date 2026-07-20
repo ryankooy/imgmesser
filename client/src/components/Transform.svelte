@@ -1,7 +1,12 @@
 <script lang="ts">
+  import { onMount } from "svelte";
   import IconButton from "@smui/icon-button";
   import { imageUrl } from "../utils/api.ts";
+  import { getBytesFromDataUrl, getImageBytes, toggleButtonColor } from "../utils/app.ts";
   import { EditStatus, ImageStatus } from "../store.ts";
+  import init, {
+    adjust_lighting, apply_grayscale_filter, apply_sepia_filter,
+  } from "../pkg/transformjs.js";
 
   let {
     editStatus = $bindable(),
@@ -18,8 +23,16 @@
     setAlertMessage,
     setAnimatedRotation,
     setAspect,
-    toggleButtonColor,
   } = $props();
+
+  let wasmInitialized: boolean = $state(false);
+
+  onMount(async () => {
+    await init();
+    wasmInitialized = true;
+  });
+
+  let tempImageDataUrl: string | null = $state(null);
 
   let rotation: number = $state(0);
   let aRotation: number = $state(0);
@@ -35,9 +48,12 @@
 
   let grayscaleMorph: string | null = $state(null);
   let grayscaleRadius: number = $state(1);
-  const grayscaleMask: string = "disk";
 
   let sepia: boolean = $state(false);
+
+  let adjustingBrightness: boolean = $state(false);
+  let brightnessApplied: boolean = $state(false);
+  let brightnessValue: number = $state(0);
 
   async function transformImage() {
     if (Object.keys(transformations).length === 0) return;
@@ -60,18 +76,14 @@
     }
   }
 
-  function toggleRotate(node: PointerEvent) {
-    editStatus.toggle(EditStatus.Rotating);
-    toggleButtonColor(node, editStatus.check(EditStatus.Rotating));
-
-    if (!editStatus.check(EditStatus.Rotating)) resetRotate();
+  function resetImageDataUrl() {
+    const img = document.getElementById("image") as HTMLImageElement;
+    if (img) img.src = imageDataUrl;
   }
 
-  function toggleFilters(node: PointerEvent) {
-    editStatus.toggle(EditStatus.SettingFilters);
-    toggleButtonColor(node, editStatus.check(EditStatus.SettingFilters));
-
-    if (!editStatus.check(EditStatus.SettingFilters)) resetFilters();
+  function toggleBrightness(node: PointerEvent) {
+    adjustingBrightness = !adjustingBrightness;
+    toggleButtonColor(node, adjustingBrightness);
   }
 
   async function rotateImageRight() {
@@ -114,12 +126,15 @@
 
   async function applyEdits() {
     status.set(ImageStatus.Loading);
+
     if (grayscaling) grayscaleImage();
 
     await transformImage();
   }
 
   function resetEdits() {
+    if (adjustingLighting()) resetLighting();
+
     clearTransformations();
 
     // Reset rotate button color
@@ -134,6 +149,8 @@
     resetRotate();
     resetResize();
     resetFilters();
+    resetLighting();
+
     editStatus.reset();
     status.reset();
   }
@@ -165,7 +182,14 @@
     transformations.filters ??= {};
     transformations.filters.grayscale = grayscaling;
 
-    if (!grayscaling) resetGrayscale();
+    if (grayscaling && sepia) {
+      sepia = false;
+      transformations.filters.sepia = false;
+      resetImageDataUrl();
+    } else if (!grayscaling) {
+      resetGrayscale();
+      resetImageDataUrl();
+    }
   }
 
   function grayscaleImage() {
@@ -173,8 +197,7 @@
 
     let grayscaleOptions: object = {
       morphology: grayscaleMorph,
-      mask: grayscaleMask,
-      radius: grayscaleRadius,
+      mask_radius: grayscaleRadius,
     };
 
     transformations.filters.options ??= {};
@@ -187,21 +210,119 @@
     grayscaleRadius = 1;
   }
 
-  function setGrayscaleMorph(morphology: string) {
+  function setGrayscale(morphology: string) {
     grayscaleMorph = morphology;
     grayscaleApplied = true;
+
+    if (wasmInitialized) {
+      rerenderImage((bytes) => {
+        return apply_grayscale_filter(bytes, width, height, {
+          morphology: grayscaleMorph,
+          mask_radius: grayscaleRadius,
+        });
+      });
+    }
   }
 
   function toggleSepia() {
     sepia = !sepia;
     transformations.filters ??= {};
     transformations.filters.sepia = sepia;
+
+    if (sepia && wasmInitialized) {
+      resetGrayscale();
+      transformations.filters.grayscale = false;
+
+      rerenderImage((bytes) => {
+        return apply_sepia_filter(bytes, width, height);
+      });
+    } else if (!sepia) {
+      resetImageDataUrl();
+    }
   }
 
   function resetFilters() {
-    editStatus.reset();
     resetGrayscale();
     sepia = false;
+  }
+
+  function applyBrightness() {
+    transformations.lighting ??= {};
+    if (brightnessValue === 0) {
+      if (!!transformations.lighting.brightness)
+        delete transformations.lighting.brightness;
+      brightnessApplied = false;
+    } else {
+      transformations.lighting.brightness = brightnessValue;
+      brightnessApplied = true;
+    }
+
+    if (wasmInitialized) {
+      rerenderImage((bytes) => {
+        return adjust_lighting(bytes, width, height, {
+          brightness: brightnessValue,
+        });
+      });
+    }
+  }
+
+  async function rerenderImage(f: (bytes: Uint8ClampedArray) => Uint8ClampedArray) {
+    const [img, canvas, ctx] = makeCanvas();
+
+    const bytes = await getBytesFromDataUrl(imageDataUrl);
+
+    // Pass pixels to Wasm via given function
+    const pixels: Uint8ClampedArray = f(bytes);
+
+    renderCanvasPixels(img, canvas, ctx, pixels);
+  }
+
+  function makeCanvas() {
+    const img = document.getElementById("image") as HTMLImageElement | null;
+    if (!img) return;
+
+    // Create offscreen canvas
+    const canvas = document.createElement("canvas");
+    const ctx = canvas.getContext("2d");
+
+    if (!ctx) {
+      console.error("2D context not supported");
+      return;
+    }
+
+    canvas.width = width;
+    canvas.height = height;
+
+    return [img, canvas, ctx];
+  }
+
+  function renderCanvasPixels(img, canvas, ctx, pixels) {
+    const newImageData = new ImageData(
+      new Uint8ClampedArray(pixels),
+      width,
+      height,
+    );
+
+    // Render processed pixels back to image
+    ctx.putImageData(newImageData, 0, 0);
+
+    tempImageDataUrl = canvas.toDataURL();
+    img.src = tempImageDataUrl;
+  }
+
+  function resetLighting() {
+    adjustingBrightness = brightnessApplied = false;
+    resetBrightness();
+  }
+
+  function adjustingLighting(): boolean {
+    return adjustingBrightness;
+  }
+
+  function resetBrightness() {
+    brightnessValue = 0;
+    resetSliderElement();
+    resetImageDataUrl();
   }
 
   function handleWidthInput(event: Event) {
@@ -219,8 +340,36 @@
   }
 
   function transformApplied(): boolean {
-    return sepia || grayscaleApplied || resizeApplied || rotateApplied || editStatus.check(EditStatus.Cropping);
+    return (
+      sepia || grayscaleApplied || resizeApplied || rotateApplied ||
+      editStatus.check(EditStatus.Cropping) || brightnessApplied
+    );
   }
+
+  function updateSlider(node: HTMLElement) {
+    const handleScroll = (event) => {
+      const slider = event.target;
+      const min = slider.min || -100;
+      const max = slider.max || 100;
+      const percent = ((slider.value - min) / (max - min)) * 100;
+      slider.style.setProperty("--val", `${percent}%`);
+    }
+
+    node.addEventListener("input", handleScroll);
+
+    return {
+      destroy() {
+        node.removeEventListener("input", handleScroll);
+      }
+    };
+  }
+
+  function resetSliderElement() {
+    const slider = document.getElementsByClassName("slider")[0];
+    if (slider) slider.style.setProperty("--val", "50%");
+  }
+
+  resetSliderElement();
 </script>
 
 {#if !transformMenuOpen}
@@ -377,6 +526,26 @@
       </div>
     {/if}
 
+    {#if editStatus.check(EditStatus.EditingLighting)}
+      <div class="titled-actions-section">
+        <div class="actions-section-header">
+          LIGHTING
+        </div>
+        <div class="actions-section lighting-btns">
+          <div class="actions">
+            <IconButton
+              title="Brightness"
+              class="material-icons icon-btn"
+              onclick={toggleBrightness}
+              disabled={!imageDataUrl}
+              >
+              brightness_medium
+            </IconButton>
+          </div>
+        </div>
+      </div>
+    {/if}
+
     {#if grayscaling}
       <div class="titled-actions-section">
         <div class="actions-section-header">
@@ -386,31 +555,32 @@
           <div class="actions">
             <button
               class={grayscaleMorph === "dilate" ? "btn action-btn active" : "btn action-btn"}
-              onclick={() => setGrayscaleMorph("dilate")}
+              onclick={() => setGrayscale("dilate")}
               >
               DILATE
             </button>
             <button
               class={grayscaleMorph === "erode" ? "btn action-btn active" : "btn action-btn"}
-              onclick={() => setGrayscaleMorph("erode")}
+              onclick={() => setGrayscale("erode")}
               >
               ERODE
             </button>
             <button
               class={grayscaleMorph === "open" ? "btn action-btn active" : "btn action-btn"}
-              onclick={() => setGrayscaleMorph("open")}
+              onclick={() => setGrayscale("open")}
               >
               OPEN
             </button>
             <button
               class={grayscaleMorph === "close" ? "btn action-btn active" : "btn action-btn"}
-              onclick={() => setGrayscaleMorph("close")}
+              onclick={() => setGrayscale("close")}
               >
               CLOSE
             </button>
           </div>
         </div>
       </div>
+
       {#if grayscaleApplied}
         <div class="titled-actions-section">
           <div class="actions-section-header">
@@ -424,11 +594,37 @@
               min="1"
               max="9"
               bind:value={grayscaleRadius}
+              oninput={() => setGrayscale(grayscaleMorph)}
               autofocus
             />
           </div>
         </div>
       {/if}
+    {/if}
+
+    {#if adjustingBrightness}
+      <div class="titled-actions-section">
+        <div class="actions-section-header">
+          Brightness
+        </div>
+      </div>
+      <div class="actions-section">
+        <div class="actions">
+          <div class="slider-container">
+            <input
+              use:updateSlider
+              name="brightness"
+              class="slider"
+              type="range"
+              min="-100"
+              max="100"
+              step="10"
+              bind:value={brightnessValue}
+              oninput={applyBrightness}
+            />
+          </div>
+        </div>
+      </div>
     {/if}
 
     {#if !editStatus.check(EditStatus.None)}
@@ -443,6 +639,19 @@
             >
             check
           </IconButton>
+
+          {#if adjustingBrightness}
+            <!-- Reset edits button -->
+            <IconButton
+              title="Reset edits"
+              class="material-icons icon-btn"
+              onclick={resetBrightness}
+              disabled={!imageDataUrl}
+              >
+              refresh
+            </IconButton>
+          {/if}
+
           <!-- Cancel edits button -->
           <IconButton
             title="Cancel edits"
@@ -459,7 +668,7 @@
 {/if}
 
 <style>
-  input {
+  input[type="number"] {
     all: unset;
     color: ghostwhite;
     font-style: oblique;
@@ -529,6 +738,88 @@
 
   input[name="mask-radius"] {
     width: 30px;
+  }
+
+  .slider-container {
+    width: 100%;
+    max-width: 300px;
+    margin: 1rem auto;
+    --track-bg: #ddd;
+    --fill-bg: var(--im-hover-gold);
+    --thumb-bg: ghostwhite;
+    --thumb-size: 20px;
+  }
+
+  input[type="range"] {
+    -webkit-appearance: none;
+    appearance: none;
+    width: 100%;
+    height: 8px;
+    cursor: pointer;
+    border-radius: 4px;
+  }
+
+  /* Slider track */
+  input[type="range"]::-webkit-slider-runnable-track {
+    width: 100%;
+    height: 8px;
+    border-radius: 4px;
+    outline: none;
+    background: linear-gradient(
+      to right,
+      var(--track-bg) 0%,
+      var(--track-bg) min(var(--val), 50%),
+      var(--fill-bg) min(var(--val), 50%),
+      var(--fill-bg) max(var(--val), 50%),
+      var(--track-bg) max(var(--val), 50%),
+      var(--track-bg) 100%
+    );
+  }
+
+  input[type="range"]::-moz-range-track {
+    width: 100%;
+    height: 8px;
+    border-radius: 4px;
+    outline: none;
+    background: linear-gradient(
+      to right,
+      var(--track-bg) 0%,
+      var(--track-bg) min(var(--val), 50%),
+      var(--fill-bg) min(var(--val), 50%),
+      var(--fill-bg) max(var(--val), 50%),
+      var(--track-bg) max(var(--val), 50%),
+      var(--track-bg) 100%
+    );
+  }
+
+  /* Slider thumb */
+  input[type=range]::-webkit-slider-thumb {
+    -webkit-appearance: none;
+    appearance: none;
+    margin-top: -6px; /* Align center of thumb with center of track */
+    height: var(--thumb-size);
+    width: var(--thumb-size);
+    border-radius: 50%;
+    background: var(--thumb-bg);
+    cursor: pointer;
+    box-shadow: 0 2px 4px rgba(0, 0, 0, 0.8);
+    transition: background 0.15s ease-in-out;
+  }
+  input[type=range]::-moz-range-thumb {
+    border: none;
+    height: var(--thumb-size);
+    width: var(--thumb-size);
+    border-radius: 50%;
+    background: var(--thumb-bg);
+    cursor: pointer;
+    box-shadow: 0 2px 4px rgba(0, 0, 0, 0.8);
+    transition: background 0.15s ease-in-out;
+  }
+  input[type="range"]:active::-webkit-slider-thumb {
+    transform: scale(1.1);    /* Slightly enlarges the knob */
+  }
+  input[type="range"]:active::-moz-range-thumb {
+    transform: scale(1.1);
   }
 
   @media (max-width: 640px) {

@@ -312,11 +312,6 @@
     });
   }
 
-  function toggleButtonColor(node: PointerEvent, toggled: boolean) {
-    const el = node.target as HTMLElement;
-    el.style.color = toggled ? "var(--im-header-gold)" : "white";
-  }
-
   function handleKeydown(event: KeyboardEvent) {
     if (event.key === "Escape") {
       handleCloseImage();
@@ -551,7 +546,7 @@
             </Viewer>
           </div>
         {:else}
-          <img src={imageDataUrl} alt={imageName} />
+          <img id="image" src={imageDataUrl} alt={imageName} />
         {/if}
 
         {#if status.check(ImageStatus.Loading)}
@@ -636,7 +631,6 @@
             saveImage={handleSaveImage}
             saveImageCopy={handleSaveImageCopy}
             setAlertMessage={setAlertMessage}
-            toggleButtonColor={toggleButtonColor}
           />
           {#if status.check(ImageStatus.Transforming)}
             <Transform
@@ -654,7 +648,6 @@
               setAlertMessage={setAlertMessage}
               setAnimatedRotation={setAnimatedRotation}
               setAspect={setAspect}
-              toggleButtonColor={toggleButtonColor}
             />
           {/if}
         {/key}

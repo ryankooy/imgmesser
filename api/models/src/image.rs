@@ -169,8 +169,7 @@ pub struct Crop {
 #[derive(Clone, Debug, Deserialize, Serialize)]
 pub struct Options {
     pub morphology: Option<String>,
-    pub mask: Option<String>,
-    pub radius: Option<i32>,
+    pub mask_radius: Option<i32>,
 }
 
 #[derive(Clone, Debug, Deserialize, Serialize)]
@@ -181,6 +180,11 @@ pub struct Filters {
 }
 
 #[derive(Clone, Debug, Deserialize, Serialize)]
+pub struct Lighting {
+    pub brightness: Option<i32>,
+}
+
+#[derive(Clone, Debug, Deserialize, Serialize)]
 /// Image transformation specifications
 pub struct Transformations {
     pub resize: Option<Resize>,
@@ -188,6 +192,7 @@ pub struct Transformations {
     pub rotate: Option<i32>,
     pub format: Option<String>,
     pub filters: Option<Filters>,
+    pub lighting: Option<Lighting>,
 }
 
 #[cfg(test)]
