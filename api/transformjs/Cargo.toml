@@ -1,0 +1,23 @@
+[package]
+name = "transformjs"
+version = "0.0.0"
+edition.workspace = true
+authors.workspace = true
+rust-version.workspace = true
+
+[lib]
+crate-type = ["cdylib", "rlib"]
+
+[dependencies]
+anyhow.workspace = true
+bytes.workspace = true
+image.workspace = true
+imageproc = "0.26.0"
+serde.workspace = true
+serde-wasm-bindgen = "0.6"
+wasm-bindgen = "0.2"
+
+#[target.'cfg(target_arch = "wasm32")'.dependencies]
+#getrandom = { version = "0.2", features = ["js"] }
+#getrandom = { version = "0.3", features = ["wasm_js"] }
+

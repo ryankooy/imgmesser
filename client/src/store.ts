@@ -62,14 +62,17 @@ export interface Crop {
 
 export interface Options {
     morphology: string;
-    mask: string;
-    radius: number | null;
+    mask_radius: number | null;
 }
 
 export interface Filters {
     grayscale: boolean;
     sepia: boolean;
     options: Options | null;
+}
+
+export interface Lighting {
+    brightness: number | null;
 }
 
 // Image transformation specifications
@@ -79,6 +82,7 @@ export interface Transformations {
     rotate: number | null;
     format: string | null;
     filters: Filters | null;
+    lighting: Lighting | null;
 }
 
 // Icon menu item properties
@@ -145,4 +149,5 @@ export const enum EditStatus {
     Cropping,
     Resizing,
     SettingFilters,
+    EditingLighting,
 }

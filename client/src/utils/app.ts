@@ -76,11 +76,54 @@ export const formatDate = (dateStr: string): string => {
     }
 };
 
+// Extract bytes from `img` element.
+export const getImageBytes = (img: HTMLImageElement, width: number, height: number): Uint8ClampedArray => {
+    // Create offscreen canvas to extract image pixels
+    const canvas = document.createElement("canvas");
+    canvas.width = width;
+    canvas.height = height;
+
+    const ctx = canvas.getContext("2d");
+
+    if (!ctx) {
+        console.error("Failed to get 2D canvas context");
+        return;
+    }
+
+    ctx.drawImage(img, 0, 0);
+
+    // Extract image data and return clamped array of RGBA bytes
+    const imageData = ctx.getImageData(0, 0, canvas.width, canvas.height);
+    return imageData.data;
+};
+
 // Extract bytes from data URL.
-export const getBytesFromDataUrl = async (dataUrl: string): Promise<Uint8Array> => {
-    const response = await fetch(dataUrl);
-    const buffer = await response.arrayBuffer();
-    return new Uint8Array(buffer);
+export const getBytesFromDataUrl = async (dataUrl: string): Promise<Uint8ClampedArray> => {
+    return new Promise((resolve, reject) => {
+        const img = new Image();
+
+        img.onload = () => {
+            // Create offscreen canvas to extract image pixels
+            const canvas = document.createElement("canvas");
+            canvas.width = img.width;
+            canvas.height = img.height;
+
+            const ctx = canvas.getContext("2d");
+            if (!ctx) {
+                reject(new Error("Failed to get 2D canvas context"));
+                return;
+            }
+
+            ctx.drawImage(img, 0, 0);
+
+            // Extract image data and return clamped array of RGBA bytes
+            const imageData = ctx.getImageData(0, 0, img.width, img.height);
+            resolve(imageData.data);
+        };
+
+        img.onerror = (err) => reject(err);
+        img.src = dataUrl;
+    });
 };
 
 // Toggle an element's visibility.
@@ -91,5 +134,11 @@ export const toggleHidden = (el: HTMLElement, hide: boolean) => {
         el.classList.add("is-hidden");
     else
         setTimeout(() => el.classList.remove("is-hidden"), 150);
+}
+
+// Toggle a button's color.
+export const toggleButtonColor = (node: PointerEvent, toggled: boolean) => {
+    const el = node.target as HTMLElement;
+    el.style.color = toggled ? "var(--im-header-gold)" : "white";
 }
 

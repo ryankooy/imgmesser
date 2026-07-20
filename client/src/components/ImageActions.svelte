@@ -3,7 +3,7 @@
   import { EditStatus, ImageStatus, imageDataUrlCache } from "../store.ts";
   import type { IconMenu } from "../store.ts";
   import { imageUrl } from "../utils/api.ts";
-  import { toggleHidden } from "../utils/app.ts";
+  import { toggleButtonColor, toggleHidden } from "../utils/app.ts";
   import DropdownMenu from "./DropdownMenu.svelte";
 
   let {
@@ -22,7 +22,6 @@
     saveImage,
     saveImageCopy,
     setAlertMessage,
-    toggleButtonColor,
   } = $props();
 
   const multiVersion: boolean = $derived(meta.version_count > 1);
@@ -53,6 +52,11 @@
         title: "Filters",
         iconName: "filter_b_and_w",
         handleClick: () => handleTransform(EditStatus.SettingFilters),
+      },
+      {
+        title: "Lighting",
+        iconName: "light_mode",
+        handleClick: () => handleTransform(EditStatus.EditingLighting),
       },
     ],
   };
