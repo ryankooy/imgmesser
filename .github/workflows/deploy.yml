@@ -21,9 +21,9 @@ jobs:
       matrix:
         include:
           - target: backend-image
-            image-name: ${{ secrets.DOCKERHUB_USERNAME }}/imgmesser-api
+            image-name: imgmesser-api
           - target: frontend-image
-            image-name: ${{ secrets.DOCKERHUB_USERNAME }}/imgmesser-app
+            image-name: imgmesser-app
     steps:
       - name: Checkout source code
         uses: actions/checkout@v4
@@ -45,8 +45,8 @@ jobs:
           target: ${{ matrix.target }}
           push: true
           tags: |
-            ${{ matrix.image-name }}:latest
-            ${{ matrix.image-name }}:${{ github.sha }}
+            ${{ secrets.DOCKERHUB_USERNAME }}/${{ matrix.image-name }}:latest
+            ${{ secrets.DOCKERHUB_USERNAME }}/${{ matrix.image-name }}:${{ github.sha }}
           cache-from: type=gha
           cache-to: type=gha,mode=max
 
