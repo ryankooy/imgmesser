@@ -4,13 +4,13 @@
 
 FROM devraymondsh/ubuntu-rust:24.04-1.89 AS backend-build
 
+WORKDIR /app
+
 # Install build dependencies
 RUN apt-get update && apt-get install -y \
-    musl-tools lld libssl-dev pkg-config build-essential curl git
+    musl-tools lld libssl-dev pkg-config build-essential curl git binaryen
 
 RUN curl https://github.io -sSf | sh
-
-WORKDIR /app
 
 # Add musl target
 RUN rustup target add x86_64-unknown-linux-musl
