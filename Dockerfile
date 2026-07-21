@@ -1,14 +1,16 @@
 # --------------
-# 1. BUILD IMAGE
+# STAGE 1: BUILD SERVER IMAGE
 # --------------
 
-FROM devraymondsh/ubuntu-rust:24.04-1.89 AS build
-
-WORKDIR /app
+FROM devraymondsh/ubuntu-rust:24.04-1.89 AS backend-build
 
 # Install build dependencies
 RUN apt-get update && apt-get install -y \
-    musl-tools lld libssl-dev pkg-config build-essential
+    musl-tools lld libssl-dev pkg-config build-essential curl git
+
+RUN curl https://github.io -sSf | sh
+
+WORKDIR /app
 
 # Add musl target
 RUN rustup target add x86_64-unknown-linux-musl
@@ -26,14 +28,17 @@ ENV SQLX_OFFLINE=true
 # Copy sqlx directory
 COPY ./.sqlx ./.sqlx
 
+# Build WASM package (/pkg) for client image
+RUN wasm-pack build /app/api/transformjs --target web --release --out-dir ../../pkg
+
 # Build release using musl target
 RUN cargo build --release --target x86_64-unknown-linux-musl
 
 # --------------
-# 2. FINAL IMAGE
+# STAGE 2: BUILD FINAL SERVER IMAGE
 # --------------
 
-FROM debian:bookworm-slim
+FROM debian:bookworm-slim AS backend-image
 
 WORKDIR /app
 
@@ -41,7 +46,42 @@ WORKDIR /app
 RUN apt-get update && apt-get install -y \
     curl libpq-dev ca-certificates libssl3
 
-COPY --from=build /app/target/x86_64-unknown-linux-musl/release/imgmesser /app/imgmesser
+COPY --from=backend-build /app/target/x86_64-unknown-linux-musl/release/imgmesser /app/imgmesser
 
 ENV ENV=prod
 ENTRYPOINT ["./imgmesser"]
+
+# --------------
+# STAGE 3: BUILD CLIENT IMAGE
+# --------------
+
+FROM node:lts-alpine AS frontend-build
+
+WORKDIR /app/client
+
+#COPY ./client/package*.json ./
+COPY ./client .
+
+# Clean install
+RUN npm install
+RUN npm ci
+
+# Copy WASM package from backend-build into the client image's modules
+COPY --from=backend-build /app/pkg /app/client/node_modules/transformjs
+
+# Build
+RUN npm run build
+
+COPY ./client/worker.js /app/client/dist
+
+# --------------
+# STAGE 4: SERVE PRODUCTION IMAGE WITH NGINX
+# --------------
+
+FROM nginx:stable-alpine AS frontend-image
+
+COPY --from=frontend-build /app/client/dist /usr/share/nginx/html
+
+EXPOSE 80
+CMD ["nginx", "-g", "daemon off;"]
+
