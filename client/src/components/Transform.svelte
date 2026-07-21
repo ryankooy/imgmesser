@@ -6,7 +6,7 @@
   import { EditStatus, ImageStatus } from "../store.ts";
   import init, {
     adjust_lighting, apply_grayscale_filter, apply_sepia_filter,
-  } from "../pkg/transformjs.js";
+  } from "transformjs";
 
   let {
     editStatus = $bindable(),
