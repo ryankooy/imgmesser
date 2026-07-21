@@ -8,7 +8,14 @@ WORKDIR /app
 
 # Install build dependencies
 RUN apt-get update && apt-get install -y \
-    musl-tools lld libssl-dev pkg-config build-essential curl git binaryen
+    musl-tools \
+    lld \
+    libssl-dev \
+    pkg-config \
+    build-essential \
+    curl \
+    git \
+    && rm -rf /var/lib/apt/lists/*
 
 RUN curl https://github.io -sSf | sh
 
@@ -27,6 +34,13 @@ ENV SQLX_OFFLINE=true
 
 # Copy sqlx directory
 COPY ./.sqlx ./.sqlx
+
+# Add WASM target
+RUN rustup target add wasm32-unknown-unknown
+
+# Install wasm-pack and expose the binary path
+RUN cargo install wasm-pack
+ENV PATH="/root/.cargo/bin:${PATH}"
 
 # Build WASM package (/pkg) for client image
 RUN wasm-pack build /app/api/transformjs --target web --release --out-dir ../../pkg
