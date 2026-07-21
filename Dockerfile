@@ -2,7 +2,7 @@
 # STAGE 1: BUILD SERVER IMAGE
 # --------------
 
-FROM devraymondsh/ubuntu-rust:24.04-1.89 AS backend-build
+FROM devraymondsh/ubuntu-rust:24.04-latest AS backend-build
 
 WORKDIR /app
 
