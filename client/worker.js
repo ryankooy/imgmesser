@@ -5,7 +5,10 @@ const cacheName = "site-cache-v1";
 const assets = [
     "/",
     "/index.html",
-    "/src/styles/app.css"
+    "/app.css",
+    "/icons/",
+    "/icons/icon-192.png",
+    "/icons/icon-512.png"
 ];
 
 // Cache core files on `install` event
