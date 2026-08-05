@@ -1,6 +1,21 @@
 const urlParams = new URLSearchParams(self.location.search);
 const apiPath = urlParams.get("api_path");
 const protectedUrls = ["/images", "/logout", "/user"];
+const cacheName = "site-cache-v1";
+const assets = [
+    "/",
+    "/index.html",
+    "/src/styles/app.css"
+];
+
+// Cache core files on `install` event
+self.addEventListener("install", (event) => {
+    event.waitUntil(
+        caches.open(cacheName).then((cache) => {
+            return cache.addAll(assets);
+        })
+    );
+});
 
 // Prevent the worker from waiting until next
 // page load to take over
@@ -238,7 +253,11 @@ async function interceptRequest(request) {
 
 // Intercept all fetches
 self.addEventListener("fetch", (event) => {
-    event.respondWith(interceptRequest(event.request));
+    event.respondWith(
+        caches.match(event.request).then((cachedResponse) => {
+            return cachedResponse || interceptRequest(event.request);
+        })
+    );
 });
 
 // If the app signals a page refresh, request tokens from the server

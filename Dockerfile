@@ -73,12 +73,12 @@ FROM node:lts-alpine AS frontend-build
 
 WORKDIR /app/client
 
-#COPY ./client/package*.json ./
-COPY ./client .
+COPY ./client/package*.json ./
 
 # Clean install
-RUN npm install
 RUN npm ci
+
+COPY ./client .
 
 # Copy WASM package from backend-build into the client image's modules
 COPY --from=backend-build /app/pkg /app/client/node_modules/transformjs
