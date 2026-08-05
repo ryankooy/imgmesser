@@ -87,6 +87,8 @@ COPY --from=backend-build /app/pkg /app/client/node_modules/transformjs
 RUN npm run build
 
 COPY ./client/worker.js /app/client/dist
+COPY ./client/src/styles/app.css /app/client/dist
+COPY ./client/icons /app/client/dist
 
 # --------------
 # STAGE 4: SERVE PRODUCTION IMAGE WITH NGINX
